@@ -14,8 +14,11 @@ import { useUserProfile } from '@/hooks/user-profile-store';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/study';
 import colors from '@/constants/colors';
 
+import { useRouter } from 'expo-router';
+
 export default function SettingsScreen() {
-  const { profile, updateProfile } = useUserProfile();
+  const { profile, updateProfile, isLoading, isOnboardingComplete } = useUserProfile();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAge, setEditAge] = useState(profile?.age?.toString() || '');
   const [editEducationLevel, setEditEducationLevel] = useState<EducationLevel | null>(profile?.educationLevel || null);
@@ -56,14 +59,40 @@ export default function SettingsScreen() {
     return EDUCATION_LEVELS.find(level => level.value === profile?.educationLevel);
   };
 
-  if (!profile) {
+  if (!profile && isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Settings</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading profile...</Text>
+          <Text style={styles.loadingText} testID="settings-loading">Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!profile && !isLoading) {
+    console.log('Settings: No profile found. Showing setup CTA. Onboarding complete?', isOnboardingComplete);
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Settings</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle} testID="settings-empty-title">No profile yet</Text>
+          <Text style={styles.emptySubtitle} testID="settings-empty-subtitle">Set up your profile to personalize your learning.</Text>
+          <TouchableOpacity
+            testID="settings-start-onboarding"
+            accessibilityRole="button"
+            onPress={() => {
+              console.log('Settings: Navigating to onboarding');
+              router.push('/onboarding');
+            }}
+            style={styles.primaryCta}
+          >
+            <Text style={styles.primaryCtaText}>Set up profile</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -113,7 +142,7 @@ export default function SettingsScreen() {
                   maxLength={3}
                 />
               ) : (
-                <Text style={styles.profileItemValue}>{profile.age} years old</Text>
+                <Text style={styles.profileItemValue}>{profile?.age ?? '-'} years old</Text>
               )}
             </View>
 
@@ -391,5 +420,34 @@ const styles = StyleSheet.create({
   infoBold: {
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  primaryCta: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  primaryCtaText: {
+    color: colors.cardBackground,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
