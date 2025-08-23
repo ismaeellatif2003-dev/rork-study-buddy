@@ -77,6 +77,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     return `The user is a ${ageGroup} (age ${profile.age}) at ${levelDescriptions[profile.educationLevel]}. Adjust the complexity, vocabulary, and examples accordingly.`;
   }, [profile]);
 
+  const isOnboardingComplete = profile?.isOnboardingComplete ?? false;
+
   return useMemo(() => ({
     profile,
     isLoading,
@@ -84,6 +86,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     updateProfile,
     completeOnboarding,
     getEducationContext,
-    isOnboardingComplete: profile?.isOnboardingComplete ?? false,
-  }), [profile, isLoading, saveProfile, updateProfile, completeOnboarding, getEducationContext]);
+    isOnboardingComplete,
+  }), [profile, isLoading, saveProfile, updateProfile, completeOnboarding, getEducationContext, isOnboardingComplete]);
 });
