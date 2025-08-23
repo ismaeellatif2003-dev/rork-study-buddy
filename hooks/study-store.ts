@@ -31,13 +31,28 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           try {
             const parsed = JSON.parse(notesData);
             if (Array.isArray(parsed)) {
-              // Convert date strings back to Date objects
-              const notesWithDates = parsed.map(note => ({
-                ...note,
-                createdAt: new Date(note.createdAt),
-                updatedAt: new Date(note.updatedAt),
-              }));
-              setNotes(notesWithDates);
+              // Validate and convert date strings back to Date objects
+              const validNotes = parsed.filter(note => 
+                note && 
+                typeof note.id === 'string' &&
+                typeof note.title === 'string' &&
+                typeof note.content === 'string' &&
+                note.createdAt &&
+                note.updatedAt
+              ).map(note => {
+                try {
+                  return {
+                    ...note,
+                    createdAt: new Date(note.createdAt),
+                    updatedAt: new Date(note.updatedAt),
+                  };
+                } catch (dateError) {
+                  console.warn('Invalid date in note:', note.id, dateError);
+                  return null;
+                }
+              }).filter(Boolean);
+              
+              setNotes(validNotes);
             } else {
               console.warn('Invalid notes data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
@@ -52,7 +67,15 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           try {
             const parsed = JSON.parse(flashcardsData);
             if (Array.isArray(parsed)) {
-              setFlashcards(parsed);
+              // Validate flashcard structure
+              const validFlashcards = parsed.filter(card => 
+                card && 
+                typeof card.id === 'string' &&
+                typeof card.noteId === 'string' &&
+                typeof card.question === 'string' &&
+                typeof card.answer === 'string'
+              );
+              setFlashcards(validFlashcards);
             } else {
               console.warn('Invalid flashcards data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
@@ -67,15 +90,35 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           try {
             const parsed = JSON.parse(sessionsData);
             if (Array.isArray(parsed)) {
-              // Convert date strings back to Date objects
-              const sessionsWithDates = parsed.map(session => ({
-                ...session,
-                messages: session.messages?.map((message: any) => ({
-                  ...message,
-                  timestamp: new Date(message.timestamp),
-                })) || [],
-              }));
-              setSessions(sessionsWithDates);
+              // Validate and convert date strings back to Date objects
+              const validSessions = parsed.filter(session => 
+                session && 
+                typeof session.noteId === 'string' &&
+                Array.isArray(session.messages)
+              ).map(session => {
+                try {
+                  const validMessages = session.messages.filter((message: any) => 
+                    message &&
+                    typeof message.id === 'string' &&
+                    typeof message.role === 'string' &&
+                    typeof message.content === 'string' &&
+                    message.timestamp
+                  ).map((message: any) => ({
+                    ...message,
+                    timestamp: new Date(message.timestamp),
+                  }));
+                  
+                  return {
+                    ...session,
+                    messages: validMessages,
+                  };
+                } catch (sessionError) {
+                  console.warn('Invalid session data:', session.noteId, sessionError);
+                  return null;
+                }
+              }).filter(Boolean);
+              
+              setSessions(validSessions);
             } else {
               console.warn('Invalid sessions data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);

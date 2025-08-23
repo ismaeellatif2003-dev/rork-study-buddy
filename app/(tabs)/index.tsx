@@ -28,17 +28,27 @@ export default function NotesScreen() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [hasNavigated, setHasNavigated] = useState(false);
+
+  console.log('NotesScreen render - profileLoading:', profileLoading, 'isOnboardingComplete:', isOnboardingComplete, 'hasNavigated:', hasNavigated);
 
   // Handle onboarding redirect in useEffect to avoid render-time navigation
   useEffect(() => {
-    if (!profileLoading && !isOnboardingComplete) {
+    if (!profileLoading && !isOnboardingComplete && !hasNavigated) {
       console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
-      // Use setTimeout to avoid setState during render
-      setTimeout(() => {
-        router.replace('/onboarding');
-      }, 0);
+      setHasNavigated(true);
+      // Use requestAnimationFrame to ensure navigation happens after render
+      requestAnimationFrame(() => {
+        try {
+          router.replace('/onboarding');
+        } catch (error) {
+          console.error('Navigation error:', error);
+          // Reset navigation flag on error so user can try again
+          setHasNavigated(false);
+        }
+      });
     }
-  }, [profileLoading, isOnboardingComplete]);
+  }, [profileLoading, isOnboardingComplete, hasNavigated]);
 
   const handleSaveNote = async () => {
     if (!newNoteTitle.trim() || !newNoteContent.trim()) {
@@ -310,15 +320,25 @@ export default function NotesScreen() {
     );
   };
 
-  // Show loading while profile is loading or redirecting to onboarding
-  if (profileLoading || !isOnboardingComplete) {
+  // Show loading while profile is loading
+  if (profileLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>
-            {profileLoading ? 'Loading...' : 'Setting up...'}
-          </Text>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show loading while redirecting to onboarding
+  if (!isOnboardingComplete) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Setting up...</Text>
         </View>
       </SafeAreaView>
     );

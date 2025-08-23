@@ -15,12 +15,21 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       try {
         const profileData = await AsyncStorage.getItem(STORAGE_KEY);
         if (profileData) {
-          const parsed = JSON.parse(profileData);
-          // Validate the parsed data structure
-          if (parsed && typeof parsed === 'object' && typeof parsed.isOnboardingComplete === 'boolean') {
-            setProfile(parsed);
-          } else {
-            console.warn('Invalid profile data structure, resetting profile');
+          try {
+            const parsed = JSON.parse(profileData);
+            // Validate the parsed data structure
+            if (parsed && 
+                typeof parsed === 'object' && 
+                typeof parsed.isOnboardingComplete === 'boolean' &&
+                typeof parsed.age === 'number' &&
+                typeof parsed.educationLevel === 'string') {
+              setProfile(parsed);
+            } else {
+              console.warn('Invalid profile data structure, resetting profile');
+              await AsyncStorage.removeItem(STORAGE_KEY);
+            }
+          } catch (parseError) {
+            console.error('Error parsing profile data:', parseError);
             await AsyncStorage.removeItem(STORAGE_KEY);
           }
         }
@@ -43,6 +52,14 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   // Save profile to storage
   const saveProfile = useCallback(async (newProfile: UserProfile) => {
     try {
+      // Validate profile before saving
+      if (!newProfile || 
+          typeof newProfile.age !== 'number' || 
+          typeof newProfile.educationLevel !== 'string' ||
+          typeof newProfile.isOnboardingComplete !== 'boolean') {
+        throw new Error('Invalid profile data structure');
+      }
+      
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
       setProfile(newProfile);
     } catch (error) {

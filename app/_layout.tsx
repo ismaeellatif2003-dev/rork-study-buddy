@@ -100,7 +100,16 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    const hideSplash = async () => {
+      try {
+        await SplashScreen.hideAsync();
+      } catch (error) {
+        console.error('Error hiding splash screen:', error);
+      }
+    };
+    
+    // Delay splash screen hiding to ensure providers are initialized
+    setTimeout(hideSplash, 100);
   }, []);
 
   return (
