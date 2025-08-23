@@ -32,6 +32,7 @@ export default function NotesScreen() {
   // Handle onboarding redirect in useEffect to avoid render-time navigation
   useEffect(() => {
     if (!profileLoading && !isOnboardingComplete) {
+      console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
       router.replace('/onboarding');
     }
   }, [profileLoading, isOnboardingComplete]);

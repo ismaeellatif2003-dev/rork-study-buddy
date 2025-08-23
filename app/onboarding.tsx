@@ -13,6 +13,7 @@ import { User, GraduationCap, CheckCircle } from 'lucide-react-native';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/study';
 import colors from '@/constants/colors';
+import { router } from 'expo-router';
 
 export default function OnboardingScreen() {
   const { completeOnboarding } = useUserProfile();
@@ -36,7 +37,8 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     try {
       await completeOnboarding(ageNumber, selectedEducationLevel);
-      // Navigation will happen automatically when isOnboardingComplete becomes true
+      // Navigate to main app after successful onboarding
+      router.replace('/(tabs)');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       Alert.alert('Error', 'Failed to save your profile. Please try again.');
