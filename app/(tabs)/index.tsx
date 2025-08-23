@@ -34,37 +34,9 @@ export default function NotesScreen() {
 
   console.log('NotesScreen render - profileLoading:', profileLoading, 'isOnboardingComplete:', isOnboardingComplete, 'hasNavigated:', hasNavigated);
 
-  // Handle onboarding redirect safely
   useEffect(() => {
-    let isMounted = true;
-    
-    const handleNavigation = async () => {
-      if (!profileLoading && !isOnboardingComplete && !hasNavigated && isMounted) {
-        console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
-        setHasNavigated(true);
-        
-        // Use setTimeout to ensure navigation happens after current render cycle
-        setTimeout(() => {
-          if (isMounted) {
-            try {
-              router.replace('/onboarding');
-            } catch (error) {
-              console.error('Navigation error:', error);
-              if (isMounted) {
-                setHasNavigated(false);
-              }
-            }
-          }
-        }, 100);
-      }
-    };
-    
-    handleNavigation();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [profileLoading, isOnboardingComplete, hasNavigated]);
+    console.log('NotesScreen mounted');
+  }, []);
 
   const handleSaveNote = async () => {
     if (!newNoteTitle.trim() || !newNoteContent.trim()) {
@@ -375,42 +347,9 @@ export default function NotesScreen() {
     );
   };
 
-  // Show loading while profile is loading
-  if (profileLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
-  // Show loading while redirecting to onboarding
-  if (!isOnboardingComplete) {
-    return (
-      <SafeAreaView style={styles.container} testID="onboarding-redirect">
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Setting up...</Text>
-          <TouchableOpacity
-            testID="continue-setup-button"
-            style={styles.permissionButton}
-            onPress={() => {
-              try {
-                router.replace('/onboarding');
-              } catch (error) {
-                console.error('Manual navigation error:', error);
-              }
-            }}
-          >
-            <Text style={styles.permissionButtonText}>Continue Setup</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+
+
 
   if (showCamera) {
     return (
