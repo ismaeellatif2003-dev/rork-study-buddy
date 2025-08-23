@@ -390,10 +390,23 @@ export default function NotesScreen() {
   // Show loading while redirecting to onboarding
   if (!isOnboardingComplete) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="onboarding-redirect">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Setting up...</Text>
+          <TouchableOpacity
+            testID="continue-setup-button"
+            style={styles.permissionButton}
+            onPress={() => {
+              try {
+                router.replace('/onboarding');
+              } catch (error) {
+                console.error('Manual navigation error:', error);
+              }
+            }}
+          >
+            <Text style={styles.permissionButtonText}>Continue Setup</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
