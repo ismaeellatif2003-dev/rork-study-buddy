@@ -38,7 +38,10 @@ export default function OnboardingScreen() {
     try {
       await completeOnboarding(ageNumber, selectedEducationLevel);
       // Navigate to main app after successful onboarding
-      router.replace('/(tabs)');
+      // Use setTimeout to avoid navigation during render
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 100);
     } catch (error) {
       console.error('Error completing onboarding:', error);
       Alert.alert('Error', 'Failed to save your profile. Please try again.');

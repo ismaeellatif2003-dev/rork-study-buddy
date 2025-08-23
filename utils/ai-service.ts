@@ -14,23 +14,42 @@ export class AIService {
 
   static async generateText(messages: AIMessage[]): Promise<string> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       const response = await fetch(`${this.API_BASE}/text/llm/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ messages }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`AI request failed: ${response.status}`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`AI request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      if (!data || typeof data.completion !== 'string') {
+        throw new Error('Invalid response format from AI service');
+      }
+      
       return data.completion;
     } catch (error) {
       console.error('AI Service Error:', error);
-      throw new Error('Failed to generate AI response');
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('AI request timed out. Please try again.');
+        }
+        if (error.message.includes('Failed to fetch') || error.message.includes('Network request failed')) {
+          throw new Error('Network error. Please check your internet connection.');
+        }
+      }
+      throw new Error('Failed to generate AI response. Please try again.');
     }
   }
 

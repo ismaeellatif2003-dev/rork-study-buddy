@@ -15,10 +15,23 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       try {
         const profileData = await AsyncStorage.getItem(STORAGE_KEY);
         if (profileData) {
-          setProfile(JSON.parse(profileData));
+          const parsed = JSON.parse(profileData);
+          // Validate the parsed data structure
+          if (parsed && typeof parsed === 'object' && typeof parsed.isOnboardingComplete === 'boolean') {
+            setProfile(parsed);
+          } else {
+            console.warn('Invalid profile data structure, resetting profile');
+            await AsyncStorage.removeItem(STORAGE_KEY);
+          }
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
+        // Clear corrupted data
+        try {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+        } catch (clearError) {
+          console.error('Error clearing corrupted profile data:', clearError);
+        }
       } finally {
         setIsLoading(false);
       }

@@ -33,7 +33,10 @@ export default function NotesScreen() {
   useEffect(() => {
     if (!profileLoading && !isOnboardingComplete) {
       console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
-      router.replace('/onboarding');
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => {
+        router.replace('/onboarding');
+      }, 0);
     }
   }, [profileLoading, isOnboardingComplete]);
 

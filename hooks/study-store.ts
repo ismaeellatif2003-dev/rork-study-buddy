@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Note, Flashcard, ChatMessage, StudySession } from '@/types/study';
 import { useSubscription } from './subscription-store';
 
@@ -26,9 +26,65 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           AsyncStorage.getItem(STORAGE_KEYS.SESSIONS),
         ]);
 
-        if (notesData) setNotes(JSON.parse(notesData));
-        if (flashcardsData) setFlashcards(JSON.parse(flashcardsData));
-        if (sessionsData) setSessions(JSON.parse(sessionsData));
+        // Safely parse and validate data
+        if (notesData) {
+          try {
+            const parsed = JSON.parse(notesData);
+            if (Array.isArray(parsed)) {
+              // Convert date strings back to Date objects
+              const notesWithDates = parsed.map(note => ({
+                ...note,
+                createdAt: new Date(note.createdAt),
+                updatedAt: new Date(note.updatedAt),
+              }));
+              setNotes(notesWithDates);
+            } else {
+              console.warn('Invalid notes data structure, resetting');
+              await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
+            }
+          } catch (parseError) {
+            console.error('Error parsing notes data:', parseError);
+            await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
+          }
+        }
+        
+        if (flashcardsData) {
+          try {
+            const parsed = JSON.parse(flashcardsData);
+            if (Array.isArray(parsed)) {
+              setFlashcards(parsed);
+            } else {
+              console.warn('Invalid flashcards data structure, resetting');
+              await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
+            }
+          } catch (parseError) {
+            console.error('Error parsing flashcards data:', parseError);
+            await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
+          }
+        }
+        
+        if (sessionsData) {
+          try {
+            const parsed = JSON.parse(sessionsData);
+            if (Array.isArray(parsed)) {
+              // Convert date strings back to Date objects
+              const sessionsWithDates = parsed.map(session => ({
+                ...session,
+                messages: session.messages?.map((message: any) => ({
+                  ...message,
+                  timestamp: new Date(message.timestamp),
+                })) || [],
+              }));
+              setSessions(sessionsWithDates);
+            } else {
+              console.warn('Invalid sessions data structure, resetting');
+              await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
+            }
+          } catch (parseError) {
+            console.error('Error parsing sessions data:', parseError);
+            await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
+          }
+        }
       } catch (error) {
         console.error('Error loading study data:', error);
       } finally {
@@ -147,6 +203,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     const messageWithId: ChatMessage = {
       ...message,
       id: Date.now().toString(),
+      timestamp: new Date(),
     };
 
     const existingSessionIndex = sessions.findIndex(s => s.noteId === noteId);
@@ -178,7 +235,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     return sessions.find(session => session.noteId === noteId);
   }, [sessions]);
 
-  return {
+  return useMemo(() => ({
     notes,
     flashcards,
     sessions,
@@ -190,5 +247,5 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     getFlashcardsForNote,
     addMessageToSession,
     getSessionForNote,
-  };
+  }), [notes, flashcards, sessions, isLoading, saveNote, updateNote, deleteNote, addFlashcards, getFlashcardsForNote, addMessageToSession, getSessionForNote]);
 });

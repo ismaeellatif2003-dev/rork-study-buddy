@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import type { SubscriptionPlan, UserSubscription, UsageStats } from '@/types/study';
 
@@ -109,20 +109,40 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         ]);
 
         if (subscriptionData) {
-          const parsed = JSON.parse(subscriptionData);
-          setSubscription({
-            ...parsed,
-            startDate: new Date(parsed.startDate),
-            endDate: new Date(parsed.endDate),
-          });
+          try {
+            const parsed = JSON.parse(subscriptionData);
+            if (parsed && typeof parsed === 'object' && parsed.planId) {
+              setSubscription({
+                ...parsed,
+                startDate: new Date(parsed.startDate),
+                endDate: new Date(parsed.endDate),
+              });
+            } else {
+              console.warn('Invalid subscription data structure, resetting');
+              await AsyncStorage.removeItem(STORAGE_KEYS.SUBSCRIPTION);
+            }
+          } catch (parseError) {
+            console.error('Error parsing subscription data:', parseError);
+            await AsyncStorage.removeItem(STORAGE_KEYS.SUBSCRIPTION);
+          }
         }
 
         if (usageData) {
-          const parsed = JSON.parse(usageData);
-          setUsageStats({
-            ...parsed,
-            lastResetDate: new Date(parsed.lastResetDate),
-          });
+          try {
+            const parsed = JSON.parse(usageData);
+            if (parsed && typeof parsed === 'object' && typeof parsed.notesCreated === 'number') {
+              setUsageStats({
+                ...parsed,
+                lastResetDate: new Date(parsed.lastResetDate),
+              });
+            } else {
+              console.warn('Invalid usage stats data structure, resetting');
+              await AsyncStorage.removeItem(STORAGE_KEYS.USAGE_STATS);
+            }
+          } catch (parseError) {
+            console.error('Error parsing usage stats data:', parseError);
+            await AsyncStorage.removeItem(STORAGE_KEYS.USAGE_STATS);
+          }
         }
       } catch (error) {
         console.error('Error loading subscription data:', error);
@@ -410,7 +430,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     initializeIAP();
   }, [initializeIAP]);
 
-  return {
+  return useMemo(() => ({
     subscription,
     usageStats,
     isLoading,
@@ -429,5 +449,5 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     cancelSubscription,
     restorePurchases,
     initializeIAP,
-  };
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, subscribeToPlan, cancelSubscription, restorePurchases, initializeIAP]);
 });
