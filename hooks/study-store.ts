@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Note, Flashcard, ChatMessage, StudySession } from '@/types/study';
-import { useSubscription } from './subscription-store';
+
 
 const STORAGE_KEYS = {
   NOTES: 'study_buddy_notes',
@@ -168,14 +168,10 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     }
   }, []);
 
-  const { canCreateNote, trackNoteCreation } = useSubscription();
+  // Subscription limits will be checked at the component level
 
   // Add or update note
   const saveNote = useCallback(async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!canCreateNote()) {
-      throw new Error('Note limit reached. Upgrade to Pro for unlimited notes.');
-    }
-
     const newNote: Note = {
       ...note,
       id: Date.now().toString(),
@@ -185,9 +181,8 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     
     const updatedNotes = [...notes, newNote];
     await saveNotes(updatedNotes);
-    await trackNoteCreation();
     return newNote;
-  }, [notes, saveNotes, canCreateNote, trackNoteCreation]);
+  }, [notes, saveNotes]);
 
   // Update existing note
   const updateNote = useCallback(async (id: string, updates: Partial<Note>) => {
@@ -212,14 +207,10 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     ]);
   }, [notes, flashcards, sessions, saveNotes, saveFlashcards, saveSessions]);
 
-  const { canGenerateFlashcards, trackFlashcardGeneration } = useSubscription();
+  // Subscription limits will be checked at the component level
 
   // Add flashcards for a note
   const addFlashcards = useCallback(async (noteId: string, newFlashcards: Omit<Flashcard, 'id'>[]) => {
-    if (!canGenerateFlashcards(newFlashcards.length)) {
-      throw new Error(`Flashcard limit reached. You can generate ${newFlashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
-    }
-
     const flashcardsWithIds = newFlashcards.map(card => ({
       ...card,
       id: `${noteId}_${Date.now()}_${Math.random()}`,
@@ -227,22 +218,17 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     
     const updatedFlashcards = [...flashcards, ...flashcardsWithIds];
     await saveFlashcards(updatedFlashcards);
-    await trackFlashcardGeneration(newFlashcards.length);
-  }, [flashcards, saveFlashcards, canGenerateFlashcards, trackFlashcardGeneration]);
+  }, [flashcards, saveFlashcards]);
 
   // Get flashcards for a specific note
   const getFlashcardsForNote = useCallback((noteId: string) => {
     return flashcards.filter(card => card.noteId === noteId);
   }, [flashcards]);
 
-  const { canAskAIQuestion, trackAIQuestion } = useSubscription();
+  // Subscription limits will be checked at the component level
 
   // Add message to session
   const addMessageToSession = useCallback(async (noteId: string, message: Omit<ChatMessage, 'id'>) => {
-    if (message.role === 'user' && !canAskAIQuestion()) {
-      throw new Error('Daily AI question limit reached. Upgrade to Pro for unlimited questions.');
-    }
-
     const messageWithId: ChatMessage = {
       ...message,
       id: Date.now().toString(),
@@ -267,11 +253,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     }
 
     await saveSessions(updatedSessions);
-    
-    if (message.role === 'user') {
-      await trackAIQuestion();
-    }
-  }, [sessions, saveSessions, canAskAIQuestion, trackAIQuestion]);
+  }, [sessions, saveSessions]);
 
   // Get session for note
   const getSessionForNote = useCallback((noteId: string) => {

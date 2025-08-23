@@ -15,6 +15,7 @@ import { Plus, FileText, Sparkles, Trash2, Zap, Camera, X, RotateCcw } from 'luc
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
+import { useSubscription } from '@/hooks/subscription-store';
 import { AIService } from '@/utils/ai-service';
 import colors from '@/constants/colors';
 import type { Note } from '@/types/study';
@@ -23,6 +24,7 @@ import { router } from 'expo-router';
 export default function NotesScreen() {
   const { notes, saveNote, updateNote, deleteNote, addFlashcards } = useStudy();
   const { isOnboardingComplete, getEducationContext, isLoading: profileLoading } = useUserProfile();
+  const { canCreateNote, trackNoteCreation, canGenerateFlashcards, trackFlashcardGeneration } = useSubscription();
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
@@ -70,11 +72,18 @@ export default function NotesScreen() {
       return;
     }
 
+    if (!canCreateNote()) {
+      Alert.alert('Note limit reached', 'Upgrade to Pro for unlimited notes.');
+      return;
+    }
+
     try {
       await saveNote({
         title: newNoteTitle.trim(),
         content: newNoteContent.trim(),
       });
+      
+      await trackNoteCreation();
       
       setNewNoteTitle('');
       setNewNoteContent('');
@@ -115,7 +124,14 @@ export default function NotesScreen() {
         answer: card.answer,
       }));
       
+      if (!canGenerateFlashcards(flashcards.length)) {
+        Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
+        return;
+      }
+      
       await addFlashcards(note.id, flashcards);
+      await trackFlashcardGeneration(flashcards.length);
+      
       const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';
       Alert.alert('Success', `Generated ${flashcards.length}${enhancementText} flashcards!`);
     } catch (error) {
@@ -130,11 +146,27 @@ export default function NotesScreen() {
     const generatingKey = useAIEnhancement ? 'enhanced_image_flashcards' : 'image_flashcards';
     setIsGenerating(generatingKey);
     try {
+      if (!canCreateNote()) {
+        Alert.alert('Note limit reached', 'Upgrade to Pro for unlimited notes.');
+        return;
+      }
+
       const userContext = getEducationContext();
       const [flashcardsData, extractedText] = await Promise.all([
         AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement, userContext),
         AIService.extractTextFromImage(imageBase64)
       ]);
+      
+      const flashcards = flashcardsData.map(card => ({
+        noteId: '',
+        question: card.question,
+        answer: card.answer,
+      }));
+      
+      if (!canGenerateFlashcards(flashcards.length)) {
+        Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
+        return;
+      }
       
       // Create a new note from the extracted text
       const note = await saveNote({
@@ -142,13 +174,16 @@ export default function NotesScreen() {
         content: extractedText,
       });
       
-      const flashcards = flashcardsData.map(card => ({
+      await trackNoteCreation();
+      
+      const flashcardsWithNoteId = flashcards.map(card => ({
+        ...card,
         noteId: note.id,
-        question: card.question,
-        answer: card.answer,
       }));
       
-      await addFlashcards(note.id, flashcards);
+      await addFlashcards(note.id, flashcardsWithNoteId);
+      await trackFlashcardGeneration(flashcards.length);
+      
       const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';
       Alert.alert('Success', `Created note and generated ${flashcards.length}${enhancementText} flashcards from your photo!`);
     } catch (error) {
