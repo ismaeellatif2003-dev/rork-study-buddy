@@ -299,16 +299,29 @@ export default function NotesScreen() {
     );
   };
 
-  // Redirect to onboarding after initial render to avoid state updates during render
-  useEffect(() => {
-    if (!profileLoading && !isOnboardingComplete) {
-      console.log('[NotesScreen] Redirecting to onboarding');
-      router.replace('/onboarding');
-    }
-  }, [profileLoading, isOnboardingComplete]);
+  // Show loading while profile is loading
+  if (profileLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  if (!profileLoading && !isOnboardingComplete) {
-    return null;
+  // Redirect to onboarding if not completed
+  if (!isOnboardingComplete) {
+    router.replace('/onboarding');
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Setting up...</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (showCamera) {

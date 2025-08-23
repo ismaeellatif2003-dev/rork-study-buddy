@@ -36,6 +36,7 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     try {
       await completeOnboarding(ageNumber, selectedEducationLevel);
+      // Navigation will happen automatically when isOnboardingComplete becomes true
     } catch (error) {
       console.error('Error completing onboarding:', error);
       Alert.alert('Error', 'Failed to save your profile. Please try again.');
