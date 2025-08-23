@@ -32,6 +32,7 @@ export interface SubscriptionPlan {
   name: string;
   price: number;
   interval: 'monthly' | 'yearly';
+  productId: string | null;
   features: string[];
   maxNotes: number;
   maxFlashcards: number;

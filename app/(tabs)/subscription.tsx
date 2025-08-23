@@ -16,9 +16,11 @@ export default function SubscriptionScreen() {
   const {
     subscription,
     usageStats,
+    isProcessingPayment,
     getCurrentPlan,
     subscribeToPlan,
     cancelSubscription,
+    restorePurchases,
   } = useSubscription();
 
   const currentPlan = getCurrentPlan();
@@ -158,17 +160,30 @@ export default function SubscriptionScreen() {
 
               {!isCurrentPlan && (
                 <TouchableOpacity
-                  style={[styles.subscribeButton, isPro && styles.proSubscribeButton]}
+                  style={[
+                    styles.subscribeButton, 
+                    isPro && styles.proSubscribeButton,
+                    isProcessingPayment && styles.disabledButton
+                  ]}
                   onPress={() => handleSubscribe(plan.id)}
+                  disabled={isProcessingPayment}
                 >
                   <Text style={[styles.subscribeButtonText, isPro && styles.proSubscribeButtonText]}>
-                    {plan.id === 'free' ? 'Downgrade' : 'Upgrade'}
+                    {isProcessingPayment ? 'Processing...' : (plan.id === 'free' ? 'Downgrade' : 'Upgrade')}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
           );
         })}
+
+        {/* Restore Purchases Button */}
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={restorePurchases}
+        >
+          <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+        </TouchableOpacity>
 
         {/* Cancel Subscription */}
         {isProUser && subscription?.status === 'active' && (
@@ -363,6 +378,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  restoreButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  restoreButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   bottomSpacing: {
     height: 32,

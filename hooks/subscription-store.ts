@@ -1,11 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform, Alert } from 'react-native';
 import type { SubscriptionPlan, UserSubscription, UsageStats } from '@/types/study';
 
 const STORAGE_KEYS = {
   SUBSCRIPTION: 'study_buddy_subscription',
   USAGE_STATS: 'study_buddy_usage_stats',
+};
+
+// Product IDs for App Store and Google Play
+// These should match your configured products in App Store Connect and Google Play Console
+export const PRODUCT_IDS = {
+  PRO_MONTHLY: Platform.select({
+    ios: 'com.yourapp.pro.monthly',
+    android: 'pro_monthly',
+    default: 'pro_monthly'
+  }),
+  PRO_YEARLY: Platform.select({
+    ios: 'com.yourapp.pro.yearly', 
+    android: 'pro_yearly',
+    default: 'pro_yearly'
+  })
 };
 
 // Subscription plans
@@ -15,6 +31,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'Free',
     price: 0,
     interval: 'monthly',
+    productId: null,
     features: [
       '5 notes per month',
       '25 flashcards per month',
@@ -32,6 +49,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'Pro',
     price: 9.99,
     interval: 'monthly',
+    productId: PRODUCT_IDS.PRO_MONTHLY,
     features: [
       'Unlimited notes',
       'Unlimited flashcards',
@@ -51,6 +69,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'Pro (Yearly)',
     price: 99.99,
     interval: 'yearly',
+    productId: PRODUCT_IDS.PRO_YEARLY,
     features: [
       'Unlimited notes',
       'Unlimited flashcards',
@@ -77,6 +96,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     lastResetDate: new Date(),
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
 
   // Load subscription data
   useEffect(() => {
@@ -208,8 +229,30 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(newStats));
   }, [usageStats]);
 
-  // Subscribe to plan (mock implementation)
-  const subscribeToPlan = useCallback(async (planId: string) => {
+  // Initialize in-app purchases (for when you move to custom build)
+  const initializeIAP = useCallback(async () => {
+    try {
+      // This is where you'd initialize react-native-iap
+      // For now, we'll simulate available products
+      console.log('IAP initialized (simulated)');
+      
+      // In real implementation:
+      // await RNIap.initConnection();
+      // const products = await RNIap.getSubscriptions([PRODUCT_IDS.PRO_MONTHLY, PRODUCT_IDS.PRO_YEARLY]);
+      // setAvailableProducts(products);
+      
+      // Simulated products for demo
+      setAvailableProducts([
+        { productId: PRODUCT_IDS.PRO_MONTHLY, price: '$9.99', currency: 'USD' },
+        { productId: PRODUCT_IDS.PRO_YEARLY, price: '$99.99', currency: 'USD' }
+      ]);
+    } catch (error) {
+      console.error('Failed to initialize IAP:', error);
+    }
+  }, []);
+
+  // Mock subscribe for demo (remove when implementing real payments)
+  const mockSubscribe = useCallback(async (planId: string) => {
     const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
     if (!plan || plan.id === 'free') return;
 
@@ -233,9 +276,85 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
   }, []);
 
+  // Subscribe to plan with real payment processing
+  const subscribeToPlan = useCallback(async (planId: string) => {
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!plan || plan.id === 'free' || !plan.productId) return;
+
+    setIsProcessingPayment(true);
+    
+    try {
+      if (Platform.OS === 'web') {
+        // For web, redirect to Stripe or other web payment processor
+        Alert.alert(
+          'Web Payment',
+          'Web payments would redirect to Stripe checkout. This is a demo.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Demo Subscribe', onPress: () => mockSubscribe(planId) }
+          ]
+        );
+        return;
+      }
+
+      // For mobile platforms, use in-app purchases
+      // In real implementation with react-native-iap:
+      /*
+      const purchase = await RNIap.requestSubscription({
+        sku: plan.productId,
+        ...(Platform.OS === 'android' && {
+          subscriptionOffers: [{
+            sku: plan.productId,
+            offerToken: 'your_offer_token'
+          }]
+        })
+      });
+      
+      // Verify purchase with your backend
+      const verificationResult = await trpcClient.subscription.verifyPurchase.mutate({
+        platform: Platform.OS,
+        purchaseToken: purchase.purchaseToken,
+        productId: purchase.productId,
+        transactionId: purchase.transactionId
+      });
+      
+      if (verificationResult.success) {
+        // Update local subscription state
+        setSubscription(verificationResult.subscription);
+        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(verificationResult.subscription));
+      }
+      */
+      
+      // For demo purposes, show alert and mock subscribe
+      Alert.alert(
+        'Purchase Subscription',
+        `This would process payment for ${plan.name} (${plan.productId}) via ${Platform.OS === 'ios' ? 'Apple Pay' : 'Google Pay'}. This is a demo.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Demo Purchase', onPress: () => mockSubscribe(planId) }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('Subscription error:', error);
+      Alert.alert('Error', 'Failed to process subscription. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  }, [mockSubscribe]);
+
   // Cancel subscription
   const cancelSubscription = useCallback(async () => {
-    if (subscription) {
+    if (!subscription) return;
+    
+    try {
+      // In real implementation, cancel with the platform
+      // For iOS: No action needed, just disable auto-renew in your backend
+      // For Android: Use Google Play Developer API to cancel
+      
+      // Cancel with your backend
+      // await trpcClient.subscription.cancel.mutate({ subscriptionId: subscription.id });
+      
       const updatedSubscription = {
         ...subscription,
         autoRenew: false,
@@ -243,13 +362,60 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       };
       setSubscription(updatedSubscription);
       await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(updatedSubscription));
+      
+      Alert.alert('Subscription Cancelled', 'Your subscription has been cancelled. You will retain access until the end of your billing period.');
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      Alert.alert('Error', 'Failed to cancel subscription. Please try again.');
     }
   }, [subscription]);
+
+  // Restore purchases (important for iOS)
+  const restorePurchases = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      
+      // In real implementation:
+      /*
+      const purchases = await RNIap.getAvailablePurchases();
+      
+      for (const purchase of purchases) {
+        // Verify each purchase with your backend
+        const verificationResult = await trpcClient.subscription.verifyPurchase.mutate({
+          platform: Platform.OS,
+          purchaseToken: purchase.purchaseToken,
+          productId: purchase.productId,
+          transactionId: purchase.transactionId
+        });
+        
+        if (verificationResult.success && verificationResult.subscription) {
+          setSubscription(verificationResult.subscription);
+          await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(verificationResult.subscription));
+          break; // Use the most recent active subscription
+        }
+      }
+      */
+      
+      Alert.alert('Restore Purchases', 'This would restore your previous purchases. Demo only.');
+    } catch (error) {
+      console.error('Restore purchases error:', error);
+      Alert.alert('Error', 'Failed to restore purchases.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initialize IAP on mount
+  useEffect(() => {
+    initializeIAP();
+  }, [initializeIAP]);
 
   return {
     subscription,
     usageStats,
     isLoading,
+    isProcessingPayment,
+    availableProducts,
     getCurrentPlan,
     canCreateNote,
     canGenerateFlashcards,
@@ -261,5 +427,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     trackAIQuestion,
     subscribeToPlan,
     cancelSubscription,
+    restorePurchases,
+    initializeIAP,
   };
 });
