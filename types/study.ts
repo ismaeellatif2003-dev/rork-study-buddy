@@ -77,3 +77,39 @@ export const EDUCATION_LEVELS: { value: EducationLevel; label: string; descripti
   { value: 'graduate', label: 'Graduate School', description: 'Masters/PhD level' },
   { value: 'professional', label: 'Professional', description: 'Working professional' },
 ];
+
+export interface TestSession {
+  id: string;
+  selectedNoteIds: string[];
+  flashcards: Flashcard[];
+  currentIndex: number;
+  score: number;
+  totalQuestions: number;
+  startTime: Date;
+  endTime?: Date;
+  answers: TestAnswer[];
+}
+
+export interface TestAnswer {
+  flashcardId: string;
+  userAnswer: string;
+  isCorrect: boolean;
+  timeSpent: number;
+}
+
+export interface TestResult {
+  sessionId: string;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  timeSpent: number;
+  noteResults: NoteTestResult[];
+}
+
+export interface NoteTestResult {
+  noteId: string;
+  noteTitle: string;
+  correct: number;
+  total: number;
+  percentage: number;
+}

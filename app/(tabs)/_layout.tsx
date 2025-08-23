@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BookOpen, MessageCircle, Zap, Crown, Settings } from "lucide-react-native";
+import { BookOpen, MessageCircle, Zap, Crown, Settings, Brain } from "lucide-react-native";
 import React from "react";
 import colors from "@/constants/colors";
 
@@ -49,6 +49,13 @@ export default function TabLayout() {
         options={{
           title: "Pro",
           tabBarIcon: ({ color, size }) => <Crown color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="test"
+        options={{
+          title: "Test",
+          tabBarIcon: ({ color, size }) => <Brain color={color} size={size} />,
         }}
       />
       <Tabs.Screen
