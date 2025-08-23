@@ -29,6 +29,13 @@ export default function NotesScreen() {
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
 
+  // Handle onboarding redirect in useEffect to avoid render-time navigation
+  useEffect(() => {
+    if (!profileLoading && !isOnboardingComplete) {
+      router.replace('/onboarding');
+    }
+  }, [profileLoading, isOnboardingComplete]);
+
   const handleSaveNote = async () => {
     if (!newNoteTitle.trim() || !newNoteContent.trim()) {
       Alert.alert('Error', 'Please fill in both title and content');
@@ -299,26 +306,15 @@ export default function NotesScreen() {
     );
   };
 
-  // Show loading while profile is loading
-  if (profileLoading) {
+  // Show loading while profile is loading or redirecting to onboarding
+  if (profileLoading || !isOnboardingComplete) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Redirect to onboarding if not completed
-  if (!isOnboardingComplete) {
-    router.replace('/onboarding');
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Setting up...</Text>
+          <Text style={styles.loadingText}>
+            {profileLoading ? 'Loading...' : 'Setting up...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
