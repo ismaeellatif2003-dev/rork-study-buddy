@@ -129,21 +129,33 @@ export default function RootLayout() {
     
     const hideSplash = async () => {
       try {
+        console.log('🚀 App initialization starting...');
+        
         // Add a small delay to ensure everything is loaded
         await new Promise(resolve => setTimeout(resolve, 300));
         
         if (isMounted) {
+          console.log('🎯 Hiding splash screen...');
           await SplashScreen.hideAsync();
+          console.log('✅ Splash screen hidden successfully');
         }
       } catch (error) {
-        console.error('Error hiding splash screen:', error);
+        console.error('❌ Error hiding splash screen:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : typeof error
+        });
+        
         // Try again after a delay if it fails
         if (isMounted) {
           setTimeout(async () => {
             try {
+              console.log('🔄 Retrying splash screen hide...');
               await SplashScreen.hideAsync();
+              console.log('✅ Splash screen hidden on retry');
             } catch (retryError) {
-              console.error('Retry error hiding splash screen:', retryError);
+              console.error('❌ Retry error hiding splash screen:', retryError);
             }
           }, 1000);
         }
