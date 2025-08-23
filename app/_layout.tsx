@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StudyProvider } from "@/hooks/study-store";
 import { SubscriptionProvider } from "@/hooks/subscription-store";
+import { UserProfileProvider } from "@/hooks/user-profile-store";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
@@ -15,6 +16,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>
   );
@@ -28,13 +30,15 @@ export default function RootLayout() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <SubscriptionProvider>
-          <StudyProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
-          </StudyProvider>
-        </SubscriptionProvider>
+        <UserProfileProvider>
+          <SubscriptionProvider>
+            <StudyProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </StudyProvider>
+          </SubscriptionProvider>
+        </UserProfileProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );

@@ -49,10 +49,14 @@ export class AIService {
     return this.generateText(messages);
   }
 
-  static async generateFlashcards(content: string, useAIEnhancement: boolean = false): Promise<{ question: string; answer: string }[]> {
-    const systemPrompt = useAIEnhancement 
+  static async generateFlashcards(content: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
+    const baseSystemPrompt = useAIEnhancement 
       ? 'You are an expert study assistant and educator. Generate comprehensive flashcards from the provided notes with AI-enhanced content. For each concept, create detailed questions that test deep understanding, add context and examples, provide memory aids, and include related concepts. Make answers thorough but clear, adding explanations, mnemonics, real-world applications, and connections to other topics when helpful. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Generate 8-15 flashcards depending on content complexity. Example format: [{"question": "What is... (include context and why it matters)", "answer": "The answer is... (include explanation, example, and memory aid)"}]'
       : 'You are a study assistant. Generate flashcards from the provided notes. Create clear, specific questions with concise answers. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Do not include any markdown formatting, code blocks, or additional text. Generate 5-10 flashcards depending on the content length. Example format: [{"question": "What is...", "answer": "The answer is..."}]';
+    
+    const systemPrompt = userContext 
+      ? `${baseSystemPrompt}\n\nIMPORTANT: ${userContext}`
+      : baseSystemPrompt;
 
     const userPrompt = useAIEnhancement
       ? `Generate AI-enhanced flashcards from these notes. Make them comprehensive with detailed explanations, examples, and memory aids:\n\n${content}`
@@ -205,11 +209,11 @@ export class AIService {
     return this.generateText(messages);
   }
 
-  static async generateFlashcardsFromImage(imageBase64: string, useAIEnhancement: boolean = false): Promise<{ question: string; answer: string }[]> {
+  static async generateFlashcardsFromImage(imageBase64: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
     // First extract text from the image
     const extractedText = await this.extractTextFromImage(imageBase64);
     
     // Then generate flashcards from the extracted text
-    return this.generateFlashcards(extractedText, useAIEnhancement);
+    return this.generateFlashcards(extractedText, useAIEnhancement, userContext);
   }
 }

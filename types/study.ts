@@ -54,3 +54,26 @@ export interface UsageStats {
   aiQuestionsAsked: number;
   lastResetDate: Date;
 }
+
+export interface UserProfile {
+  age: number;
+  educationLevel: EducationLevel;
+  isOnboardingComplete: boolean;
+}
+
+export type EducationLevel = 
+  | 'elementary'
+  | 'middle_school'
+  | 'high_school'
+  | 'college'
+  | 'graduate'
+  | 'professional';
+
+export const EDUCATION_LEVELS: { value: EducationLevel; label: string; description: string }[] = [
+  { value: 'elementary', label: 'Elementary School', description: 'Ages 5-11' },
+  { value: 'middle_school', label: 'Middle School', description: 'Ages 11-14' },
+  { value: 'high_school', label: 'High School', description: 'Ages 14-18' },
+  { value: 'college', label: 'College/University', description: 'Undergraduate level' },
+  { value: 'graduate', label: 'Graduate School', description: 'Masters/PhD level' },
+  { value: 'professional', label: 'Professional', description: 'Working professional' },
+];

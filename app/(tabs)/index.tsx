@@ -14,12 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, FileText, Sparkles, Trash2, Zap, Brain, Camera, X, RotateCcw } from 'lucide-react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useStudy } from '@/hooks/study-store';
+import { useUserProfile } from '@/hooks/user-profile-store';
 import { AIService } from '@/utils/ai-service';
 import colors from '@/constants/colors';
 import type { Note } from '@/types/study';
+import { router } from 'expo-router';
 
 export default function NotesScreen() {
   const { notes, saveNote, updateNote, deleteNote, addFlashcards } = useStudy();
+  const { isOnboardingComplete, getEducationContext, isLoading: profileLoading } = useUserProfile();
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
@@ -67,7 +70,8 @@ export default function NotesScreen() {
     const generatingKey = useAIEnhancement ? `enhanced_flashcards_${note.id}` : `flashcards_${note.id}`;
     setIsGenerating(generatingKey);
     try {
-      const flashcardsData = await AIService.generateFlashcards(note.content, useAIEnhancement);
+      const userContext = getEducationContext();
+      const flashcardsData = await AIService.generateFlashcards(note.content, useAIEnhancement, userContext);
       const flashcards = flashcardsData.map(card => ({
         noteId: note.id,
         question: card.question,
@@ -88,7 +92,8 @@ export default function NotesScreen() {
     const generatingKey = useAIEnhancement ? 'enhanced_image_flashcards' : 'image_flashcards';
     setIsGenerating(generatingKey);
     try {
-      const flashcardsData = await AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement);
+      const userContext = getEducationContext();
+      const flashcardsData = await AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement, userContext);
       const extractedText = await AIService.extractTextFromImage(imageBase64);
       
       // Create a new note from the extracted text
@@ -293,6 +298,12 @@ export default function NotesScreen() {
       </View>
     );
   };
+
+  // Check if onboarding is complete
+  if (!profileLoading && !isOnboardingComplete) {
+    router.replace('/onboarding');
+    return null;
+  }
 
   if (showCamera) {
     return (
