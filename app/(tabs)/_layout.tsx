@@ -12,10 +12,16 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.cardBackground,
-          borderTopColor: colors.border,
+          borderTopColor: colors.borderLight,
+          borderTopWidth: 1,
           paddingBottom: 8,
           paddingTop: 8,
           height: 88,
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 1,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
