@@ -15,10 +15,14 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     
     const loadProfile = async () => {
       try {
+        console.log('Loading user profile from storage...');
         const profileData = await AsyncStorage.getItem(STORAGE_KEY);
+        
         if (profileData && isMounted) {
           try {
             const parsed = JSON.parse(profileData);
+            console.log('Parsed profile data:', parsed);
+            
             // Validate the parsed data structure
             if (parsed && 
                 typeof parsed === 'object' && 
@@ -26,6 +30,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
                 typeof parsed.age === 'number' &&
                 typeof parsed.educationLevel === 'string') {
               if (isMounted) {
+                console.log('Setting valid profile data');
                 setProfile(parsed);
               }
             } else {
@@ -35,6 +40,10 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
               } catch (removeError) {
                 console.error('Error removing invalid profile data:', removeError);
               }
+              // Set profile to null to indicate no valid profile
+              if (isMounted) {
+                setProfile(null);
+              }
             }
           } catch (parseError) {
             console.error('Error parsing profile data:', parseError);
@@ -43,6 +52,16 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
             } catch (removeError) {
               console.error('Error removing corrupted profile data:', removeError);
             }
+            // Set profile to null to indicate no valid profile
+            if (isMounted) {
+              setProfile(null);
+            }
+          }
+        } else {
+          // No profile data found - this is normal for first-time users
+          console.log('No profile data found, user needs onboarding');
+          if (isMounted) {
+            setProfile(null);
           }
         }
       } catch (error) {
@@ -53,8 +72,13 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         } catch (clearError) {
           console.error('Error clearing corrupted profile data:', clearError);
         }
+        // Set profile to null to indicate no valid profile
+        if (isMounted) {
+          setProfile(null);
+        }
       } finally {
         if (isMounted) {
+          console.log('Profile loading complete, setting isLoading to false');
           setIsLoading(false);
         }
       }
