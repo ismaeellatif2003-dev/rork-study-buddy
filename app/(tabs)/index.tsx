@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, FileText, Sparkles, Trash2, Zap, Brain, Camera, X, RotateCcw } from 'lucide-react-native';
+import { Plus, FileText, Sparkles, Trash2, Zap, Camera, X, RotateCcw } from 'lucide-react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
