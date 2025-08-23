@@ -11,10 +11,12 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
 
   // Load profile from storage
   useEffect(() => {
+    let isMounted = true;
+    
     const loadProfile = async () => {
       try {
         const profileData = await AsyncStorage.getItem(STORAGE_KEY);
-        if (profileData) {
+        if (profileData && isMounted) {
           try {
             const parsed = JSON.parse(profileData);
             // Validate the parsed data structure
@@ -23,14 +25,24 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
                 typeof parsed.isOnboardingComplete === 'boolean' &&
                 typeof parsed.age === 'number' &&
                 typeof parsed.educationLevel === 'string') {
-              setProfile(parsed);
+              if (isMounted) {
+                setProfile(parsed);
+              }
             } else {
               console.warn('Invalid profile data structure, resetting profile');
-              await AsyncStorage.removeItem(STORAGE_KEY);
+              try {
+                await AsyncStorage.removeItem(STORAGE_KEY);
+              } catch (removeError) {
+                console.error('Error removing invalid profile data:', removeError);
+              }
             }
           } catch (parseError) {
             console.error('Error parsing profile data:', parseError);
-            await AsyncStorage.removeItem(STORAGE_KEY);
+            try {
+              await AsyncStorage.removeItem(STORAGE_KEY);
+            } catch (removeError) {
+              console.error('Error removing corrupted profile data:', removeError);
+            }
           }
         }
       } catch (error) {
@@ -42,11 +54,17 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
           console.error('Error clearing corrupted profile data:', clearError);
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadProfile();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Save profile to storage
@@ -60,11 +78,13 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         throw new Error('Invalid profile data structure');
       }
       
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+      const profileString = JSON.stringify(newProfile);
+      await AsyncStorage.setItem(STORAGE_KEY, profileString);
       setProfile(newProfile);
     } catch (error) {
       console.error('Error saving user profile:', error);
-      throw error;
+      // Re-throw with more context
+      throw new Error(`Failed to save profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
 

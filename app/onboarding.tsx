@@ -37,26 +37,33 @@ export default function OnboardingScreen() {
     setIsLoading(true);
     try {
       await completeOnboarding(ageNumber, selectedEducationLevel);
+      
       // Navigate to main app after successful onboarding
-      // Use requestAnimationFrame to ensure navigation happens after render
-      requestAnimationFrame(() => {
+      // Use setTimeout to ensure navigation happens after state updates
+      setTimeout(() => {
         try {
           router.replace('/(tabs)');
         } catch (navError) {
           console.error('Navigation error:', navError);
-          // Fallback navigation
+          // Additional fallback with longer delay
           setTimeout(() => {
             try {
               router.replace('/(tabs)');
             } catch (fallbackError) {
               console.error('Fallback navigation error:', fallbackError);
+              // If navigation still fails, show alert to user
+              Alert.alert(
+                'Navigation Error',
+                'Please restart the app to continue.',
+                [{ text: 'OK' }]
+              );
             }
-          }, 500);
+          }, 1000);
         }
-      });
+      }, 200);
     } catch (error) {
       console.error('Error completing onboarding:', error);
-      Alert.alert('Error', 'Failed to save your profile. Please try again.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save your profile. Please try again.');
     } finally {
       setIsLoading(false);
     }

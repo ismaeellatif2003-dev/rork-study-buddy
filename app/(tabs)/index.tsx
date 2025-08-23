@@ -32,22 +32,36 @@ export default function NotesScreen() {
 
   console.log('NotesScreen render - profileLoading:', profileLoading, 'isOnboardingComplete:', isOnboardingComplete, 'hasNavigated:', hasNavigated);
 
-  // Handle onboarding redirect in useEffect to avoid render-time navigation
+  // Handle onboarding redirect safely
   useEffect(() => {
-    if (!profileLoading && !isOnboardingComplete && !hasNavigated) {
-      console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
-      setHasNavigated(true);
-      // Use requestAnimationFrame to ensure navigation happens after render
-      requestAnimationFrame(() => {
-        try {
-          router.replace('/onboarding');
-        } catch (error) {
-          console.error('Navigation error:', error);
-          // Reset navigation flag on error so user can try again
-          setHasNavigated(false);
-        }
-      });
-    }
+    let isMounted = true;
+    
+    const handleNavigation = async () => {
+      if (!profileLoading && !isOnboardingComplete && !hasNavigated && isMounted) {
+        console.log('Redirecting to onboarding - profile loading:', profileLoading, 'onboarding complete:', isOnboardingComplete);
+        setHasNavigated(true);
+        
+        // Use setTimeout to ensure navigation happens after current render cycle
+        setTimeout(() => {
+          if (isMounted) {
+            try {
+              router.replace('/onboarding');
+            } catch (error) {
+              console.error('Navigation error:', error);
+              if (isMounted) {
+                setHasNavigated(false);
+              }
+            }
+          }
+        }, 100);
+      }
+    };
+    
+    handleNavigation();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [profileLoading, isOnboardingComplete, hasNavigated]);
 
   const handleSaveNote = async () => {
@@ -66,7 +80,8 @@ export default function NotesScreen() {
       setNewNoteContent('');
       setShowAddNote(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to save note');
+      console.error('Error saving note:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save note');
     }
   };
 
@@ -81,7 +96,8 @@ export default function NotesScreen() {
       const summary = await AIService.summarizeNotes(note.content);
       await updateNote(note.id, { summary });
     } catch (error) {
-      Alert.alert('Error', 'Failed to generate summary');
+      console.error('Error generating summary:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to generate summary');
     } finally {
       setIsGenerating(null);
     }
@@ -103,7 +119,8 @@ export default function NotesScreen() {
       const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';
       Alert.alert('Success', `Generated ${flashcards.length}${enhancementText} flashcards!`);
     } catch (error) {
-      Alert.alert('Error', 'Failed to generate flashcards');
+      console.error('Error generating flashcards:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to generate flashcards');
     } finally {
       setIsGenerating(null);
     }
@@ -114,8 +131,10 @@ export default function NotesScreen() {
     setIsGenerating(generatingKey);
     try {
       const userContext = getEducationContext();
-      const flashcardsData = await AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement, userContext);
-      const extractedText = await AIService.extractTextFromImage(imageBase64);
+      const [flashcardsData, extractedText] = await Promise.all([
+        AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement, userContext),
+        AIService.extractTextFromImage(imageBase64)
+      ]);
       
       // Create a new note from the extracted text
       const note = await saveNote({
@@ -133,7 +152,8 @@ export default function NotesScreen() {
       const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';
       Alert.alert('Success', `Created note and generated ${flashcards.length}${enhancementText} flashcards from your photo!`);
     } catch (error) {
-      Alert.alert('Error', 'Failed to process image and generate flashcards');
+      console.error('Error processing image:', error);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to process image and generate flashcards');
     } finally {
       setIsGenerating(null);
       setShowCamera(false);

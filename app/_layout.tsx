@@ -12,7 +12,25 @@ import colors from "@/constants/colors";
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors
+        if (error instanceof Error && error.message.includes('4')) {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 // Error Boundary Component
 class ErrorBoundary extends Component<
@@ -30,6 +48,13 @@ class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('Error Boundary caught an error:', error, errorInfo);
+    
+    // Log additional context for debugging
+    console.error('Error stack:', error.stack);
+    console.error('Component stack:', errorInfo.componentStack);
+    
+    // In production, you might want to send this to a crash reporting service
+    // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
   }
 
   render() {
@@ -100,16 +125,36 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
+    let isMounted = true;
+    
     const hideSplash = async () => {
       try {
-        await SplashScreen.hideAsync();
+        // Add a small delay to ensure everything is loaded
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        if (isMounted) {
+          await SplashScreen.hideAsync();
+        }
       } catch (error) {
         console.error('Error hiding splash screen:', error);
+        // Try again after a delay if it fails
+        if (isMounted) {
+          setTimeout(async () => {
+            try {
+              await SplashScreen.hideAsync();
+            } catch (retryError) {
+              console.error('Retry error hiding splash screen:', retryError);
+            }
+          }, 1000);
+        }
       }
     };
     
-    // Delay splash screen hiding to ensure providers are initialized
-    setTimeout(hideSplash, 100);
+    hideSplash();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (

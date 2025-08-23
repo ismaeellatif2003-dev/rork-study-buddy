@@ -13,16 +13,32 @@ export class AIService {
   private static readonly API_BASE = 'https://toolkit.rork.com';
 
   static async generateText(messages: AIMessage[]): Promise<string> {
+    // Validate input
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error('Invalid messages array provided');
+    }
+    
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      // Validate messages structure
+      const validMessages = messages.filter(msg => 
+        msg && 
+        typeof msg.role === 'string' && 
+        (typeof msg.content === 'string' || Array.isArray(msg.content))
+      );
+      
+      if (validMessages.length === 0) {
+        throw new Error('No valid messages found');
+      }
       
       const response = await fetch(`${this.API_BASE}/text/llm/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages: validMessages }),
         signal: controller.signal,
       });
       
@@ -54,6 +70,10 @@ export class AIService {
   }
 
   static async summarizeNotes(content: string): Promise<string> {
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      throw new Error('Invalid content provided for summarization');
+    }
+    
     const messages: AIMessage[] = [
       {
         role: 'system',
@@ -61,7 +81,7 @@ export class AIService {
       },
       {
         role: 'user',
-        content: `Please summarize these study notes:\n\n${content}`,
+        content: `Please summarize these study notes:\n\n${content.trim()}`,
       },
     ];
 
@@ -190,6 +210,14 @@ export class AIService {
   }
 
   static async answerQuestion(question: string, context: string): Promise<string> {
+    if (!question || typeof question !== 'string' || question.trim().length === 0) {
+      throw new Error('Invalid question provided');
+    }
+    
+    if (!context || typeof context !== 'string' || context.trim().length === 0) {
+      throw new Error('Invalid context provided');
+    }
+    
     const messages: AIMessage[] = [
       {
         role: 'system',
@@ -197,7 +225,7 @@ export class AIService {
       },
       {
         role: 'user',
-        content: `Study Notes:\n${context}\n\nQuestion: ${question}`,
+        content: `Study Notes:\n${context.trim()}\n\nQuestion: ${question.trim()}`,
       },
     ];
 
