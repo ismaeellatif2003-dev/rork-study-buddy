@@ -18,6 +18,9 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
 
   // Load data from storage
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+    
     const loadData = async () => {
       try {
         const [notesData, flashcardsData, sessionsData] = await Promise.all([
@@ -25,6 +28,8 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           AsyncStorage.getItem(STORAGE_KEYS.FLASHCARDS),
           AsyncStorage.getItem(STORAGE_KEYS.SESSIONS),
         ]);
+
+        if (!isMounted) return;
 
         // Safely parse and validate data
         if (notesData) {
@@ -52,7 +57,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
                 }
               }).filter(Boolean);
               
-              setNotes(validNotes);
+              if (isMounted) setNotes(validNotes);
             } else {
               console.warn('Invalid notes data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
@@ -63,7 +68,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           }
         }
         
-        if (flashcardsData) {
+        if (flashcardsData && isMounted) {
           try {
             const parsed = JSON.parse(flashcardsData);
             if (Array.isArray(parsed)) {
@@ -75,7 +80,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
                 typeof card.question === 'string' &&
                 typeof card.answer === 'string'
               );
-              setFlashcards(validFlashcards);
+              if (isMounted) setFlashcards(validFlashcards);
             } else {
               console.warn('Invalid flashcards data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
@@ -86,7 +91,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           }
         }
         
-        if (sessionsData) {
+        if (sessionsData && isMounted) {
           try {
             const parsed = JSON.parse(sessionsData);
             if (Array.isArray(parsed)) {
@@ -118,7 +123,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
                 }
               }).filter(Boolean);
               
-              setSessions(validSessions);
+              if (isMounted) setSessions(validSessions);
             } else {
               console.warn('Invalid sessions data structure, resetting');
               await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
@@ -131,11 +136,28 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       } catch (error) {
         console.error('Error loading study data:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
+    // Set a maximum loading time to prevent infinite loading
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Study data loading timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
     loadData();
+    
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, []);
 
   // Save notes to storage

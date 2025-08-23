@@ -128,6 +128,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const initializeApp = async () => {
       try {
@@ -166,12 +167,23 @@ export default function RootLayout() {
       }
     };
     
+    // Force app ready after maximum timeout to prevent infinite loading
+    timeoutId = setTimeout(() => {
+      if (isMounted && !isAppReady) {
+        console.warn('⚠️ App initialization timeout, forcing ready state');
+        setIsAppReady(true);
+      }
+    }, 10000); // 10 second maximum timeout
+    
     initializeApp();
     
     return () => {
       isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, []);
+  }, [isAppReady]);
 
   if (!isAppReady) {
     return null; // Keep splash screen visible

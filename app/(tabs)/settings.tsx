@@ -59,7 +59,8 @@ export default function SettingsScreen() {
     return EDUCATION_LEVELS.find(level => level.value === profile?.educationLevel);
   };
 
-  if (!profile && isLoading) {
+  // Show loading only for a brief moment, then show empty state
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>

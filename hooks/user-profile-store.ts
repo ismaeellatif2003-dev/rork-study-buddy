@@ -12,6 +12,7 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   // Load profile from storage
   useEffect(() => {
     let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const loadProfile = async () => {
       try {
@@ -84,10 +85,22 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       }
     };
 
+    // Set a maximum loading time to prevent infinite loading
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Profile loading timeout, forcing completion');
+        setIsLoading(false);
+        // Don't set profile to null here as it might overwrite valid data
+      }
+    }, 3000); // 3 second timeout
+
     loadProfile();
     
     return () => {
       isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
