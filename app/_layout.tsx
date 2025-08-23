@@ -124,50 +124,58 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [isAppReady, setIsAppReady] = React.useState(false);
+
   useEffect(() => {
     let isMounted = true;
     
-    const hideSplash = async () => {
+    const initializeApp = async () => {
       try {
         console.log('🚀 App initialization starting...');
         
-        // Add a small delay to ensure everything is loaded
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Wait for providers to initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         if (isMounted) {
-          console.log('🎯 Hiding splash screen...');
-          await SplashScreen.hideAsync();
-          console.log('✅ Splash screen hidden successfully');
+          console.log('🎯 Setting app ready...');
+          setIsAppReady(true);
+          
+          // Hide splash after app is ready
+          setTimeout(async () => {
+            try {
+              console.log('🎯 Hiding splash screen...');
+              await SplashScreen.hideAsync();
+              console.log('✅ Splash screen hidden successfully');
+            } catch (error) {
+              console.error('❌ Error hiding splash screen:', error);
+            }
+          }, 100);
         }
       } catch (error) {
-        console.error('❌ Error hiding splash screen:', error);
+        console.error('❌ Error initializing app:', error);
         console.error('Error details:', {
           message: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
           name: error instanceof Error ? error.name : typeof error
         });
         
-        // Try again after a delay if it fails
+        // Set ready anyway to prevent infinite loading
         if (isMounted) {
-          setTimeout(async () => {
-            try {
-              console.log('🔄 Retrying splash screen hide...');
-              await SplashScreen.hideAsync();
-              console.log('✅ Splash screen hidden on retry');
-            } catch (retryError) {
-              console.error('❌ Retry error hiding splash screen:', retryError);
-            }
-          }, 1000);
+          setIsAppReady(true);
         }
       }
     };
     
-    hideSplash();
+    initializeApp();
     
     return () => {
       isMounted = false;
     };
   }, []);
+
+  if (!isAppReady) {
+    return null; // Keep splash screen visible
+  }
 
   return (
     <ErrorBoundary>
