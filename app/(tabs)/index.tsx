@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -299,9 +299,15 @@ export default function NotesScreen() {
     );
   };
 
-  // Check if onboarding is complete
+  // Redirect to onboarding after initial render to avoid state updates during render
+  useEffect(() => {
+    if (!profileLoading && !isOnboardingComplete) {
+      console.log('[NotesScreen] Redirecting to onboarding');
+      router.replace('/onboarding');
+    }
+  }, [profileLoading, isOnboardingComplete]);
+
   if (!profileLoading && !isOnboardingComplete) {
-    router.replace('/onboarding');
     return null;
   }
 
