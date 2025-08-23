@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, FileText, Sparkles, Trash2, Zap, Camera, X, RotateCcw } from 'lucide-react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
@@ -221,14 +220,19 @@ export default function NotesScreen() {
   };
 
   // Camera Screen Component
+  type CameraFacing = 'back' | 'front';
   const CameraScreen = ({ onClose, onPhotoTaken, isProcessing }: {
     onClose: () => void;
     onPhotoTaken: (imageBase64: string) => void;
     isProcessing: boolean;
   }) => {
-    const [facing, setFacing] = useState<CameraType>('back');
+    const CameraModule = require('expo-camera');
+    const CameraView = CameraModule.CameraView as React.ComponentType<any> | undefined;
+    const useCameraPermissions = CameraModule.useCameraPermissions as () => [any, () => Promise<void>];
+
+    const [facing, setFacing] = useState<CameraFacing>('back');
     const [permission, requestPermission] = useCameraPermissions();
-    const cameraRef = useRef<CameraView>(null);
+    const cameraRef = useRef<any>(null);
 
     if (!permission) {
       return (
@@ -293,6 +297,23 @@ export default function NotesScreen() {
             <Text style={styles.webCameraTitle}>Camera Not Available</Text>
             <Text style={styles.webCameraText}>
               Camera functionality is not available on web. Please use the mobile app to scan your notes.
+            </Text>
+            <TouchableOpacity style={styles.permissionButton} onPress={onClose}>
+              <Text style={styles.permissionButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    if (!CameraView) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.webCameraContainer}>
+            <Camera color={colors.textSecondary} size={64} />
+            <Text style={styles.webCameraTitle}>Camera Unavailable</Text>
+            <Text style={styles.webCameraText}>
+              Camera module failed to load. Please try again or reinstall the app.
             </Text>
             <TouchableOpacity style={styles.permissionButton} onPress={onClose}>
               <Text style={styles.permissionButtonText}>Go Back</Text>
