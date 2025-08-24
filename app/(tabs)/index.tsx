@@ -558,8 +558,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    color: colors.textSecondary,
-    fontSize: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   saveButton: {
     color: colors.primary,
