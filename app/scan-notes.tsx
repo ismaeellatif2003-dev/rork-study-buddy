@@ -60,11 +60,7 @@ export default function ScanNotesScreen() {
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.cancelButton} onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)');
-            }
+            router.replace('/(tabs)');
           }}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -161,11 +157,7 @@ export default function ScanNotesScreen() {
         'Would you like to generate flashcards from this note?',
         [
           { text: 'Not Now', onPress: () => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)');
-            }
+            router.replace('/(tabs)');
           }},
           { 
             text: 'Generate Cards', 
@@ -191,11 +183,7 @@ export default function ScanNotesScreen() {
       
       if (!canGenerateFlashcards(flashcards.length)) {
         Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace('/(tabs)');
-        }
+        router.replace('/(tabs)');
         return;
       }
       
@@ -204,21 +192,13 @@ export default function ScanNotesScreen() {
       
       Alert.alert('Success', `Generated ${flashcards.length} AI-enhanced flashcards!`, [
         { text: 'OK', onPress: () => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)');
-          }
+          router.replace('/(tabs)');
         }}
       ]);
     } catch (error) {
       console.error('Error generating flashcards:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to generate flashcards');
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)');
-      }
+      router.replace('/(tabs)');
     }
   };
 
@@ -226,11 +206,7 @@ export default function ScanNotesScreen() {
     <View style={styles.cameraContainer}>
       <View style={styles.cameraHeader}>
         <TouchableOpacity onPress={() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/(tabs)');
-          }
+          router.replace('/(tabs)');
         }} style={styles.headerButton}>
           <X color={colors.cardBackground} size={24} />
         </TouchableOpacity>

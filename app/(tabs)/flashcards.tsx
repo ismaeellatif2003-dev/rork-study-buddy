@@ -354,12 +354,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   cardText: {
-    fontSize: 19,
+    fontSize: 17,
     color: colors.textPrimary,
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: 24,
     flex: 1,
     fontWeight: '500',
+    paddingHorizontal: 8,
   },
   tapHint: {
     fontSize: 13,

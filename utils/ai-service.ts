@@ -90,8 +90,8 @@ export class AIService {
 
   static async generateFlashcards(content: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
     const baseSystemPrompt = useAIEnhancement 
-      ? 'You are an expert study assistant and educator. Generate comprehensive flashcards from the provided notes with AI-enhanced content. For each concept, create detailed questions that test deep understanding, add context and examples, provide memory aids, and include related concepts. Make answers thorough but clear, adding explanations, mnemonics, real-world applications, and connections to other topics when helpful. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Generate 8-15 flashcards depending on content complexity. Example format: [{"question": "What is... (include context and why it matters)", "answer": "The answer is... (include explanation, example, and memory aid)"}]'
-      : 'You are a study assistant. Generate flashcards from the provided notes. Create clear, specific questions with concise answers. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Do not include any markdown formatting, code blocks, or additional text. Generate 5-10 flashcards depending on the content length. Example format: [{"question": "What is...", "answer": "The answer is..."}]';
+      ? 'You are an expert study assistant and educator. Generate comprehensive flashcards from the provided notes with AI-enhanced content. IMPORTANT: Keep questions under 100 characters and answers under 200 characters to fit on flashcards. For each concept, create focused questions that test key understanding. Make answers clear and concise but informative, including essential explanations and examples. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Generate 8-15 flashcards depending on content complexity. Example format: [{"question": "What is photosynthesis?", "answer": "Process where plants convert sunlight, CO2, and water into glucose and oxygen. Formula: 6CO2 + 6H2O + light → C6H12O6 + 6O2"}]'
+      : 'You are a study assistant. Generate flashcards from the provided notes. IMPORTANT: Keep questions under 80 characters and answers under 150 characters to fit properly on flashcards. Create clear, specific questions with concise answers. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Do not include any markdown formatting, code blocks, or additional text. Generate 5-10 flashcards depending on the content length. Example format: [{"question": "What is mitosis?", "answer": "Cell division process that produces two identical diploid cells from one parent cell."}]';
     
     const systemPrompt = userContext 
       ? `${baseSystemPrompt}\n\nIMPORTANT: ${userContext}`
@@ -143,10 +143,18 @@ export class AIService {
       
       const flashcards = JSON.parse(cleanedResponse);
       if (Array.isArray(flashcards) && flashcards.length > 0) {
-        // Validate that each flashcard has question and answer
+        // Validate that each flashcard has question and answer with appropriate length
         const validFlashcards = flashcards.filter(card => 
-          card && typeof card.question === 'string' && typeof card.answer === 'string'
-        );
+          card && 
+          typeof card.question === 'string' && 
+          typeof card.answer === 'string' &&
+          card.question.trim().length > 0 &&
+          card.answer.trim().length > 0
+        ).map(card => ({
+          // Truncate if too long to ensure they fit on flashcards
+          question: card.question.length > 120 ? card.question.substring(0, 117) + '...' : card.question,
+          answer: card.answer.length > 250 ? card.answer.substring(0, 247) + '...' : card.answer
+        }));
         if (validFlashcards.length > 0) {
           return validFlashcards;
         }
