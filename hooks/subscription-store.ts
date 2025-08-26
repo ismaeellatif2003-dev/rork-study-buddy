@@ -12,16 +12,8 @@ const STORAGE_KEYS = {
 // Product IDs for App Store and Google Play
 // These should match your configured products in App Store Connect and Google Play Console
 export const PRODUCT_IDS = {
-  PRO_MONTHLY: Platform.select({
-    ios: 'com.yourapp.pro.monthly',
-    android: 'pro_monthly',
-    default: 'pro_monthly'
-  }),
-  PRO_YEARLY: Platform.select({
-    ios: 'com.yourapp.pro.yearly', 
-    android: 'pro_yearly',
-    default: 'pro_yearly'
-  })
+  PRO_MONTHLY: 'app.rork.study-buddy-4fpqfs7.subscription.monthly',
+  PRO_YEARLY: 'app.rork.study-buddy-4fpqfs7.subscription.yearly'
 };
 
 // Subscription plans
