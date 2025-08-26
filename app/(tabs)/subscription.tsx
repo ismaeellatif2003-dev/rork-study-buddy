@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
-import { Check, Crown, Zap } from 'lucide-react-native';
+import { Check, Crown, Zap, Wallet } from 'lucide-react-native';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/hooks/subscription-store';
+import AppleWalletPassStub from '@/components/AppleWalletPassStub';
 
 export default function SubscriptionScreen() {
   const {
@@ -110,6 +111,19 @@ export default function SubscriptionScreen() {
             </View>
           </View>
         </View>
+
+          {/* Add to Apple Wallet */}
+          <View style={styles.walletSection}>
+            <View style={styles.walletHeader}>
+              <Wallet size={18} color="#1a1a1a" />
+              <Text style={styles.walletTitle}>Apple Wallet</Text>
+            </View>
+            <AppleWalletPassStub
+              testID="add-to-apple-wallet"
+              label={isProUser ? 'Add your Pro pass' : 'Add free pass'}
+              onAdded={() => Alert.alert('Added', 'Simulated adding pass to Apple Wallet')}
+            />
+          </View>
 
         {/* Available Plans */}
         <Text style={styles.sectionTitle}>Available Plans</Text>
@@ -394,6 +408,20 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  walletSection: {
+    marginTop: 12,
+  },
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  walletTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
   bottomSpacing: {
     height: 32,
