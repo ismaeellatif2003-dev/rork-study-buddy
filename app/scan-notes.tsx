@@ -59,7 +59,13 @@ export default function ScanNotesScreen() {
           <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)');
+            }
+          }}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -154,7 +160,13 @@ export default function ScanNotesScreen() {
         'Note Saved!',
         'Would you like to generate flashcards from this note?',
         [
-          { text: 'Not Now', onPress: () => router.back() },
+          { text: 'Not Now', onPress: () => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)');
+            }
+          }},
           { 
             text: 'Generate Cards', 
             onPress: () => generateFlashcardsFromNote(savedNote.id, contentToSave)
@@ -179,7 +191,11 @@ export default function ScanNotesScreen() {
       
       if (!canGenerateFlashcards(flashcards.length)) {
         Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
-        router.back();
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/(tabs)');
+        }
         return;
       }
       
@@ -187,19 +203,35 @@ export default function ScanNotesScreen() {
       await trackFlashcardGeneration(flashcards.length);
       
       Alert.alert('Success', `Generated ${flashcards.length} AI-enhanced flashcards!`, [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }}
       ]);
     } catch (error) {
       console.error('Error generating flashcards:', error);
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to generate flashcards');
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   };
 
   const renderCameraView = () => (
     <View style={styles.cameraContainer}>
       <View style={styles.cameraHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+        <TouchableOpacity onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }} style={styles.headerButton}>
           <X color={colors.cardBackground} size={24} />
         </TouchableOpacity>
         <Text style={styles.cameraTitle}>Scan Notes</Text>
