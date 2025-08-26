@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, FileText, Sparkles, Trash2, Zap } from 'lucide-react-native';
+import { Plus, FileText, Sparkles, Trash2, Zap, Camera } from 'lucide-react-native';
 import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
@@ -204,12 +204,20 @@ export default function NotesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Notes</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => setShowAddNote(true)}
-        >
-          <Plus color={colors.cardBackground} size={24} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.scanButton}
+            onPress={() => router.push('/scan-notes')}
+          >
+            <Camera color={colors.cardBackground} size={20} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddNote(true)}
+          >
+            <Plus color={colors.cardBackground} size={24} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -218,8 +226,24 @@ export default function NotesScreen() {
             <FileText color={colors.textSecondary} size={64} />
             <Text style={styles.emptyTitle}>No notes yet</Text>
             <Text style={styles.emptyDescription}>
-              Create your first note to get started with AI-powered studying
+              Create your first note or scan handwritten notes to get started with AI-powered studying
             </Text>
+            <View style={styles.emptyActions}>
+              <TouchableOpacity 
+                style={styles.emptyScanButton}
+                onPress={() => router.push('/scan-notes')}
+              >
+                <Camera color={colors.cardBackground} size={20} />
+                <Text style={styles.emptyScanButtonText}>Scan Notes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.emptyAddButton}
+                onPress={() => setShowAddNote(true)}
+              >
+                <Plus color={colors.cardBackground} size={20} />
+                <Text style={styles.emptyAddButtonText}>Type Notes</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           notes.map((note) => (
@@ -307,6 +331,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  scanButton: {
+    backgroundColor: colors.secondary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   addButton: {
     backgroundColor: colors.primary,
     width: 44,
@@ -450,5 +486,38 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 32,
+  },
+  emptyScanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  emptyScanButtonText: {
+    color: colors.cardBackground,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  emptyAddButtonText: {
+    color: colors.cardBackground,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
