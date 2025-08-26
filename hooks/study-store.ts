@@ -19,7 +19,6 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
   // Load data from storage
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
     
     const loadData = async () => {
       try {
@@ -31,40 +30,20 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
 
         if (!isMounted) return;
 
-        // Safely parse and validate data
+        // Simple parsing with basic validation
         if (notesData) {
           try {
             const parsed = JSON.parse(notesData);
             if (Array.isArray(parsed)) {
-              // Validate and convert date strings back to Date objects
-              const validNotes = parsed.filter(note => 
-                note && 
-                typeof note.id === 'string' &&
-                typeof note.title === 'string' &&
-                typeof note.content === 'string' &&
-                note.createdAt &&
-                note.updatedAt
-              ).map(note => {
-                try {
-                  return {
-                    ...note,
-                    createdAt: new Date(note.createdAt),
-                    updatedAt: new Date(note.updatedAt),
-                  };
-                } catch (dateError) {
-                  console.warn('Invalid date in note:', note.id, dateError);
-                  return null;
-                }
-              }).filter(Boolean);
-              
+              const validNotes = parsed.map(note => ({
+                ...note,
+                createdAt: new Date(note.createdAt),
+                updatedAt: new Date(note.updatedAt),
+              }));
               if (isMounted) setNotes(validNotes);
-            } else {
-              console.warn('Invalid notes data structure, resetting');
-              await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
             }
           } catch (parseError) {
             console.error('Error parsing notes data:', parseError);
-            await AsyncStorage.removeItem(STORAGE_KEYS.NOTES);
           }
         }
         
@@ -72,22 +51,10 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           try {
             const parsed = JSON.parse(flashcardsData);
             if (Array.isArray(parsed)) {
-              // Validate flashcard structure
-              const validFlashcards = parsed.filter(card => 
-                card && 
-                typeof card.id === 'string' &&
-                typeof card.noteId === 'string' &&
-                typeof card.question === 'string' &&
-                typeof card.answer === 'string'
-              );
-              if (isMounted) setFlashcards(validFlashcards);
-            } else {
-              console.warn('Invalid flashcards data structure, resetting');
-              await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
+              if (isMounted) setFlashcards(parsed);
             }
           } catch (parseError) {
             console.error('Error parsing flashcards data:', parseError);
-            await AsyncStorage.removeItem(STORAGE_KEYS.FLASHCARDS);
           }
         }
         
@@ -95,42 +62,17 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           try {
             const parsed = JSON.parse(sessionsData);
             if (Array.isArray(parsed)) {
-              // Validate and convert date strings back to Date objects
-              const validSessions = parsed.filter(session => 
-                session && 
-                typeof session.noteId === 'string' &&
-                Array.isArray(session.messages)
-              ).map(session => {
-                try {
-                  const validMessages = session.messages.filter((message: any) => 
-                    message &&
-                    typeof message.id === 'string' &&
-                    typeof message.role === 'string' &&
-                    typeof message.content === 'string' &&
-                    message.timestamp
-                  ).map((message: any) => ({
-                    ...message,
-                    timestamp: new Date(message.timestamp),
-                  }));
-                  
-                  return {
-                    ...session,
-                    messages: validMessages,
-                  };
-                } catch (sessionError) {
-                  console.warn('Invalid session data:', session.noteId, sessionError);
-                  return null;
-                }
-              }).filter(Boolean);
-              
+              const validSessions = parsed.map(session => ({
+                ...session,
+                messages: session.messages.map((message: any) => ({
+                  ...message,
+                  timestamp: new Date(message.timestamp),
+                }))
+              }));
               if (isMounted) setSessions(validSessions);
-            } else {
-              console.warn('Invalid sessions data structure, resetting');
-              await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
             }
           } catch (parseError) {
             console.error('Error parsing sessions data:', parseError);
-            await AsyncStorage.removeItem(STORAGE_KEYS.SESSIONS);
           }
         }
       } catch (error) {
@@ -142,23 +84,24 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       }
     };
 
-    // Set a maximum loading time to prevent infinite loading
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn('Study data loading timeout, forcing completion');
-        setIsLoading(false);
-      }
-    }, 5000); // 5 second timeout
-
     loadData();
     
     return () => {
       isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
     };
   }, []);
+
+  // Force loading to complete after timeout
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Study data loading timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   // Save notes to storage
   const saveNotes = useCallback(async (newNotes: Note[]) => {
@@ -167,6 +110,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       setNotes(newNotes);
     } catch (error) {
       console.error('Error saving notes:', error);
+      throw error;
     }
   }, []);
 
@@ -177,6 +121,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       setFlashcards(newFlashcards);
     } catch (error) {
       console.error('Error saving flashcards:', error);
+      throw error;
     }
   }, []);
 
@@ -187,6 +132,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       setSessions(newSessions);
     } catch (error) {
       console.error('Error saving sessions:', error);
+      throw error;
     }
   }, []);
 

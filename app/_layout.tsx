@@ -7,7 +7,6 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { StudyProvider } from "@/hooks/study-store";
 import { SubscriptionProvider } from "@/hooks/subscription-store";
 import { UserProfileProvider } from "@/hooks/user-profile-store";
-import { trpc, trpcClient } from "@/lib/trpc";
 import colors from "@/constants/colors";
 
 SplashScreen.preventAutoHideAsync();
@@ -15,16 +14,9 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => {
-        // Don't retry on 4xx errors
-        if (error instanceof Error && error.message.includes('4')) {
-          return false;
-        }
-        // Retry up to 2 times for other errors
-        return failureCount < 2;
-      },
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
     mutations: {
       retry: 1,
@@ -128,14 +120,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
     
     const initializeApp = async () => {
       try {
         console.log('🚀 App initialization starting...');
         
-        // Wait for providers to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Simple initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         if (isMounted) {
           console.log('🎯 Setting app ready...');
@@ -154,11 +145,6 @@ export default function RootLayout() {
         }
       } catch (error) {
         console.error('❌ Error initializing app:', error);
-        console.error('Error details:', {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          name: error instanceof Error ? error.name : typeof error
-        });
         
         // Set ready anyway to prevent infinite loading
         if (isMounted) {
@@ -167,22 +153,23 @@ export default function RootLayout() {
       }
     };
     
-    // Force app ready after maximum timeout to prevent infinite loading
-    timeoutId = setTimeout(() => {
-      if (isMounted && !isAppReady) {
-        console.warn('⚠️ App initialization timeout, forcing ready state');
-        setIsAppReady(true);
-      }
-    }, 10000); // 10 second maximum timeout
-    
     initializeApp();
     
     return () => {
       isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
     };
+  }, []);
+
+  // Force app ready after 3 seconds to prevent infinite loading
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (!isAppReady) {
+        console.warn('⚠️ App initialization timeout, forcing ready state');
+        setIsAppReady(true);
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timeoutId);
   }, [isAppReady]);
 
   if (!isAppReady) {
@@ -191,19 +178,17 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <UserProfileProvider>
-            <SubscriptionProvider>
-              <StudyProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
-              </StudyProvider>
-            </SubscriptionProvider>
-          </UserProfileProvider>
-        </QueryClientProvider>
-      </trpc.Provider>
+      <QueryClientProvider client={queryClient}>
+        <UserProfileProvider>
+          <SubscriptionProvider>
+            <StudyProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </StudyProvider>
+          </SubscriptionProvider>
+        </UserProfileProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

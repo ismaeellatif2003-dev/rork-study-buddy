@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,9 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, FileText, Sparkles, Trash2, Zap, Camera, X, RotateCcw } from 'lucide-react-native';
+import { Plus, FileText, Sparkles, Trash2, Zap } from 'lucide-react-native';
 import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
@@ -21,16 +20,15 @@ import type { Note } from '@/types/study';
 import { router } from 'expo-router';
 
 export default function NotesScreen() {
-  const { notes, saveNote, updateNote, deleteNote, addFlashcards } = useStudy();
+  const { notes, saveNote, updateNote, deleteNote, addFlashcards, isLoading: studyLoading } = useStudy();
   const { isOnboardingComplete, getEducationContext, isLoading: profileLoading } = useUserProfile();
   const { canCreateNote, trackNoteCreation, canGenerateFlashcards, trackFlashcardGeneration } = useSubscription();
   const [showAddNote, setShowAddNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
-  const [showCamera, setShowCamera] = useState(false);
 
-  console.log('NotesScreen render - profileLoading:', profileLoading, 'isOnboardingComplete:', isOnboardingComplete);
+  console.log('NotesScreen render - profileLoading:', profileLoading, 'studyLoading:', studyLoading, 'isOnboardingComplete:', isOnboardingComplete);
 
   useEffect(() => {
     console.log('NotesScreen mounted');
@@ -41,6 +39,18 @@ export default function NotesScreen() {
       router.push('/onboarding');
     }
   }, [profileLoading, isOnboardingComplete]);
+
+  // Show loading screen while data is loading
+  if (profileLoading || studyLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your study notes...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleSaveNote = async () => {
     if (!newNoteTitle.trim() || !newNoteContent.trim()) {
@@ -118,79 +128,7 @@ export default function NotesScreen() {
     }
   };
 
-  const handleGenerateFlashcardsFromImage = async (imageBase64: string, useAIEnhancement: boolean = false) => {
-    const generatingKey = useAIEnhancement ? 'enhanced_image_flashcards' : 'image_flashcards';
-    setIsGenerating(generatingKey);
-    try {
-      if (!canCreateNote()) {
-        Alert.alert('Note limit reached', 'Upgrade to Pro for unlimited notes.');
-        return;
-      }
 
-      const userContext = getEducationContext();
-      const [flashcardsData, extractedText] = await Promise.all([
-        AIService.generateFlashcardsFromImage(imageBase64, useAIEnhancement, userContext),
-        AIService.extractTextFromImage(imageBase64)
-      ]);
-      
-      const flashcards = flashcardsData.map(card => ({
-        noteId: '',
-        question: card.question,
-        answer: card.answer,
-      }));
-      
-      if (!canGenerateFlashcards(flashcards.length)) {
-        Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
-        return;
-      }
-      
-      // Create a new note from the extracted text
-      const note = await saveNote({
-        title: `Camera Notes - ${new Date().toLocaleDateString()}`,
-        content: extractedText,
-      });
-      
-      await trackNoteCreation();
-      
-      const flashcardsWithNoteId = flashcards.map(card => ({
-        ...card,
-        noteId: note.id,
-      }));
-      
-      await addFlashcards(note.id, flashcardsWithNoteId);
-      await trackFlashcardGeneration(flashcards.length);
-      
-      const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';
-      Alert.alert('Success', `Created note and generated ${flashcards.length}${enhancementText} flashcards from your photo!`);
-    } catch (error) {
-      console.error('Error processing image:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to process image and generate flashcards');
-    } finally {
-      setIsGenerating(null);
-      setShowCamera(false);
-    }
-  };
-
-  const showCameraFlashcardOptions = (imageBase64: string) => {
-    Alert.alert(
-      'Generate Flashcards from Photo',
-      'Choose the type of flashcards you want to generate:',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Basic Cards',
-          onPress: () => handleGenerateFlashcardsFromImage(imageBase64, false),
-        },
-        {
-          text: 'AI Enhanced',
-          onPress: () => handleGenerateFlashcardsFromImage(imageBase64, true),
-        },
-      ]
-    );
-  };
 
   const showFlashcardOptions = (note: Note) => {
     Alert.alert(
@@ -224,168 +162,7 @@ export default function NotesScreen() {
     );
   };
 
-  // Camera Screen Component
-  type CameraFacing = 'back' | 'front';
-  const CameraScreen = ({ onClose, onPhotoTaken, isProcessing }: {
-    onClose: () => void;
-    onPhotoTaken: (imageBase64: string) => void;
-    isProcessing: boolean;
-  }) => {
-    const CameraModule = require('expo-camera');
-    const CameraView = CameraModule.CameraView as React.ComponentType<any> | undefined;
-    const useCameraPermissions = CameraModule.useCameraPermissions as () => [any, () => Promise<void>];
 
-    const [facing, setFacing] = useState<CameraFacing>('back');
-    const [permission, requestPermission] = useCameraPermissions();
-    const cameraRef = useRef<any>(null);
-
-    if (!permission) {
-      return (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading camera...</Text>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    if (!permission.granted) {
-      return (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.permissionContainer}>
-            <Camera color={colors.textSecondary} size={64} />
-            <Text style={styles.permissionTitle}>Camera Permission Required</Text>
-            <Text style={styles.permissionText}>
-              We need camera access to scan your notes and create flashcards
-            </Text>
-            <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-              <Text style={styles.permissionButtonText}>Grant Permission</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    const takePicture = async () => {
-      if (!cameraRef.current) return;
-
-      try {
-        const photo = await cameraRef.current.takePictureAsync({
-          base64: true,
-          quality: 0.8,
-        });
-
-        if (photo?.base64) {
-          onPhotoTaken(photo.base64);
-        } else {
-          Alert.alert('Error', 'Failed to capture photo');
-        }
-      } catch (error) {
-        console.error('Camera error:', error);
-        Alert.alert('Error', 'Failed to take picture');
-      }
-    };
-
-    const toggleCameraFacing = () => {
-      setFacing(current => (current === 'back' ? 'front' : 'back'));
-    };
-
-    if (Platform.OS === 'web') {
-      return (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.webCameraContainer}>
-            <Camera color={colors.textSecondary} size={64} />
-            <Text style={styles.webCameraTitle}>Camera Not Available</Text>
-            <Text style={styles.webCameraText}>
-              Camera functionality is not available on web. Please use the mobile app to scan your notes.
-            </Text>
-            <TouchableOpacity style={styles.permissionButton} onPress={onClose}>
-              <Text style={styles.permissionButtonText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    if (!CameraView) {
-      return (
-        <SafeAreaView style={styles.container}>
-          <View style={styles.webCameraContainer}>
-            <Camera color={colors.textSecondary} size={64} />
-            <Text style={styles.webCameraTitle}>Camera Unavailable</Text>
-            <Text style={styles.webCameraText}>
-              Camera module failed to load. Please try again or reinstall the app.
-            </Text>
-            <TouchableOpacity style={styles.permissionButton} onPress={onClose}>
-              <Text style={styles.permissionButtonText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    return (
-      <View style={styles.cameraContainer}>
-        <CameraView 
-          ref={cameraRef}
-          style={styles.camera} 
-          facing={facing}
-        >
-          <SafeAreaView style={styles.cameraOverlay}>
-            <View style={styles.cameraHeader}>
-              <TouchableOpacity style={styles.cameraHeaderButton} onPress={onClose}>
-                <X color={colors.cardBackground} size={24} />
-              </TouchableOpacity>
-              <Text style={styles.cameraTitle}>Scan Your Notes</Text>
-              <TouchableOpacity style={styles.cameraHeaderButton} onPress={toggleCameraFacing}>
-                <RotateCcw color={colors.cardBackground} size={24} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.cameraFooter}>
-              <View style={styles.cameraInstructions}>
-                <Text style={styles.instructionText}>
-                  Position your notes in the frame and tap the capture button
-                </Text>
-              </View>
-              
-              <View style={styles.cameraControls}>
-                <TouchableOpacity 
-                  style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]} 
-                  onPress={takePicture}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <ActivityIndicator size="large" color={colors.cardBackground} />
-                  ) : (
-                    <View style={styles.captureButtonInner} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </SafeAreaView>
-        </CameraView>
-      </View>
-    );
-  };
-
-
-
-
-
-  if (showCamera) {
-    return (
-      <CameraScreen 
-        onClose={() => setShowCamera(false)}
-        onPhotoTaken={showCameraFlashcardOptions}
-        isProcessing={isGenerating === 'image_flashcards' || isGenerating === 'enhanced_image_flashcards'}
-      />
-    );
-  }
 
   if (showAddNote) {
     return (
@@ -427,20 +204,12 @@ export default function NotesScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Notes</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.cameraButton}
-            onPress={() => setShowCamera(true)}
-          >
-            <Camera color={colors.cardBackground} size={20} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddNote(true)}
-          >
-            <Plus color={colors.cardBackground} size={24} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowAddNote(true)}
+        >
+          <Plus color={colors.cardBackground} size={24} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -537,10 +306,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.textPrimary,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+
   addButton: {
     backgroundColor: colors.primary,
     width: 44,
@@ -549,14 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cameraButton: {
-    backgroundColor: colors.secondary,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   cancelButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -682,7 +441,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  // Camera styles
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -692,135 +450,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: colors.textSecondary,
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  permissionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  permissionText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  permissionButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  permissionButtonText: {
-    color: colors.cardBackground,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButtonText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-  },
-  webCameraContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  webCameraTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  webCameraText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  cameraContainer: {
-    flex: 1,
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraOverlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  cameraHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  cameraHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.cardBackground,
-  },
-  cameraFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingBottom: 40,
-  },
-  cameraInstructions: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  instructionText: {
-    color: colors.cardBackground,
-    fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.9,
-  },
-  cameraControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.cardBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  captureButtonDisabled: {
-    opacity: 0.6,
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
   },
 });

@@ -12,7 +12,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   // Load profile from storage
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
     
     const loadProfile = async () => {
       try {
@@ -24,42 +23,25 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
             const parsed = JSON.parse(profileData);
             console.log('Parsed profile data:', parsed);
             
-            // Validate the parsed data structure
-            if (parsed && 
-                typeof parsed === 'object' && 
-                typeof parsed.isOnboardingComplete === 'boolean' &&
-                typeof parsed.age === 'number' &&
-                typeof parsed.educationLevel === 'string') {
+            // Simple validation
+            if (parsed && typeof parsed.isOnboardingComplete === 'boolean') {
               if (isMounted) {
                 console.log('Setting valid profile data');
                 setProfile(parsed);
               }
             } else {
               console.warn('Invalid profile data structure, resetting profile');
-              try {
-                await AsyncStorage.removeItem(STORAGE_KEY);
-              } catch (removeError) {
-                console.error('Error removing invalid profile data:', removeError);
-              }
-              // Set profile to null to indicate no valid profile
               if (isMounted) {
                 setProfile(null);
               }
             }
           } catch (parseError) {
             console.error('Error parsing profile data:', parseError);
-            try {
-              await AsyncStorage.removeItem(STORAGE_KEY);
-            } catch (removeError) {
-              console.error('Error removing corrupted profile data:', removeError);
-            }
-            // Set profile to null to indicate no valid profile
             if (isMounted) {
               setProfile(null);
             }
           }
         } else {
-          // No profile data found - this is normal for first-time users
           console.log('No profile data found, user needs onboarding');
           if (isMounted) {
             setProfile(null);
@@ -67,13 +49,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
-        // Clear corrupted data
-        try {
-          await AsyncStorage.removeItem(STORAGE_KEY);
-        } catch (clearError) {
-          console.error('Error clearing corrupted profile data:', clearError);
-        }
-        // Set profile to null to indicate no valid profile
         if (isMounted) {
           setProfile(null);
         }
@@ -85,43 +60,34 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       }
     };
 
-    // Set a maximum loading time to prevent infinite loading
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn('Profile loading timeout, forcing completion');
-        setIsLoading(false);
-        // Don't set profile to null here as it might overwrite valid data
-      }
-    }, 3000); // 3 second timeout
-
     loadProfile();
     
     return () => {
       isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
     };
   }, []);
+
+  // Force loading to complete after timeout
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Profile loading timeout, forcing completion');
+        setIsLoading(false);
+      }
+    }, 2000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   // Save profile to storage
   const saveProfile = useCallback(async (newProfile: UserProfile) => {
     try {
-      // Validate profile before saving
-      if (!newProfile || 
-          typeof newProfile.age !== 'number' || 
-          typeof newProfile.educationLevel !== 'string' ||
-          typeof newProfile.isOnboardingComplete !== 'boolean') {
-        throw new Error('Invalid profile data structure');
-      }
-      
       const profileString = JSON.stringify(newProfile);
       await AsyncStorage.setItem(STORAGE_KEY, profileString);
       setProfile(newProfile);
     } catch (error) {
       console.error('Error saving user profile:', error);
-      // Re-throw with more context
-      throw new Error(`Failed to save profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error('Failed to save profile');
     }
   }, []);
 
