@@ -10,19 +10,5 @@
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   },
-  "ignore": [
-    "Dockerfile",
-    ".dockerignore",
-    "node_modules",
-    "ios",
-    "android",
-    "app",
-    "components",
-    "hooks",
-    "lib",
-    "utils",
-    "types",
-    "constants",
-    "assets"
-  ]
+  "rootDirectory": "railway-backend"
 }
