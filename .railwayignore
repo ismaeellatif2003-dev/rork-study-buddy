@@ -1,6 +1,5 @@
-# Ignore everything except backend
+# Only deploy the backend directory
 *
 !backend/
 !backend/**
 !railway.json
-!package.json
