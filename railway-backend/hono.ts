@@ -53,9 +53,12 @@ app.get("/metrics", (c) => {
 
 // OpenRouter AI Text Generation endpoint using SDK
 app.post("/ai/generate", async (c) => {
+  let type = 'text'; // Declare outside try-catch for scope access
+  
   try {
     const body = await c.req.json();
-    const { messages, type = 'text', model = 'openai/gpt-3.5-turbo' } = body;
+    const { messages, type: requestType = 'text', model = 'openai/gpt-3.5-turbo' } = body;
+    type = requestType; // Assign the value
 
     if (!messages || !Array.isArray(messages)) {
       return c.json({ error: 'Invalid messages format' }, 400);
@@ -111,7 +114,7 @@ app.post("/ai/generate", async (c) => {
     }
 
     // Parse flashcards if needed
-    let response = aiResponse;
+    let response: string | any[] = aiResponse;
     if (type === 'flashcards') {
       try {
         // Try to parse as JSON, if it fails, return as-is
@@ -140,20 +143,23 @@ app.post("/ai/generate", async (c) => {
     // Fallback to mock response on error
     return c.json({ 
       success: true, 
-      response: getMockResponse(type || 'text'),
-      type: type || 'text',
+      response: getMockResponse(type),
+      type: type,
       timestamp: new Date().toISOString(),
       note: 'Using mock response due to error',
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
 
 // AI Flashcard endpoint using SDK
 app.post("/ai/flashcards", async (c) => {
+  let count = 5; // Declare outside try-catch for scope access
+  
   try {
     const body = await c.req.json();
-    const { content, count = 5, model = 'openai/gpt-3.5-turbo' } = body;
+    const { content, count: requestCount = 5, model = 'openai/gpt-3.5-turbo' } = body;
+    count = requestCount; // Assign the value
 
     if (!content) {
       return c.json({ error: 'Content is required' }, 400);
