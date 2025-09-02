@@ -4,8 +4,7 @@
   "description": "Study Buddy Backend API",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "hono": "^4.0.0",
