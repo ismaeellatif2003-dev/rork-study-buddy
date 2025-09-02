@@ -2,14 +2,18 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy only backend files
+# Copy package files first
 COPY package*.json ./
-COPY index.js ./
-COPY hono.js ./
-COPY trpc/ ./trpc/
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
+
+# Copy backend source files
+COPY index.js ./
+COPY hono.js ./
+
+# Copy trpc directory
+COPY trpc/ ./trpc/
 
 # Expose port
 EXPOSE 3000
