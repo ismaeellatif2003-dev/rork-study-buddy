@@ -4,7 +4,9 @@
   "description": "Study Buddy Backend API",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "build": "tsc",
+    "start": "node index.js",
+    "dev": "tsx watch hono.ts"
   },
   "dependencies": {
     "hono": "^4.0.0",
@@ -12,6 +14,11 @@
     "@hono/trpc-server": "^0.4.0",
     "@trpc/server": "^10.45.0",
     "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^18.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
