@@ -10,8 +10,8 @@ interface AIMessage {
 }
 
 export class AIService {
-  private static readonly API_BASE = 'https://toolkit.rork.com';
-  private static readonly USE_MOCK = true; // Set to false when backend is ready
+  private static readonly API_BASE = 'https://rork-study-buddy-production.up.railway.app';
+  private static readonly USE_MOCK = false; // Now using real backend
 
   static async generateText(messages: AIMessage[]): Promise<string> {
     // Validate input
@@ -19,7 +19,7 @@ export class AIService {
       throw new Error('Invalid messages array provided');
     }
     
-    // Use mock responses for development
+    // Use mock responses for development if needed
     if (this.USE_MOCK) {
       return this.getMockResponse(messages);
     }
@@ -38,13 +38,24 @@ export class AIService {
       if (validMessages.length === 0) {
         throw new Error('No valid messages found');
       }
+
+      // Determine the type based on the last message content
+      const lastMessage = messages[messages.length - 1];
+      const content = typeof lastMessage.content === 'string' ? lastMessage.content : '';
+      let type = 'text';
       
-      const response = await fetch(`${this.API_BASE}/text/llm/`, {
+      if (content.includes('flashcard') || content.includes('question') || content.includes('answer')) {
+        type = 'flashcards';
+      } else if (content.includes('summarize') || content.includes('summary')) {
+        type = 'summary';
+      }
+      
+      const response = await fetch(`${this.API_BASE}/ai/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: validMessages }),
+        body: JSON.stringify({ messages: validMessages, type }),
         signal: controller.signal,
       });
       
@@ -56,11 +67,16 @@ export class AIService {
       }
 
       const data = await response.json();
-      if (!data || typeof data.completion !== 'string') {
+      if (!data || !data.success) {
         throw new Error('Invalid response format from AI service');
       }
       
-      return data.completion;
+      // Handle different response types
+      if (type === 'flashcards' && Array.isArray(data.response)) {
+        return JSON.stringify(data.response);
+      }
+      
+      return data.response || 'No response generated';
     } catch (error) {
       console.error('AI Service Error:', error);
       if (error instanceof Error) {
@@ -72,6 +88,37 @@ export class AIService {
         }
       }
       throw new Error('Failed to generate AI response. Please try again.');
+    }
+  }
+
+  static async generateFlashcards(content: string, count: number = 5): Promise<any[]> {
+    if (this.USE_MOCK) {
+      return this.getMockFlashcards(count);
+    }
+
+    try {
+      const response = await fetch(`${this.API_BASE}/ai/flashcards`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content, count }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Flashcard generation failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data || !data.success) {
+        throw new Error('Invalid response format from flashcard service');
+      }
+
+      return data.flashcards || [];
+    } catch (error) {
+      console.error('Flashcard Service Error:', error);
+      throw new Error('Failed to generate flashcards. Please try again.');
     }
   }
 
@@ -99,6 +146,13 @@ export class AIService {
     return "This is a mock AI response. The actual AI service will be available when the backend is properly configured.";
   }
 
+  private static getMockFlashcards(count: number): any[] {
+    return Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+      question: `Mock Question ${i + 1}`,
+      answer: `Mock Answer ${i + 1}`
+    }));
+  }
+
   static async summarizeNotes(content: string): Promise<string> {
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       throw new Error('Invalid content provided for summarization');
@@ -116,131 +170,6 @@ export class AIService {
     ];
 
     return this.generateText(messages);
-  }
-
-  static async generateFlashcards(content: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
-    const baseSystemPrompt = useAIEnhancement 
-      ? 'You are an expert study assistant and educator. Generate comprehensive flashcards from the provided notes with AI-enhanced content. IMPORTANT: Keep questions under 100 characters and answers under 200 characters to fit on flashcards. For each concept, create focused questions that test key understanding. Make answers clear and concise but informative, including essential explanations and examples. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Generate 8-15 flashcards depending on content complexity. Example format: [{"question": "What is photosynthesis?", "answer": "Process where plants convert sunlight, CO2, and water into glucose and oxygen. Formula: 6CO2 + 6H2O + light → C6H12O6 + 6O2"}]'
-      : 'You are a study assistant. Generate flashcards from the provided notes. IMPORTANT: Keep questions under 80 characters and answers under 150 characters to fit properly on flashcards. Create clear, specific questions with concise answers. Return ONLY a valid JSON array of objects with "question" and "answer" fields. Do not include any markdown formatting, code blocks, or additional text. Generate 5-10 flashcards depending on the content length. Example format: [{"question": "What is mitosis?", "answer": "Cell division process that produces two identical diploid cells from one parent cell."}]';
-    
-    const systemPrompt = userContext 
-      ? `${baseSystemPrompt}\n\nIMPORTANT: ${userContext}`
-      : baseSystemPrompt;
-
-    const userPrompt = useAIEnhancement
-      ? `Generate AI-enhanced flashcards from these notes. Make them comprehensive with detailed explanations, examples, and memory aids:\n\n${content}`
-      : `Generate flashcards from these notes:\n\n${content}`;
-
-    const messages: AIMessage[] = [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ];
-
-    const response = await this.generateText(messages);
-    
-    try {
-      // Clean the response by removing markdown code blocks and extra whitespace
-      let cleanedResponse = response.trim();
-      
-      // Remove markdown code blocks (```json ... ``` or ``` ... ```)
-      cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*/gm, '').replace(/\s*```$/gm, '');
-      
-      // Remove any leading/trailing backticks (single or multiple)
-      cleanedResponse = cleanedResponse.replace(/^`+|`+$/g, '');
-      
-      // Remove any backticks that might be in the middle of the response
-      cleanedResponse = cleanedResponse.replace(/`/g, '');
-      
-      // Remove any extra whitespace and newlines
-      cleanedResponse = cleanedResponse.replace(/\n\s*\n/g, '\n').trim();
-      
-      // If the response doesn't start with [ or {, try to find the JSON part
-      if (!cleanedResponse.startsWith('[') && !cleanedResponse.startsWith('{')) {
-        const jsonMatch = cleanedResponse.match(/\[.*\]/s) || cleanedResponse.match(/\{.*\}/s);
-        if (jsonMatch) {
-          cleanedResponse = jsonMatch[0];
-        }
-      }
-      
-      const flashcards = JSON.parse(cleanedResponse);
-      if (Array.isArray(flashcards) && flashcards.length > 0) {
-        // Validate that each flashcard has question and answer with appropriate length
-        const validFlashcards = flashcards.filter(card => 
-          card && 
-          typeof card.question === 'string' && 
-          typeof card.answer === 'string' &&
-          card.question.trim().length > 0 &&
-          card.answer.trim().length > 0
-        ).map(card => ({
-          // Truncate if too long to ensure they fit on flashcards
-          question: card.question.length > 120 ? card.question.substring(0, 117) + '...' : card.question,
-          answer: card.answer.length > 250 ? card.answer.substring(0, 247) + '...' : card.answer
-        }));
-        if (validFlashcards.length > 0) {
-          return validFlashcards;
-        }
-      }
-    } catch (error) {
-      console.error('Failed to parse flashcards JSON:', error);
-      console.error('Response that failed to parse:', response);
-    }
-
-    // Fallback: parse text format
-    const lines = response.split('\n').filter(line => line.trim());
-    const flashcards: { question: string; answer: string }[] = [];
-    
-    // Try to extract Q&A pairs from various formats
-    let currentQuestion = '';
-    let currentAnswer = '';
-    
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-      
-      // Check for question patterns
-      if (trimmedLine.match(/^(Q:|Question:|\d+\.|-)\s*/i)) {
-        if (currentQuestion && currentAnswer) {
-          flashcards.push({ question: currentQuestion, answer: currentAnswer });
-        }
-        currentQuestion = trimmedLine.replace(/^(Q:|Question:|\d+\.|-)\s*/i, '').trim();
-        currentAnswer = '';
-      }
-      // Check for answer patterns
-      else if (trimmedLine.match(/^(A:|Answer:)\s*/i)) {
-        currentAnswer = trimmedLine.replace(/^(A:|Answer:)\s*/i, '').trim();
-      }
-      // If we have a question but no answer yet, this might be the answer
-      else if (currentQuestion && !currentAnswer) {
-        currentAnswer = trimmedLine;
-      }
-    }
-    
-    // Add the last Q&A pair if exists
-    if (currentQuestion && currentAnswer) {
-      flashcards.push({ question: currentQuestion, answer: currentAnswer });
-    }
-    
-    // If still no flashcards, create some basic ones from the content
-    if (flashcards.length === 0) {
-      const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-      for (let i = 0; i < Math.min(3, sentences.length); i++) {
-        const sentence = sentences[i].trim();
-        if (sentence) {
-          flashcards.push({
-            question: `What can you tell me about: ${sentence.substring(0, 50)}...?`,
-            answer: sentence
-          });
-        }
-      }
-    }
-
-    return flashcards;
   }
 
   static async answerQuestion(question: string, context: string): Promise<string> {
