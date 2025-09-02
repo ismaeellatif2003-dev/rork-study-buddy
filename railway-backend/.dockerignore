@@ -1,7 +1,8 @@
-# Ignore everything except backend files
+# Only include essential backend files
 *
 !package*.json
 !index.js
 !hono.js
 !trpc/
 !trpc/**
+!.dockerignore

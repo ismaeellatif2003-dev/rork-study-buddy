@@ -8,12 +8,8 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy backend source files
-COPY index.js ./
-COPY hono.js ./
-
-# Copy trpc directory
-COPY trpc/ ./trpc/
+# Copy all backend files
+COPY . .
 
 # Expose port
 EXPOSE 3000
