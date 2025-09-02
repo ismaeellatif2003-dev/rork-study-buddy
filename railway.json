@@ -3,5 +3,6 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "railway-backend/Dockerfile"
-  }
+  },
+  "rootDirectory": "railway-backend"
 }
