@@ -1,5 +1,28 @@
-# Only deploy the backend directory
+# Ignore everything except backend
 *
 !backend/
 !backend/**
 !railway.json
+!.railwayignore
+
+# Explicitly ignore problematic files
+Dockerfile
+.dockerignore
+node_modules/
+ios/
+android/
+app/
+components/
+hooks/
+lib/
+utils/
+types/
+constants/
+assets/
+*.ts
+*.tsx
+*.jsx
+expo-env.d.ts
+app.json
+bun.lock
+package-lock.json
