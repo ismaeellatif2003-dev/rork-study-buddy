@@ -12,7 +12,7 @@ const getBaseUrl = () => {
   }
   
   // Production - Railway backend
-  return 'https://rork-study-buddy-production.up.railway.app';
+  return 'https://rork-study-buddy-production-eeeb.up.railway.app';
 };
 
 export const trpcClient = trpc.createClient({

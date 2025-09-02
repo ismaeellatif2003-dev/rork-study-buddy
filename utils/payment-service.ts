@@ -172,7 +172,7 @@ class PaymentService {
     error?: string;
   }> {
     try {
-      const baseUrl = __DEV__ ? 'http://localhost:3000' : 'https://rork-study-buddy-production.up.railway.app';
+      const baseUrl = __DEV__ ? 'http://localhost:3000' : 'https://rork-study-buddy-production-eeeb.up.railway.app';
       
       const response = await fetch(`${baseUrl}/trpc/subscription.verifyPurchase`, {
         method: 'POST',
