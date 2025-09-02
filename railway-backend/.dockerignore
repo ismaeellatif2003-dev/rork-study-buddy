@@ -1,0 +1,7 @@
+# Ignore everything except backend files
+*
+!package*.json
+!index.js
+!hono.js
+!trpc/
+!trpc/**
