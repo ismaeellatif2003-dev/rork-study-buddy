@@ -6,18 +6,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
-import { Check, Crown, Zap, Wallet } from 'lucide-react-native';
+import { Check, Crown, Zap, Star } from 'lucide-react-native';
 import { useSubscription, SUBSCRIPTION_PLANS } from '@/hooks/subscription-store';
-import AppleWalletPassStub from '@/components/AppleWalletPassStub';
 
 export default function SubscriptionScreen() {
   const {
     subscription,
     usageStats,
     isProcessingPayment,
+    isPaymentInitialized,
     getCurrentPlan,
     subscribeToPlan,
     cancelSubscription,
@@ -26,15 +27,37 @@ export default function SubscriptionScreen() {
 
   const currentPlan = getCurrentPlan();
   const isProUser = currentPlan.id !== 'free';
+  const isMobile = Platform.OS !== 'web';
 
   const handleSubscribe = async (planId: string) => {
+    if (!isMobile) {
+      Alert.alert(
+        'Mobile Only',
+        'Subscriptions are only available on mobile devices.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    if (!isPaymentInitialized) {
+      Alert.alert(
+        'Payment Service Not Ready',
+        'Please wait a moment and try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+    if (!plan) return;
+
     Alert.alert(
-      'Subscribe to Plan',
-      `This would normally open the payment flow for ${SUBSCRIPTION_PLANS.find(p => p.id === planId)?.name}. In a real app, this would integrate with App Store/Google Play billing.`,
+      'Subscribe',
+      `Subscribe to ${plan.name} for $${plan.price.toFixed(2)}/${plan.interval}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Mock Subscribe',
+          text: 'Subscribe',
           onPress: () => subscribeToPlan(planId),
         },
       ]
@@ -44,7 +67,7 @@ export default function SubscriptionScreen() {
   const handleCancelSubscription = () => {
     Alert.alert(
       'Cancel Subscription',
-      'Are you sure you want to cancel your subscription? You will lose access to Pro features at the end of your billing period.',
+      'Are you sure you want to cancel? You will lose access to Pro features at the end of your billing period.',
       [
         { text: 'Keep Subscription', style: 'cancel' },
         {
@@ -75,11 +98,16 @@ export default function SubscriptionScreen() {
         <View style={styles.currentPlanCard}>
           <View style={styles.currentPlanHeader}>
             {isProUser ? (
-              <Crown size={24} color="#FFD700" />
+              <Crown size={28} color="#FFD700" />
             ) : (
-              <Zap size={24} color="#666" />
+              <Zap size={28} color="#666" />
             )}
-            <Text style={styles.currentPlanTitle}>Current Plan: {currentPlan.name}</Text>
+            <Text style={styles.currentPlanTitle}>{currentPlan.name}</Text>
+            {isProUser && (
+              <View style={styles.proBadge}>
+                <Text style={styles.proBadgeText}>PRO</Text>
+              </View>
+            )}
           </View>
           
           {subscription && subscription.status === 'active' && (
@@ -91,42 +119,31 @@ export default function SubscriptionScreen() {
           {/* Usage Stats */}
           <View style={styles.usageStats}>
             <Text style={styles.usageTitle}>This Month's Usage</Text>
-            <View style={styles.usageItem}>
-              <Text style={styles.usageLabel}>Notes Created:</Text>
-              <Text style={styles.usageValue}>
-                {getUsageText(usageStats.notesCreated, currentPlan.maxNotes)}
-              </Text>
-            </View>
-            <View style={styles.usageItem}>
-              <Text style={styles.usageLabel}>Flashcards Generated:</Text>
-              <Text style={styles.usageValue}>
-                {getUsageText(usageStats.flashcardsGenerated, currentPlan.maxFlashcards)}
-              </Text>
-            </View>
-            <View style={styles.usageItem}>
-              <Text style={styles.usageLabel}>AI Questions Today:</Text>
-              <Text style={styles.usageValue}>
-                {getUsageText(usageStats.aiQuestionsAsked, currentPlan.aiQuestionsPerDay)}
-              </Text>
+            <View style={styles.usageGrid}>
+              <View style={styles.usageItem}>
+                <Text style={styles.usageValue}>
+                  {getUsageText(usageStats.notesCreated, currentPlan.maxNotes)}
+                </Text>
+                <Text style={styles.usageLabel}>Notes</Text>
+              </View>
+              <View style={styles.usageItem}>
+                <Text style={styles.usageValue}>
+                  {getUsageText(usageStats.flashcardsGenerated, currentPlan.maxFlashcards)}
+                </Text>
+                <Text style={styles.usageLabel}>Flashcards</Text>
+              </View>
+              <View style={styles.usageItem}>
+                <Text style={styles.usageValue}>
+                  {getUsageText(usageStats.aiQuestionsAsked, currentPlan.aiQuestionsPerDay)}
+                </Text>
+                <Text style={styles.usageLabel}>AI Questions</Text>
+              </View>
             </View>
           </View>
         </View>
 
-          {/* Add to Apple Wallet */}
-          <View style={styles.walletSection}>
-            <View style={styles.walletHeader}>
-              <Wallet size={18} color="#1a1a1a" />
-              <Text style={styles.walletTitle}>Apple Wallet</Text>
-            </View>
-            <AppleWalletPassStub
-              testID="add-to-apple-wallet"
-              label={isProUser ? 'Add your Pro pass' : 'Add free pass'}
-              onAdded={() => Alert.alert('Added', 'Simulated adding pass to Apple Wallet')}
-            />
-          </View>
-
         {/* Available Plans */}
-        <Text style={styles.sectionTitle}>Available Plans</Text>
+        <Text style={styles.sectionTitle}>Choose Your Plan</Text>
         
         {SUBSCRIPTION_PLANS.map((plan) => {
           const isCurrentPlan = plan.id === currentPlan.id;
@@ -146,7 +163,7 @@ export default function SubscriptionScreen() {
                   <Text style={[styles.planName, isPro && styles.proPlanName]}>
                     {plan.name}
                   </Text>
-                  {isPro && <Crown size={20} color="#FFD700" />}
+                  {isPro && <Star size={20} color="#FFD700" />}
                   {isCurrentPlan && (
                     <View style={styles.currentBadge}>
                       <Text style={styles.currentBadgeText}>Current</Text>
@@ -157,7 +174,9 @@ export default function SubscriptionScreen() {
                   {formatPrice(plan.price, plan.interval)}
                 </Text>
                 {plan.id === 'pro_yearly' && (
-                  <Text style={styles.savingsBadge}>Save 17%</Text>
+                  <View style={styles.savingsBadge}>
+                    <Text style={styles.savingsBadgeText}>Save 17%</Text>
+                  </View>
                 )}
               </View>
 
@@ -180,7 +199,7 @@ export default function SubscriptionScreen() {
                     isProcessingPayment && styles.disabledButton
                   ]}
                   onPress={() => handleSubscribe(plan.id)}
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || (isPro && !isMobile)}
                 >
                   <Text style={[styles.subscribeButtonText, isPro && styles.proSubscribeButtonText]}>
                     {isProcessingPayment ? 'Processing...' : (plan.id === 'free' ? 'Downgrade' : 'Upgrade')}
@@ -191,23 +210,26 @@ export default function SubscriptionScreen() {
           );
         })}
 
-        {/* Restore Purchases Button */}
-        <TouchableOpacity
-          style={styles.restoreButton}
-          onPress={restorePurchases}
-        >
-          <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-        </TouchableOpacity>
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {isMobile && (
+            <TouchableOpacity
+              style={styles.restoreButton}
+              onPress={restorePurchases}
+            >
+              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* Cancel Subscription */}
-        {isProUser && subscription?.status === 'active' && (
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={handleCancelSubscription}
-          >
-            <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
-          </TouchableOpacity>
-        )}
+          {isProUser && subscription?.status === 'active' && (
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelSubscription}
+            >
+              <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -222,151 +244,180 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    padding: 20,
   },
   currentPlanCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   currentPlanHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   currentPlanTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 24,
+    fontWeight: '700',
+    marginLeft: 12,
     color: '#1a1a1a',
+    flex: 1,
+  },
+  proBadge: {
+    backgroundColor: '#FFD700',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  proBadgeText: {
+    color: '#1a1a1a',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   subscriptionInfo: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
-    marginBottom: 16,
+    marginBottom: 20,
+    fontStyle: 'italic',
   },
   usageStats: {
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    paddingTop: 16,
+    paddingTop: 20,
   },
   usageTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 16,
     color: '#1a1a1a',
   },
-  usageItem: {
+  usageGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
-  usageLabel: {
-    fontSize: 14,
-    color: '#666',
+  usageItem: {
+    alignItems: 'center',
+    flex: 1,
   },
   usageValue: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  usageLabel: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 24,
     color: '#1a1a1a',
   },
   planCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     borderWidth: 2,
     borderColor: 'transparent',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   proPlanCard: {
     borderColor: '#4CAF50',
-    backgroundColor: '#fafffe',
+    backgroundColor: '#f8fff8',
   },
   currentPlanBorder: {
     borderColor: '#007AFF',
+    backgroundColor: '#f0f8ff',
   },
   planHeader: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   planTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   planName: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1a1a1a',
     marginRight: 8,
+    flex: 1,
   },
   proPlanName: {
     color: '#2E7D32',
   },
   currentBadge: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   currentBadgeText: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   planPrice: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#1a1a1a',
   },
   proPlanPrice: {
     color: '#2E7D32',
   },
   savingsBadge: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  savingsBadgeText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
   },
   featuresContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   featureText: {
-    fontSize: 14,
-    marginLeft: 8,
+    fontSize: 15,
+    marginLeft: 12,
     color: '#666',
     flex: 1,
+    lineHeight: 20,
   },
   proFeatureText: {
     color: '#1a1a1a',
+    fontWeight: '500',
   },
   subscribeButton: {
     backgroundColor: '#f0f0f0',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
   proSubscribeButton: {
@@ -374,34 +425,36 @@ const styles = StyleSheet.create({
   },
   subscribeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#666',
   },
   proSubscribeButtonText: {
     color: 'white',
   },
-  cancelButton: {
-    backgroundColor: '#FF5252',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 16,
+  actionButtons: {
+    marginTop: 8,
   },
-  cancelButtonText: {
+  restoreButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  restoreButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
   },
-  restoreButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
+  cancelButton: {
+    backgroundColor: '#FF5252',
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 16,
   },
-  restoreButtonText: {
+  cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
@@ -409,21 +462,7 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
-  walletSection: {
-    marginTop: 12,
-  },
-  walletHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  walletTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
   bottomSpacing: {
-    height: 32,
+    height: 40,
   },
 });

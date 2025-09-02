@@ -3,6 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import type { SubscriptionPlan, UserSubscription, UsageStats } from '@/types/study';
+import paymentService from '@/utils/payment-service';
 
 const STORAGE_KEYS = {
   SUBSCRIPTION: 'study_buddy_subscription',
@@ -10,10 +11,13 @@ const STORAGE_KEYS = {
 };
 
 // Product IDs for App Store and Google Play
-// These should match your configured products in App Store Connect and Google Play Console
 export const PRODUCT_IDS = {
-  PRO_MONTHLY: 'app.rork.study_buddy_4fpqfs7.subscription.monthly',
-  PRO_YEARLY: 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
+  PRO_MONTHLY: Platform.OS === 'ios' 
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly'
+    : 'study_buddy_pro_monthly',
+  PRO_YEARLY: Platform.OS === 'ios'
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
+    : 'study_buddy_pro_yearly'
 };
 
 // Subscription plans
@@ -90,6 +94,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [isPaymentInitialized, setIsPaymentInitialized] = useState(false);
 
   // Load subscription data
   useEffect(() => {
@@ -241,54 +246,49 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(newStats));
   }, [usageStats]);
 
-  // Initialize in-app purchases (for when you move to custom build)
-  const initializeIAP = useCallback(async () => {
+  // Initialize payment service
+  const initializePayment = useCallback(async () => {
     try {
-      // This is where you'd initialize react-native-iap
-      // For now, we'll simulate available products
-      console.log('IAP initialized (simulated)');
+      // Initialize payment service
+      const success = await paymentService.initialize();
+      setIsPaymentInitialized(success);
       
-      // In real implementation:
-      // await RNIap.initConnection();
-      // const products = await RNIap.getSubscriptions([PRODUCT_IDS.PRO_MONTHLY, PRODUCT_IDS.PRO_YEARLY]);
-      // setAvailableProducts(products);
+      if (success) {
+        // Get available products
+        const products = paymentService.getAvailableProducts();
+        setAvailableProducts(products);
+        
+
+        
+        // Set up payment service callbacks
+        paymentService.onPurchaseSuccess = async (newSubscription) => {
+          setSubscription(newSubscription);
+          await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
+          
+
+        };
+        
+        paymentService.onPurchaseError = (error) => {
+          console.error('Purchase error:', error);
+          Alert.alert('Purchase Error', error);
+        };
+        
+        paymentService.onPurchaseCancelled = () => {
+          // Purchase cancelled by user
+        };
+      }
       
-      // Simulated products for demo
-      setAvailableProducts([
-        { productId: PRODUCT_IDS.PRO_MONTHLY, price: '$9.99', currency: 'USD' },
-        { productId: PRODUCT_IDS.PRO_YEARLY, price: '$99.99', currency: 'USD' }
-      ]);
     } catch (error) {
-      console.error('Failed to initialize IAP:', error);
+      console.error('Failed to initialize payment service:', error);
+      Alert.alert(
+        'Payment Service Unavailable',
+        'Payment service is not available on this device. Please try again later.',
+        [{ text: 'OK', style: 'default' }]
+      );
     }
   }, []);
 
-  // Mock subscribe for demo (remove when implementing real payments)
-  const mockSubscribe = useCallback(async (planId: string) => {
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-    if (!plan || plan.id === 'free') return;
-
-    const startDate = new Date();
-    const endDate = new Date();
-    if (plan.interval === 'monthly') {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    }
-
-    const newSubscription: UserSubscription = {
-      planId,
-      status: 'active',
-      startDate,
-      endDate,
-      autoRenew: true,
-    };
-
-    setSubscription(newSubscription);
-    await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
-  }, []);
-
-  // Subscribe to plan with real payment processing
+  // Subscribe to plan with payment service
   const subscribeToPlan = useCallback(async (planId: string) => {
     const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
     if (!plan || plan.id === 'free' || !plan.productId) return;
@@ -297,63 +297,69 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     
     try {
       if (Platform.OS === 'web') {
-        // For web, redirect to Stripe or other web payment processor
         Alert.alert(
-          'Web Payment',
-          'Web payments would redirect to Stripe checkout. This is a demo.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Demo Subscribe', onPress: () => mockSubscribe(planId) }
-          ]
+          'Mobile Only',
+          'Subscriptions are only available on mobile devices. Please use the mobile app to subscribe.',
+          [{ text: 'OK', style: 'default' }]
         );
         return;
       }
 
-      // For mobile platforms, use in-app purchases
-      // In real implementation with react-native-iap:
-      /*
-      const purchase = await RNIap.requestSubscription({
-        sku: plan.productId,
-        ...(Platform.OS === 'android' && {
-          subscriptionOffers: [{
-            sku: plan.productId,
-            offerToken: 'your_offer_token'
-          }]
-        })
-      });
-      
-      // Verify purchase with your backend
-      const verificationResult = await trpcClient.subscription.verifyPurchase.mutate({
-        platform: Platform.OS,
-        purchaseToken: purchase.purchaseToken,
-        productId: purchase.productId,
-        transactionId: purchase.transactionId
-      });
-      
-      if (verificationResult.success) {
-        // Update local subscription state
-        setSubscription(verificationResult.subscription);
-        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(verificationResult.subscription));
+      if (!isPaymentInitialized) {
+        Alert.alert(
+          'Payment Service Not Ready',
+          'Payment service is still initializing. Please wait a moment and try again.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
       }
-      */
-      
-      // For demo purposes, show alert and mock subscribe
-      Alert.alert(
-        'Purchase Subscription',
-        `This would process payment for ${plan.name} (${plan.productId}) via ${Platform.OS === 'ios' ? 'Apple Pay' : 'Google Pay'}. This is a demo.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Demo Purchase', onPress: () => mockSubscribe(planId) }
-        ]
-      );
+
+      const planKey = planId === 'pro_monthly' ? 'pro_monthly' : 'pro_yearly';
+      await paymentService.purchaseSubscription(planKey);
       
     } catch (error) {
       console.error('Subscription error:', error);
-      Alert.alert('Error', 'Failed to process subscription. Please try again.');
+      
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled') || error.message.includes('user cancelled')) {
+          // User cancelled purchase - no alert needed
+          console.log('Purchase cancelled by user');
+        } else if (error.message.includes('not available')) {
+          Alert.alert(
+            'Product Not Available',
+            'This subscription plan is not available in the store. Please try a different plan.',
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else if (error.message.includes('network')) {
+          Alert.alert(
+            'Network Error',
+            'Please check your internet connection and try again.',
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else if (error.message.includes('not initialized')) {
+          Alert.alert(
+            'Payment Service Not Ready',
+            'Please wait a moment and try again.',
+            [{ text: 'OK', style: 'default' }]
+          );
+        } else {
+          Alert.alert(
+            'Purchase Error',
+            error.message || 'There was an issue processing your purchase. Please try again.',
+            [{ text: 'OK', style: 'default' }]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Purchase Error',
+          'There was an issue processing your purchase. Please try again.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      }
     } finally {
       setIsProcessingPayment(false);
     }
-  }, [mockSubscribe]);
+  }, [isPaymentInitialized]);
 
   // Cancel subscription
   const cancelSubscription = useCallback(async () => {
@@ -382,45 +388,78 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     }
   }, [subscription]);
 
-  // Restore purchases (important for iOS)
+  // Restore purchases
   const restorePurchases = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      // In real implementation:
-      /*
-      const purchases = await RNIap.getAvailablePurchases();
-      
-      for (const purchase of purchases) {
-        // Verify each purchase with your backend
-        const verificationResult = await trpcClient.subscription.verifyPurchase.mutate({
-          platform: Platform.OS,
-          purchaseToken: purchase.purchaseToken,
-          productId: purchase.productId,
-          transactionId: purchase.transactionId
-        });
-        
-        if (verificationResult.success && verificationResult.subscription) {
-          setSubscription(verificationResult.subscription);
-          await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(verificationResult.subscription));
-          break; // Use the most recent active subscription
-        }
+      if (Platform.OS === 'web') {
+        Alert.alert(
+          'Mobile Only',
+          'Purchase restoration is only available on mobile devices.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
       }
-      */
+
+      const restoredSubscriptions = await paymentService.restorePurchases();
       
-      Alert.alert('Restore Purchases', 'This would restore your previous purchases. Demo only.');
+      if (restoredSubscriptions.length === 0) {
+        Alert.alert(
+          'No Purchases Found',
+          'No previous purchases were found to restore.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
+      // Use the most recent active subscription
+      const activeSubscription = restoredSubscriptions.find(sub => 
+        sub.status === 'active' && new Date() <= sub.endDate
+      );
+
+      if (activeSubscription) {
+        setSubscription(activeSubscription);
+        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(activeSubscription));
+        
+        Alert.alert(
+          'Purchases Restored! 🎉',
+          `Your ${activeSubscription.planId === 'pro_monthly' ? 'Pro Monthly' : 'Pro Yearly'} subscription has been restored.`,
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        Alert.alert(
+          'No Active Subscriptions',
+          'No active subscriptions were found to restore.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      }
+      
     } catch (error) {
       console.error('Restore purchases error:', error);
-      Alert.alert('Error', 'Failed to restore purchases.');
+      Alert.alert(
+        'Restore Error',
+        'Failed to restore purchases. Please try again or contact support.',
+        [{ text: 'OK', style: 'default' }]
+      );
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Initialize IAP on mount
+  // Initialize payment service on mount
   useEffect(() => {
-    initializeIAP();
-  }, [initializeIAP]);
+    if (Platform.OS !== 'web') {
+      initializePayment();
+    }
+  }, [initializePayment]);
+
+  // Cleanup payment service on unmount
+  useEffect(() => {
+    return () => {
+      paymentService.cleanup();
+    };
+  }, []);
 
   return useMemo(() => ({
     subscription,
@@ -428,6 +467,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     isLoading,
     isProcessingPayment,
     availableProducts,
+    isPaymentInitialized,
     getCurrentPlan,
     canCreateNote,
     canGenerateFlashcards,
@@ -440,6 +480,6 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     subscribeToPlan,
     cancelSubscription,
     restorePurchases,
-    initializeIAP,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, subscribeToPlan, cancelSubscription, restorePurchases, initializeIAP]);
+    initializePayment,
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
 });

@@ -15,18 +15,15 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     
     const loadProfile = async () => {
       try {
-        console.log('Loading user profile from storage...');
         const profileData = await AsyncStorage.getItem(STORAGE_KEY);
         
         if (profileData && isMounted) {
           try {
             const parsed = JSON.parse(profileData);
-            console.log('Parsed profile data:', parsed);
             
             // Simple validation
             if (parsed && typeof parsed.isOnboardingComplete === 'boolean') {
               if (isMounted) {
-                console.log('Setting valid profile data');
                 setProfile(parsed);
               }
             } else {
@@ -42,7 +39,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
             }
           }
         } else {
-          console.log('No profile data found, user needs onboarding');
           if (isMounted) {
             setProfile(null);
           }
@@ -54,7 +50,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
         }
       } finally {
         if (isMounted) {
-          console.log('Profile loading complete, setting isLoading to false');
           setIsLoading(false);
         }
       }
@@ -71,7 +66,6 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (isLoading) {
-        console.warn('Profile loading timeout, forcing completion');
         setIsLoading(false);
       }
     }, 2000);

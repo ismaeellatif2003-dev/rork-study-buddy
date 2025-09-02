@@ -83,7 +83,6 @@ export default function ScanNotesScreen() {
         throw new Error('Failed to capture image');
       }
 
-      console.log('Photo captured, extracting text...');
       const text = await AIService.extractTextFromImage(photo.base64);
       
       if (!text || text.trim().length === 0) {

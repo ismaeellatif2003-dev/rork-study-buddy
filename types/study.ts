@@ -42,11 +42,14 @@ export interface SubscriptionPlan {
 }
 
 export interface UserSubscription {
+  id: string;
   planId: string;
   status: 'active' | 'expired' | 'cancelled';
   startDate: Date;
   endDate: Date;
   autoRenew: boolean;
+  transactionId?: string;
+  originalTransactionId?: string;
 }
 
 export interface UsageStats {

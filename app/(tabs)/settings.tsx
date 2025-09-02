@@ -74,7 +74,7 @@ export default function SettingsScreen() {
   }
 
   if (!profile && !isLoading) {
-    console.log('Settings: No profile found. Showing setup CTA. Onboarding complete?', isOnboardingComplete);
+    // No profile found, showing setup CTA
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -87,8 +87,7 @@ export default function SettingsScreen() {
             testID="settings-start-onboarding"
             accessibilityRole="button"
             onPress={() => {
-              console.log('Settings: Navigating to onboarding');
-              router.push('/onboarding');
+                  router.push('/onboarding');
             }}
             style={styles.primaryCta}
           >

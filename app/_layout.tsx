@@ -124,23 +124,18 @@ export default function RootLayout() {
     
     const initializeApp = async () => {
       try {
-        console.log('🚀 App initialization starting...');
-        
         // Simple initialization
         await new Promise(resolve => setTimeout(resolve, 100));
         
         if (isMounted) {
-          console.log('🎯 Setting app ready...');
           setIsAppReady(true);
           
           // Hide splash after app is ready
           setTimeout(async () => {
             try {
-              console.log('🎯 Hiding splash screen...');
               await SplashScreen.hideAsync();
-              console.log('✅ Splash screen hidden successfully');
             } catch (error) {
-              console.error('❌ Error hiding splash screen:', error);
+              console.error('Error hiding splash screen:', error);
             }
           }, 100);
         }
@@ -165,7 +160,7 @@ export default function RootLayout() {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (!isAppReady) {
-        console.warn('⚠️ App initialization timeout, forcing ready state');
+        console.warn('App initialization timeout, forcing ready state');
         setIsAppReady(true);
       }
     }, 3000);

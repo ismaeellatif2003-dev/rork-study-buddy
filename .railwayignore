@@ -1,0 +1,6 @@
+# Ignore everything except backend
+*
+!backend/
+!backend/**
+!railway.json
+!package.json

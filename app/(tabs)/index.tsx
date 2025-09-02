@@ -28,14 +28,9 @@ export default function NotesScreen() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
-  console.log('NotesScreen render - profileLoading:', profileLoading, 'studyLoading:', studyLoading, 'isOnboardingComplete:', isOnboardingComplete);
-
   useEffect(() => {
-    console.log('NotesScreen mounted');
-    
     // Navigate to onboarding if profile is not complete
     if (!profileLoading && !isOnboardingComplete) {
-      console.log('Navigating to onboarding - profile not complete');
       router.push('/onboarding');
     }
   }, [profileLoading, isOnboardingComplete]);

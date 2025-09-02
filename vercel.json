@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "backend/hono.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/hono.ts"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

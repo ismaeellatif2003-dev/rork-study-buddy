@@ -11,11 +11,17 @@ interface AIMessage {
 
 export class AIService {
   private static readonly API_BASE = 'https://toolkit.rork.com';
+  private static readonly USE_MOCK = true; // Set to false when backend is ready
 
   static async generateText(messages: AIMessage[]): Promise<string> {
     // Validate input
     if (!Array.isArray(messages) || messages.length === 0) {
       throw new Error('Invalid messages array provided');
+    }
+    
+    // Use mock responses for development
+    if (this.USE_MOCK) {
+      return this.getMockResponse(messages);
     }
     
     try {
@@ -69,6 +75,30 @@ export class AIService {
     }
   }
 
+  private static getMockResponse(messages: AIMessage[]): string {
+    const lastMessage = messages[messages.length - 1];
+    const content = typeof lastMessage.content === 'string' ? lastMessage.content : '';
+    
+    // Check if it's a flashcard request
+    if (content.includes('flashcard') || content.includes('question') || content.includes('answer')) {
+      return JSON.stringify([
+        { question: "What is the main topic?", answer: "The main topic is the primary subject being discussed." },
+        { question: "Define key concept", answer: "A key concept is a fundamental idea or principle." },
+        { question: "What are the steps?", answer: "The steps are the sequential actions or processes." },
+        { question: "Why is this important?", answer: "This is important because it provides essential knowledge." },
+        { question: "How does it work?", answer: "It works through a systematic process or mechanism." }
+      ]);
+    }
+    
+    // Check if it's a summary request
+    if (content.includes('summarize') || content.includes('summary')) {
+      return "This is a mock summary of the provided content. Key points include:\n• Main concept overview\n• Important details\n• Key takeaways\n• Related concepts";
+    }
+    
+    // Default response
+    return "This is a mock AI response. The actual AI service will be available when the backend is properly configured.";
+  }
+
   static async summarizeNotes(content: string): Promise<string> {
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       throw new Error('Invalid content provided for summarization');
@@ -113,7 +143,6 @@ export class AIService {
     ];
 
     const response = await this.generateText(messages);
-    console.log('Raw flashcards response:', response);
     
     try {
       // Clean the response by removing markdown code blocks and extra whitespace
@@ -139,8 +168,6 @@ export class AIService {
         }
       }
       
-      console.log('Cleaned flashcards response:', cleanedResponse);
-      
       const flashcards = JSON.parse(cleanedResponse);
       if (Array.isArray(flashcards) && flashcards.length > 0) {
         // Validate that each flashcard has question and answer with appropriate length
@@ -165,7 +192,6 @@ export class AIService {
     }
 
     // Fallback: parse text format
-    console.log('Using fallback parsing for flashcards');
     const lines = response.split('\n').filter(line => line.trim());
     const flashcards: { question: string; answer: string }[] = [];
     
