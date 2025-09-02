@@ -11,7 +11,7 @@ interface AIMessage {
 
 export class AIService {
   private static readonly API_BASE = 'https://rork-study-buddy-production.up.railway.app';
-  private static readonly USE_MOCK = true; // Temporarily enabled for TestFlight testing
+  private static readonly USE_MOCK = false; // Back to using real backend
 
   static async generateText(messages: AIMessage[]): Promise<string> {
     // Validate input
