@@ -4,5 +4,9 @@
     "builder": "DOCKERFILE",
     "dockerfilePath": "railway-backend/Dockerfile"
   },
-  "rootDirectory": "railway-backend"
+  "deploy": {
+    "startCommand": "npm start",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
 }
