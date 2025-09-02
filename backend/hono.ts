@@ -3,6 +3,17 @@ import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
+import OpenAI from 'openai';
+
+// Initialize OpenRouter client
+const openai = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY || '',
+  defaultHeaders: {
+    'HTTP-Referer': 'https://rork-study-buddy-production-eeeb.up.railway.app',
+    'X-Title': 'Study Buddy App',
+  },
+});
 
 // app will be mounted at /api
 const app = new Hono();
@@ -40,7 +51,7 @@ app.get("/metrics", (c) => {
   });
 });
 
-// OpenRouter AI Text Generation endpoint
+// OpenRouter AI Text Generation endpoint using SDK
 app.post("/ai/generate", async (c) => {
   try {
     const body = await c.req.json();
@@ -83,35 +94,18 @@ app.post("/ai/generate", async (c) => {
         systemPrompt = 'You are a helpful study assistant. Provide clear, educational responses.';
     }
 
-    // Call OpenRouter API
-    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://rork-study-buddy-production.up.railway.app',
-        'X-Title': 'Study Buddy App'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages
-        ],
-        max_tokens: type === 'flashcards' ? 1000 : 500,
-        temperature: 0.7
-      })
+    // Use OpenRouter SDK instead of raw fetch
+    const completion = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ],
+      max_tokens: type === 'flashcards' ? 1000 : 500,
+      temperature: 0.7
     });
 
-    if (!openRouterResponse.ok) {
-      const errorText = await openRouterResponse.text();
-      console.error('OpenRouter API error:', openRouterResponse.status, errorText);
-      throw new Error(`OpenRouter API failed: ${openRouterResponse.status}`);
-    }
-
-    const openRouterData = await openRouterResponse.json();
-    const aiResponse = openRouterData.choices?.[0]?.message?.content;
-
+    const aiResponse = completion.choices[0]?.message?.content;
     if (!aiResponse) {
       throw new Error('No response from OpenRouter API');
     }
@@ -137,7 +131,7 @@ app.post("/ai/generate", async (c) => {
       type,
       model,
       timestamp: new Date().toISOString(),
-      source: 'OpenRouter'
+      source: 'OpenRouter SDK'
     });
 
   } catch (error) {
@@ -155,7 +149,7 @@ app.post("/ai/generate", async (c) => {
   }
 });
 
-// AI Flashcard endpoint
+// AI Flashcard endpoint using SDK
 app.post("/ai/flashcards", async (c) => {
   try {
     const body = await c.req.json();
@@ -182,38 +176,27 @@ app.post("/ai/flashcards", async (c) => {
       });
     }
 
-    // Call OpenRouter for flashcard generation
-    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://rork-study-buddy-production.up.railway.app',
-        'X-Title': 'Study Buddy App'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are an expert study assistant. Generate flashcards from the provided content. Return ONLY a valid JSON array with "question" and "answer" fields. Keep questions under 100 characters and answers under 200 characters.' 
-          },
-          { 
-            role: 'user', 
-            content: `Generate ${count} flashcards from this content: ${content}` 
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
+    // Use OpenRouter SDK for flashcard generation
+    const completion = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an expert study assistant. Generate flashcards from the provided content. Return ONLY a valid JSON array with "question" and "answer" fields. Keep questions under 100 characters and answers under 200 characters.' 
+        },
+        { 
+          role: 'user', 
+          content: `Generate ${count} flashcards from this content: ${content}` 
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
     });
 
-    if (!openRouterResponse.ok) {
-      throw new Error(`OpenRouter API failed: ${openRouterResponse.status}`);
+    const aiResponse = completion.choices[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('No response from OpenRouter API');
     }
-
-    const openRouterData = await openRouterResponse.json();
-    const aiResponse = openRouterData.choices?.[0]?.message?.content;
 
     let flashcards;
     try {
@@ -234,7 +217,7 @@ app.post("/ai/flashcards", async (c) => {
       flashcards,
       count: flashcards.length,
       timestamp: new Date().toISOString(),
-      source: 'OpenRouter'
+      source: 'OpenRouter SDK'
     });
 
   } catch (error) {
@@ -288,7 +271,8 @@ app.get("/", (c) => {
     },
     ai: {
       provider: "OpenRouter",
-      status: process.env.OPENROUTER_API_KEY ? "Configured" : "Not configured (using mock responses)"
+      status: process.env.OPENROUTER_API_KEY ? "Configured" : "Not configured (using mock responses)",
+      sdk: "OpenAI SDK v4"
     }
   });
 });
