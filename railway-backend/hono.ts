@@ -165,6 +165,16 @@ app.post("/ai/flashcards", async (c) => {
       return c.json({ error: 'Content is required' }, 400);
     }
 
+    // Validate content length and quality
+    if (content.trim().length < 20) {
+      return c.json({ error: 'Content is too short. Please provide more detailed content for better flashcards.' }, 400);
+    }
+
+    // Ensure count is reasonable
+    if (count < 1 || count > 20) {
+      count = Math.min(Math.max(count, 1), 20);
+    }
+
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     if (!openRouterKey) {
       // Fallback to mock responses
@@ -188,15 +198,35 @@ app.post("/ai/flashcards", async (c) => {
       messages: [
         { 
           role: 'system', 
-          content: 'You are an expert study assistant. Generate flashcards from the provided content. Return ONLY a valid JSON array with "question" and "answer" fields. Keep questions under 100 characters and answers under 200 characters.' 
+          content: `You are an expert study assistant specializing in creating high-quality educational flashcards. 
+
+CRITICAL REQUIREMENTS:
+1. You MUST generate EXACTLY ${count} flashcards - no more, no less
+2. Each flashcard must have a "question" and "answer" field
+3. Questions should be clear, specific, and test understanding
+4. Answers should be detailed, educational, and explain concepts clearly
+5. Cover different aspects of the content (definitions, examples, processes, relationships)
+6. Use ONLY the content provided - do not make up information
+7. Return ONLY a valid JSON array with exactly ${count} flashcards
+
+JSON FORMAT (exactly ${count} items):
+[
+  {"question": "What is...?", "answer": "Detailed explanation..."},
+  {"question": "How does...?", "answer": "Comprehensive answer..."},
+  {"question": "Why is...?", "answer": "Detailed explanation..."},
+  {"question": "When does...?", "answer": "Comprehensive answer..."},
+  {"question": "Where is...?", "answer": "Detailed explanation..."}
+]
+
+IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.` 
         },
         { 
           role: 'user', 
-          content: `Generate ${count} flashcards from this content: ${content}` 
+          content: `Generate ${count} detailed, high-quality flashcards from this content: ${content}` 
         }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
+      max_tokens: 2000,
+      temperature: 0.3
     });
 
     const aiResponse = completion.choices[0]?.message?.content;
@@ -210,7 +240,31 @@ app.post("/ai/flashcards", async (c) => {
       if (!Array.isArray(flashcards)) {
         throw new Error('Response is not an array');
       }
+      
+      // Validate flashcard structure and ensure we have the right count
+      const validFlashcards = flashcards.filter(card => 
+        card && 
+        typeof card.question === 'string' && 
+        typeof card.answer === 'string' &&
+        card.question.trim().length > 0 &&
+        card.answer.trim().length > 0
+      );
+      
+      if (validFlashcards.length === 0) {
+        throw new Error('No valid flashcards generated');
+      }
+      
+      // If we don't have enough flashcards, generate more or use what we have
+      if (validFlashcards.length < count) {
+        console.log(`Generated ${validFlashcards.length} flashcards, requested ${count}`);
+        // Use what we have, but log the difference
+      }
+      
+      flashcards = validFlashcards;
+      
     } catch (e) {
+      console.error('Flashcard parsing error:', e);
+      console.error('AI Response:', aiResponse);
       // Fallback to mock flashcards if parsing fails
       flashcards = Array.from({ length: Math.min(count, 10) }, (_, i) => ({
         question: `Question ${i + 1} about the content`,
