@@ -1,7 +1,6 @@
 # Only include backend files, ignore everything else
 *
-!index.js
-!hono.js
+!*.ts
 !package.json
 !trpc/
 !trpc/**

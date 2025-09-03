@@ -10,15 +10,18 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "allowJs": true,
-    "declaration": false
+    "allowJs": false,
+    "declaration": false,
+    "removeComments": false,
+    "sourceMap": false
   },
   "include": [
-    "hono.ts",
-    "trpc/**/*"
+    "*.ts",
+    "trpc/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "*.js"
   ]
 }
