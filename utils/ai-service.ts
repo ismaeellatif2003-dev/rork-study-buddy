@@ -219,41 +219,10 @@ Note: This is a test response. Real OCR will extract actual text from your image
     return this.generateText(messages);
   }
 
-  static async extractTextFromImage(imageBase64: string): Promise<string> {
-    try {
-      const response = await fetch(`${this.API_BASE}/ai/ocr`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ imageBase64 }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`OCR request failed: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      if (!data || !data.success) {
-        throw new Error('Invalid response format from OCR service');
-      }
-      
-      return data.extractedText || 'No text extracted from image';
-    } catch (error) {
-      console.error('OCR Service Error:', error);
-      
-      // Fallback to mock response if OCR fails
-      if (this.USE_MOCK) {
-        return this.getMockOCRResponse();
-      }
-      
-      throw new Error('Failed to extract text from image. Please try again with a clearer image.');
-    }
-  }
-
   static async extractTextFromImageFile(imageFile: File): Promise<string> {
     try {
+      console.log('Processing image file:', imageFile.name, 'Size:', imageFile.size, 'Type:', imageFile.type);
+      
       const formData = new FormData();
       formData.append('image', imageFile);
       formData.append('model', 'openai/gpt-4o');
@@ -265,10 +234,13 @@ Note: This is a test response. Real OCR will extract actual text from your image
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('OCR API Error:', response.status, errorText);
         throw new Error(`OCR request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('OCR Response:', data);
+      
       if (!data || !data.success) {
         throw new Error('Invalid response format from OCR service');
       }
@@ -276,6 +248,44 @@ Note: This is a test response. Real OCR will extract actual text from your image
       return data.extractedText || 'No text extracted from image';
     } catch (error) {
       console.error('OCR File Service Error:', error);
+      
+      // Fallback to mock response if OCR fails
+      if (this.USE_MOCK) {
+        return this.getMockOCRResponse();
+      }
+      
+      throw new Error('Failed to extract text from image. Please try again with a clearer image.');
+    }
+  }
+
+  static async extractTextFromImage(imageBase64: string): Promise<string> {
+    try {
+      console.log('Processing base64 image, length:', imageBase64.length);
+      
+      const response = await fetch(`${this.API_BASE}/ai/ocr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageBase64 }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('OCR API Error:', response.status, errorText);
+        throw new Error(`OCR request failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('OCR Response:', data);
+      
+      if (!data || !data.success) {
+        throw new Error('Invalid response format from OCR service');
+      }
+      
+      return data.extractedText || 'No text extracted from image';
+    } catch (error) {
+      console.error('OCR Service Error:', error);
       
       // Fallback to mock response if OCR fails
       if (this.USE_MOCK) {

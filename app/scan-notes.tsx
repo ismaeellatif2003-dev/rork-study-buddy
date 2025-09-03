@@ -74,55 +74,110 @@ export default function ScanNotesScreen() {
 
     try {
       setIsProcessing(true);
+      setCurrentStep('processing');
+      
+      // Show processing feedback
+      console.log('Starting image capture...');
+      
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false, // Don't get base64, we'll send the file directly
+        skipProcessing: false, // Ensure proper image processing
       });
 
       if (!photo?.uri) {
         throw new Error('Failed to capture image');
       }
 
-      // Convert the photo URI to a file object
-      const response = await fetch(photo.uri);
-      const blob = await response.blob();
+      console.log('Photo captured:', photo.uri, 'Size:', photo.width, 'x', photo.height);
+
+      // Platform-specific file handling
+      let imageFile: File | null = null;
       
-      // Create a file object from the blob
-      const imageFile = new File([blob], 'scanned-note.jpg', { type: 'image/jpeg' });
-      
-      const text = await AIService.extractTextFromImageFile(imageFile);
-      
-      if (!text || text.trim().length === 0) {
-        Alert.alert('No Text Found', 'Could not extract any text from the image. Please try again with better lighting or a clearer image.');
-        return;
+      if (Platform.OS === 'web') {
+        // Web platform - convert URI to File object
+        try {
+          console.log('Processing for web platform...');
+          const response = await fetch(photo.uri);
+          const blob = await response.blob();
+          imageFile = new File([blob], 'scanned-note.jpg', { type: 'image/jpeg' });
+          console.log('File created for web:', imageFile.name, 'Size:', imageFile.size);
+        } catch (error) {
+          console.error('Error converting URI to File on web:', error);
+          throw new Error('Failed to process image for web platform');
+        }
+      } else {
+        // Mobile platforms - use the URI directly
+        try {
+          console.log('Processing for mobile platform...');
+          // For mobile, we'll use the base64 approach as fallback
+          const base64Photo = await cameraRef.current.takePictureAsync({
+            quality: 0.8,
+            base64: true,
+            skipProcessing: false,
+          });
+          
+          if (base64Photo?.base64) {
+            console.log('Base64 image captured, length:', base64Photo.base64.length);
+            const text = await AIService.extractTextFromImage(base64Photo.base64);
+            handleOCRResult(text);
+            return;
+          }
+        } catch (error) {
+          console.error('Error with base64 approach:', error);
+          throw new Error('Failed to process image on mobile platform');
+        }
       }
 
-      // Check if the response is a mock response
-      if (text.includes('mock OCR response') || text.includes('Mock OCR')) {
-        Alert.alert(
-          'OCR Service in Test Mode', 
-          'The OCR service is currently using test responses. For real text extraction, the backend needs to be configured with an OpenRouter API key. You can still test the app flow with the sample text.',
-          [
-            { text: 'Use Test Response', onPress: () => {
-              setExtractedText(text);
-              setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
-              setCurrentStep('review');
-            }},
-            { text: 'Try Again', onPress: () => setCurrentStep('camera') }
-          ]
-        );
-        return;
+      // If we have a File object (web), use the file-based approach
+      if (imageFile) {
+        console.log('Using file-based OCR approach...');
+        const text = await AIService.extractTextFromImageFile(imageFile);
+        handleOCRResult(text);
+      } else {
+        throw new Error('Failed to create image file for processing');
       }
-
-      setExtractedText(text);
-      setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
-      setCurrentStep('review');
+      
     } catch (error) {
       console.error('Error processing image:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to process image');
+      setCurrentStep('camera');
+      Alert.alert(
+        'OCR Error', 
+        error instanceof Error ? error.message : 'Failed to process image. Please try again with better lighting or a clearer image.',
+        [{ text: 'OK', onPress: () => {} }]
+      );
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleOCRResult = (text: string) => {
+    if (!text || text.trim().length === 0) {
+      Alert.alert('No Text Found', 'Could not extract any text from the image. Please try again with better lighting or a clearer image.');
+      setCurrentStep('camera');
+      return;
+    }
+
+    // Check if the response is a mock response
+    if (text.includes('mock OCR response') || text.includes('Mock OCR')) {
+      Alert.alert(
+        'OCR Service in Test Mode', 
+        'The OCR service is currently using test responses. For real text extraction, the backend needs to be configured with an OpenRouter API key. You can still test the app flow with the sample text.',
+        [
+          { text: 'Use Test Response', onPress: () => {
+            setExtractedText(text);
+            setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
+            setCurrentStep('review');
+          }},
+          { text: 'Try Again', onPress: () => setCurrentStep('camera') }
+        ]
+      );
+      return;
+    }
+
+    setExtractedText(text);
+    setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
+    setCurrentStep('review');
   };
 
   const enhanceWithAI = async () => {
@@ -197,7 +252,7 @@ export default function ScanNotesScreen() {
   const generateFlashcardsFromNote = async (noteId: string, content: string) => {
     try {
       const userContext = getEducationContext();
-      const flashcardsData = await AIService.generateFlashcards(content, true, userContext);
+      const flashcardsData = await AIService.generateFlashcards(content, 5);
       const flashcards = flashcardsData.map(card => ({
         noteId,
         question: card.question,
@@ -280,6 +335,29 @@ export default function ScanNotesScreen() {
         </TouchableOpacity>
       </View>
     </View>
+  );
+
+  const renderProcessingView = () => (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.processingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.processingTitle}>Processing Image...</Text>
+        <Text style={styles.processingDescription}>
+          Extracting text from your notes using AI vision
+        </Text>
+        <View style={styles.processingSteps}>
+          <Text style={styles.processingStep}>1. Analyzing image quality</Text>
+          <Text style={styles.processingStep}>2. Detecting text regions</Text>
+          <Text style={styles.processingStep}>3. Extracting and processing text</Text>
+        </View>
+        <View style={styles.processingTips}>
+          <Text style={styles.processingTipTitle}>💡 Tips for Better Results:</Text>
+          <Text style={styles.processingTip}>• Ensure good lighting</Text>
+          <Text style={styles.processingTip}>• Keep text clear and readable</Text>
+          <Text style={styles.processingTip}>• Avoid shadows and glare</Text>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 
   const renderReviewView = () => (
@@ -388,6 +466,8 @@ export default function ScanNotesScreen() {
 
   if (currentStep === 'camera') {
     return renderCameraView();
+  } else if (currentStep === 'processing') {
+    return renderProcessingView();
   } else if (currentStep === 'review') {
     return renderReviewView();
   } else if (currentStep === 'enhance') {
@@ -658,5 +738,51 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  processingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  processingTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginTop: 24,
+    textAlign: 'center',
+  },
+  processingDescription: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 24,
+  },
+  processingSteps: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  processingStep: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  processingTips: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  processingTipTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  processingTip: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
 });
