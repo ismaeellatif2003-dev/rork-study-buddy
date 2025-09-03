@@ -355,6 +355,12 @@ app.post("/ai/ocr", async (c) => {
     }
 
     const openRouterKey = process.env.OPENROUTER_API_KEY;
+    console.log('OCR endpoint - API key check:', {
+      hasKey: !!openRouterKey,
+      keyLength: openRouterKey ? openRouterKey.length : 0,
+      keyPrefix: openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'none'
+    });
+    
     if (!openRouterKey) {
       // Fallback to mock OCR response
       return c.json({ 
@@ -408,12 +414,18 @@ app.post("/ai/ocr", async (c) => {
 
     } catch (ocrError) {
       console.error('OCR API error:', ocrError);
+      console.error('OCR API error details:', {
+        message: ocrError instanceof Error ? ocrError.message : 'Unknown error',
+        stack: ocrError instanceof Error ? ocrError.stack : undefined,
+        name: ocrError instanceof Error ? ocrError.name : 'Unknown'
+      });
       // Fallback to mock OCR response
       return c.json({ 
         success: true, 
         extractedText: getMockOCRResponse(),
         timestamp: new Date().toISOString(),
-        note: 'Using mock OCR response due to API error'
+        note: `Using mock OCR response due to API error: ${ocrError instanceof Error ? ocrError.message : 'Unknown error'}`,
+        error: ocrError instanceof Error ? ocrError.message : 'Unknown error'
       });
     }
 
