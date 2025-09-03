@@ -1,11 +1,5 @@
-# Ignore everything except backend files
-*
-!*.ts
-!*.js
-!package*.json
-!tsconfig.json
-!trpc/
-!trpc/**
-!.railwayignore
-!railway.json
-!Dockerfile
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
