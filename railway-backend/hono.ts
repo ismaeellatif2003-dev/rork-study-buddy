@@ -84,7 +84,7 @@ app.post("/ai/generate", async (c) => {
 
     if (hasImages) {
       // Use a multimodal model for image processing
-      const multimodalModel = 'openai/gpt-4o-mini'; // Supports images
+      const multimodalModel = 'openai/gpt-4o'; // Full GPT-4 for better image processing
       
       try {
         const completion = await openai.chat.completions.create({
@@ -348,7 +348,7 @@ IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.`
 app.post("/ai/ocr", async (c) => {
   try {
     const body = await c.req.json();
-    const { imageBase64, model = 'openai/gpt-4o-mini' } = body;
+    const { imageBase64, model = 'openai/gpt-4o' } = body;
 
     if (!imageBase64) {
       return c.json({ error: 'No image data provided' }, 400);
