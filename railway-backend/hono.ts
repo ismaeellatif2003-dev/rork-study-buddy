@@ -372,32 +372,109 @@ app.post("/ai/ocr", async (c) => {
     }
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes. If no text is visible, respond with "No readable text found in the image."'
-          },
-          {
-            role: 'user',
-            content: [
+      // Try different image formats
+      let completion;
+      let lastError = null;
+      
+      // First try with detail: 'low'
+      try {
+        completion = await openai.chat.completions.create({
+          model: model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes. If no text is visible, respond with "No readable text found in the image."'
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please extract all text from this image of notes:'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
+                    detail: 'low'
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000,
+          temperature: 0.1
+        });
+      } catch (error) {
+        lastError = error;
+        console.log(`First attempt failed with detail: 'low', trying without detail...`);
+        
+        // Try without detail parameter
+        try {
+          completion = await openai.chat.completions.create({
+            model: model,
+            messages: [
               {
-                type: 'text',
-                text: 'Please extract all text from this image of notes:'
+                role: 'system',
+                content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes. If no text is visible, respond with "No readable text found in the image."'
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`
-                }
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Please extract all text from this image of notes:'
+                  },
+                  {
+                    type: 'image_url',
+                    image_url: {
+                      url: `data:image/jpeg;base64,${imageBase64}`
+                    }
+                  }
+                ]
               }
-            ]
+            ],
+            max_tokens: 1000,
+            temperature: 0.1
+          });
+        } catch (secondError) {
+          lastError = secondError;
+          console.log(`Second attempt also failed, trying with different model...`);
+          
+          // Try with gpt-4o-mini as fallback
+          try {
+            completion = await openai.chat.completions.create({
+              model: 'openai/gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes. If no text is visible, respond with "No readable text found in the image."'
+                },
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Please extract all text from this image of notes:'
+                    },
+                    {
+                      type: 'image_url',
+                      image_url: {
+                        url: `data:image/jpeg;base64,${imageBase64}`
+                      }
+                    }
+                  ]
+                }
+              ],
+              max_tokens: 1000,
+              temperature: 0.1
+            });
+          } catch (thirdError) {
+            lastError = thirdError;
+            throw lastError;
           }
-        ],
-        max_tokens: 1000,
-        temperature: 0.1
-      });
+        }
+      }
 
       const extractedText = completion.choices[0]?.message?.content;
       if (!extractedText) {
