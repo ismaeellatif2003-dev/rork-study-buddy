@@ -2,6 +2,7 @@
 *
 !package*.json
 !*.ts
+!tsconfig.json
 !trpc/
 !trpc/**
 !.dockerignore

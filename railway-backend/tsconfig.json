@@ -13,15 +13,16 @@
     "allowJs": false,
     "declaration": false,
     "removeComments": false,
-    "sourceMap": false
+    "sourceMap": false,
+    "moduleResolution": "node"
   },
   "include": [
-    "*.ts",
+    "index.ts",
+    "hono.ts",
     "trpc/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "*.js"
+    "dist"
   ]
 }

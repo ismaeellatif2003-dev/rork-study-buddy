@@ -8,11 +8,14 @@ COPY package*.json ./
 # Install dependencies (including dev dependencies for build)
 RUN npm install --legacy-peer-deps
 
+# Copy TypeScript configuration
+COPY tsconfig.json ./
+
 # Copy all backend files
 COPY . .
 
-# Build TypeScript to JavaScript
-RUN npm run build
+# Build TypeScript to JavaScript (explicitly specify tsconfig)
+RUN npx tsc --project tsconfig.json
 
 # Remove dev dependencies to reduce image size
 RUN npm prune --production
