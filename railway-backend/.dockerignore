@@ -1,8 +1,11 @@
-# Only include essential backend files
+# Ignore everything except backend files
 *
-!package*.json
 !*.ts
+!*.js
+!package*.json
 !tsconfig.json
 !trpc/
 !trpc/**
-!.dockerignore
+!.railwayignore
+!railway.json
+!Dockerfile

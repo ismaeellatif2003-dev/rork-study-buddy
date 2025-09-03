@@ -1,6 +1,3 @@
-# Only include backend files, ignore everything else
-*
-!*.ts
-!package.json
-!trpc/
-!trpc/**
+# Force Railway to use Dockerfile instead of Nixpacks
+.nixpacks
+nixpacks.toml
