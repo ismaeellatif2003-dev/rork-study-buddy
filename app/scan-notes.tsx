@@ -93,10 +93,15 @@ export default function ScanNotesScreen() {
       // Check if the response is a mock response
       if (text.includes('mock OCR response') || text.includes('Mock OCR')) {
         Alert.alert(
-          'OCR Service Unavailable', 
-          'The OCR service is not currently configured. Please check your backend configuration or try again later.',
+          'OCR Service in Test Mode', 
+          'The OCR service is currently using test responses. For real text extraction, the backend needs to be configured with an OpenRouter API key. You can still test the app flow with the sample text.',
           [
-            { text: 'OK', onPress: () => setCurrentStep('camera') }
+            { text: 'Use Test Response', onPress: () => {
+              setExtractedText(text);
+              setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
+              setCurrentStep('review');
+            }},
+            { text: 'Try Again', onPress: () => setCurrentStep('camera') }
           ]
         );
         return;

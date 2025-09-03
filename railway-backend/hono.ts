@@ -445,7 +445,27 @@ function getMockResponse(type: string) {
 
 // Helper function for mock OCR responses
 function getMockOCRResponse() {
-  return "This is a mock OCR response. The actual OCR service will be available when OpenRouter is configured.";
+  return `Sample Scanned Notes (Test Mode)
+
+📚 Study Session Notes
+Date: ${new Date().toISOString().split('T')[0]}
+
+🔍 Key Concepts:
+• Photosynthesis: Process by which plants convert light energy into chemical energy
+• Cellular respiration: Breakdown of glucose to produce ATP
+• Mitosis: Cell division process for growth and repair
+
+📝 Important Details:
+- Chloroplasts contain chlorophyll for light absorption
+- Mitochondria are the powerhouse of the cell
+- DNA replication occurs during S phase of cell cycle
+
+💡 Study Tips:
+1. Review diagrams and flowcharts
+2. Practice with flashcards
+3. Connect concepts to real-world examples
+
+Note: This is a test response. Real OCR will extract actual text from your images when OpenRouter is configured.`;
 }
 
 // Root endpoint
