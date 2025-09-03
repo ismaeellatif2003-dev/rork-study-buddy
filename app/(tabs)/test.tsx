@@ -11,12 +11,147 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Play, CheckCircle, XCircle, Trophy, Clock, Target, ArrowRight, RotateCcw } from 'lucide-react-native';
+import { Play, CheckCircle, XCircle, Trophy, Clock, Target, ArrowRight, RotateCcw, ChevronLeft } from 'lucide-react-native';
 import colors from '@/constants/colors';
 import { useStudy } from '@/hooks/study-store';
 import type { TestSession, TestAnswer, TestResult, NoteTestResult, Flashcard } from '@/types/study';
 
 type TestMode = 'selection' | 'testing' | 'results';
+
+// Enhanced answer checking function that's more flexible
+const checkAnswer = (userAnswer: string, correctAnswer: string): { isCorrect: boolean; confidence: number; reason: string } => {
+  const user = userAnswer.toLowerCase().trim();
+  const correct = correctAnswer.toLowerCase().trim();
+  
+  // Exact match (highest confidence)
+  if (user === correct) {
+    return { isCorrect: true, confidence: 1.0, reason: 'Exact match!' };
+  }
+  
+  // Check if user answer contains key words from correct answer
+  const correctWords = correct.split(/\s+/).filter(word => word.length > 2);
+  const userWords = user.split(/\s+/);
+  
+  let matchingWords = 0;
+  let totalKeyWords = correctWords.length;
+  
+  for (const word of correctWords) {
+    if (userWords.some(userWord => userWord.includes(word) || word.includes(userWord))) {
+      matchingWords++;
+    }
+  }
+  
+  // Calculate confidence based on word matching
+  const wordConfidence = totalKeyWords > 0 ? matchingWords / totalKeyWords : 0;
+  
+  // Bonus for concise answers that contain key concepts
+  let conciseBonus = 0;
+  if (user.split(/\s+/).length <= 3 && wordConfidence >= 0.5) {
+    conciseBonus = 0.1; // 10% bonus for concise but accurate answers
+  }
+  
+  // Check for partial matches (e.g., "photosynthesis" vs "photo synthesis")
+  const userNormalized = user.replace(/\s+/g, '');
+  const correctNormalized = correct.replace(/\s+/g, '');
+  
+  let partialConfidence = 0;
+  if (userNormalized.length > 0 && correctNormalized.length > 0) {
+    const longer = Math.max(userNormalized.length, correctNormalized.length);
+    const shorter = Math.min(userNormalized.length, correctNormalized.length);
+    
+    // Check if one is contained within the other
+    if (userNormalized.includes(correctNormalized) || correctNormalized.includes(userNormalized)) {
+      partialConfidence = shorter / longer;
+    }
+  }
+  
+  // Check for synonym-like matches (common variations)
+  let synonymConfidence = 0;
+  const commonSynonyms = [
+    ['photosynthesis', 'photo synthesis', 'photo-synthesis'],
+    ['mitochondria', 'mitochondrion'],
+    ['nucleus', 'nuclei'],
+    ['cell', 'cells'],
+    ['process', 'processes'],
+    ['function', 'functions'],
+    ['structure', 'structures'],
+    ['energy', 'energetic'],
+    ['molecule', 'molecular'],
+    ['atom', 'atomic'],
+    ['chemical', 'chemistry'],
+    ['biological', 'biology'],
+    ['physical', 'physics'],
+    ['mathematical', 'mathematics'],
+    ['historical', 'history'],
+    ['geographical', 'geography'],
+    ['political', 'politics'],
+    ['economic', 'economics'],
+    ['social', 'society'],
+    ['cultural', 'culture'],
+    // Common abbreviations and variations
+    ['dna', 'deoxyribonucleic acid'],
+    ['rna', 'ribonucleic acid'],
+    ['atp', 'adenosine triphosphate'],
+    ['adp', 'adenosine diphosphate'],
+    ['nad', 'nicotinamide adenine dinucleotide'],
+    ['fad', 'flavin adenine dinucleotide'],
+    ['co2', 'carbon dioxide'],
+    ['h2o', 'water'],
+    ['o2', 'oxygen'],
+    ['n2', 'nitrogen'],
+    ['ph', 'ph level', 'acidity'],
+    ['temp', 'temperature'],
+    ['vol', 'volume'],
+    ['wt', 'weight'],
+    ['amt', 'amount'],
+    ['qty', 'quantity'],
+    ['info', 'information'],
+    ['calc', 'calculation', 'calculate'],
+    ['eq', 'equation', 'equal'],
+    ['formula', 'formulae', 'formulas']
+  ];
+  
+  for (const [syn1, syn2, syn3] of commonSynonyms) {
+    if ((user.includes(syn1) && (correct.includes(syn2) || correct.includes(syn3))) ||
+        (user.includes(syn2) && correct.includes(syn1)) ||
+        (user.includes(syn3) && correct.includes(syn1))) {
+      synonymConfidence = 0.8;
+      break;
+    }
+  }
+  
+  // Use the highest confidence between word matching, partial matching, and synonyms
+  let confidence = Math.max(wordConfidence, partialConfidence, synonymConfidence);
+  
+  // Apply concise bonus
+  confidence = Math.min(1.0, confidence + conciseBonus);
+  
+  // Mark as correct if confidence is above threshold (lowered to 50% for more flexibility)
+  const isCorrect = confidence >= 0.5; // 50% threshold for being "along the right lines"
+  
+  let reason = '';
+  if (isCorrect) {
+    if (confidence >= 0.9) {
+      reason = 'Excellent answer! Very close to perfect.';
+    } else if (confidence >= 0.8) {
+      reason = 'Great answer! You understand the key concepts.';
+    } else if (confidence >= 0.7) {
+      reason = 'Good answer! You\'re on the right track.';
+    } else if (confidence >= 0.5) {
+      reason = 'Good answer! You captured the main ideas.';
+    }
+  } else {
+    if (confidence >= 0.4) {
+      reason = 'Close! Try to include more key concepts.';
+    } else if (confidence >= 0.2) {
+      reason = 'You have some right ideas, but need more details.';
+    } else {
+      reason = 'Try to focus on the key concepts from the question.';
+    }
+  }
+  
+  return { isCorrect, confidence, reason };
+};
 
 export default function TestScreen() {
   const { notes, flashcards } = useStudy();
@@ -28,6 +163,7 @@ export default function TestScreen() {
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [questionStartTime, setQuestionStartTime] = useState<Date>(new Date());
   const [fadeAnim] = useState(new Animated.Value(1));
+  const [answerFeedback, setAnswerFeedback] = useState<{ isCorrect: boolean; confidence: number; reason: string } | null>(null);
 
   const availableNotes = useMemo(() => {
     return notes.filter(note => {
@@ -79,19 +215,22 @@ export default function TestScreen() {
 
     const currentFlashcard = currentSession.flashcards[currentSession.currentIndex];
     const timeSpent = Date.now() - questionStartTime.getTime();
-    const isCorrect = currentAnswer.toLowerCase().trim() === currentFlashcard.answer.toLowerCase().trim();
+    
+    // Use enhanced answer checking
+    const feedback = checkAnswer(currentAnswer, currentFlashcard.answer);
+    setAnswerFeedback(feedback);
 
     const answer: TestAnswer = {
       flashcardId: currentFlashcard.id,
       userAnswer: currentAnswer,
-      isCorrect,
+      isCorrect: feedback.isCorrect,
       timeSpent,
     };
 
     const updatedSession = {
       ...currentSession,
       answers: [...currentSession.answers, answer],
-      score: currentSession.score + (isCorrect ? 1 : 0),
+      score: currentSession.score + (feedback.isCorrect ? 1 : 0),
     };
 
     setCurrentSession(updatedSession);
@@ -258,6 +397,27 @@ export default function TestScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.testHeader}>
+          <View style={styles.testHeaderTop}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => {
+                Alert.alert(
+                  'Exit Test?',
+                  'Are you sure you want to exit? Your progress will be lost.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Exit', style: 'destructive', onPress: resetTest }
+                  ]
+                );
+              }}
+            >
+              <ChevronLeft color={colors.primary} size={24} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.scoreText}>Score: {currentSession.score}</Text>
+          </View>
+          
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -266,7 +426,6 @@ export default function TestScreen() {
               {currentSession.currentIndex + 1} of {currentSession.totalQuestions}
             </Text>
           </View>
-          <Text style={styles.scoreText}>Score: {currentSession.score}</Text>
         </View>
 
         <Animated.View style={[styles.testContent, { opacity: fadeAnim }]}>
@@ -310,15 +469,31 @@ export default function TestScreen() {
               </View>
 
               <View style={styles.resultIndicator}>
-                {currentSession.answers[currentSession.answers.length - 1]?.isCorrect ? (
+                {answerFeedback?.isCorrect ? (
                   <>
                     <CheckCircle size={32} color={colors.success} />
                     <Text style={styles.resultText}>Correct!</Text>
+                    <Text style={styles.feedbackText}>{answerFeedback.reason}</Text>
+                    {answerFeedback.confidence < 1.0 && (
+                      <View style={styles.confidenceContainer}>
+                        <Text style={styles.confidenceLabel}>Accuracy:</Text>
+                        <Text style={styles.confidenceValue}>
+                          {Math.round(answerFeedback.confidence * 100)}%
+                        </Text>
+                      </View>
+                    )}
                   </>
                 ) : (
                   <>
                     <XCircle size={32} color={colors.error} />
                     <Text style={styles.resultText}>Incorrect</Text>
+                    <Text style={styles.feedbackText}>{answerFeedback?.reason}</Text>
+                    <View style={styles.confidenceContainer}>
+                      <Text style={styles.confidenceLabel}>Accuracy:</Text>
+                      <Text style={styles.confidenceValue}>
+                        {Math.round((answerFeedback?.confidence || 0) * 100)}%
+                      </Text>
+                    </View>
                   </>
                 )}
               </View>
@@ -556,6 +731,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  testHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
+  },
   progressContainer: {
     marginBottom: 12,
   },
@@ -689,6 +880,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
     color: colors.text,
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  confidenceText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  confidenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: colors.cardBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  confidenceLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginRight: 6,
+    fontWeight: '500',
+  },
+  confidenceValue: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '700',
   },
   nextButton: {
     backgroundColor: colors.primary,
