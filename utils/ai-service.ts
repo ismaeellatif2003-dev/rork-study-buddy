@@ -252,9 +252,51 @@ Note: This is a test response. Real OCR will extract actual text from your image
     }
   }
 
+  static async extractTextFromImageFile(imageFile: File): Promise<string> {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      formData.append('model', 'openai/gpt-4o');
+
+      const response = await fetch(`${this.API_BASE}/ai/ocr`, {
+        method: 'POST',
+        body: formData, // Send as multipart form data
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`OCR request failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data || !data.success) {
+        throw new Error('Invalid response format from OCR service');
+      }
+      
+      return data.extractedText || 'No text extracted from image';
+    } catch (error) {
+      console.error('OCR File Service Error:', error);
+      
+      // Fallback to mock response if OCR fails
+      if (this.USE_MOCK) {
+        return this.getMockOCRResponse();
+      }
+      
+      throw new Error('Failed to extract text from image. Please try again with a clearer image.');
+    }
+  }
+
   static async generateFlashcardsFromImage(imageBase64: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
     // First extract text from the image
     const extractedText = await this.extractTextFromImage(imageBase64);
+    
+    // Then generate flashcards from the extracted text
+    return this.generateFlashcards(extractedText, useAIEnhancement, userContext);
+  }
+
+  static async generateFlashcardsFromImageFile(imageFile: File, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {
+    // First extract text from the image file
+    const extractedText = await this.extractTextFromImageFile(imageFile);
     
     // Then generate flashcards from the extracted text
     return this.generateFlashcards(extractedText, useAIEnhancement, userContext);

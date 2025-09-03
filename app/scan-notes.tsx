@@ -76,14 +76,21 @@ export default function ScanNotesScreen() {
       setIsProcessing(true);
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
-        base64: true,
+        base64: false, // Don't get base64, we'll send the file directly
       });
 
-      if (!photo?.base64) {
+      if (!photo?.uri) {
         throw new Error('Failed to capture image');
       }
 
-      const text = await AIService.extractTextFromImage(photo.base64);
+      // Convert the photo URI to a file object
+      const response = await fetch(photo.uri);
+      const blob = await response.blob();
+      
+      // Create a file object from the blob
+      const imageFile = new File([blob], 'scanned-note.jpg', { type: 'image/jpeg' });
+      
+      const text = await AIService.extractTextFromImageFile(imageFile);
       
       if (!text || text.trim().length === 0) {
         Alert.alert('No Text Found', 'Could not extract any text from the image. Please try again with better lighting or a clearer image.');

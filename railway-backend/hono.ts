@@ -347,10 +347,57 @@ IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.`
 // OCR endpoint specifically for extracting text from images
 app.post("/ai/ocr", async (c) => {
   try {
-    const body = await c.req.json();
-    const { imageBase64, model = 'openai/gpt-4o' } = body;
+    // Handle both file upload and base64 (for backward compatibility)
+    let imageData: string | null = null;
+    let model = 'openai/gpt-4o';
+    
+    // Check if it's a multipart form upload
+    const contentType = c.req.header('content-type') || '';
+    
+    if (contentType.includes('multipart/form-data')) {
+      // Handle file upload
+      try {
+        const formData = await c.req.formData();
+        const imageFile = formData.get('image') as any;
+        const modelParam = formData.get('model') as string;
+        
+        if (!imageFile) {
+          return c.json({ error: 'No image file provided' }, 400);
+        }
+        
+        if (modelParam) {
+          model = modelParam;
+        }
+        
+        // Convert file to base64 for OpenRouter
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        imageData = buffer.toString('base64');
+        
+        console.log('File upload received:', {
+          fileName: imageFile.name,
+          fileSize: imageFile.size,
+          fileType: imageFile.type,
+          model: model
+        });
+        
+      } catch (formError) {
+        console.error('Form data parsing error:', formError);
+        return c.json({ error: 'Failed to parse form data' }, 400);
+      }
+    } else {
+      // Handle JSON with base64 (backward compatibility)
+      try {
+        const body = await c.req.json();
+        imageData = body.imageBase64;
+        model = body.model || 'openai/gpt-4o';
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError);
+        return c.json({ error: 'Invalid request format' }, 400);
+      }
+    }
 
-    if (!imageBase64) {
+    if (!imageData) {
       return c.json({ error: 'No image data provided' }, 400);
     }
 
@@ -395,7 +442,7 @@ app.post("/ai/ocr", async (c) => {
                 {
                   type: 'image_url',
                   image_url: {
-                    url: `data:image/jpeg;base64,${imageBase64}`,
+                    url: `data:image/jpeg;base64,${imageData}`,
                     detail: 'low'
                   }
                 }
@@ -428,7 +475,7 @@ app.post("/ai/ocr", async (c) => {
                   {
                     type: 'image_url',
                     image_url: {
-                      url: `data:image/jpeg;base64,${imageBase64}`
+                      url: `data:image/jpeg;base64,${imageData}`
                     }
                   }
                 ]
@@ -460,7 +507,7 @@ app.post("/ai/ocr", async (c) => {
                     {
                       type: 'image_url',
                       image_url: {
-                        url: `data:image/jpeg;base64,${imageBase64}`
+                        url: `data:image/jpeg;base64,${imageData}`
                       }
                     }
                   ]
