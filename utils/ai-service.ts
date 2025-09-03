@@ -153,6 +153,10 @@ export class AIService {
     }));
   }
 
+  private static getMockOCRResponse(): string {
+    return "This is a mock OCR response. The actual OCR service will be available when the backend is properly configured with OpenRouter API key.";
+  }
+
   static async summarizeNotes(content: string): Promise<string> {
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       throw new Error('Invalid content provided for summarization');
@@ -196,27 +200,36 @@ export class AIService {
   }
 
   static async extractTextFromImage(imageBase64: string): Promise<string> {
-    const messages: AIMessage[] = [
-      {
-        role: 'system',
-        content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes.',
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Please extract all text from this image of notes:'
-          },
-          {
-            type: 'image',
-            image: imageBase64
-          }
-        ],
-      },
-    ];
+    try {
+      const response = await fetch(`${this.API_BASE}/ai/ocr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageBase64 }),
+      });
 
-    return this.generateText(messages);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`OCR request failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data || !data.success) {
+        throw new Error('Invalid response format from OCR service');
+      }
+      
+      return data.extractedText || 'No text extracted from image';
+    } catch (error) {
+      console.error('OCR Service Error:', error);
+      
+      // Fallback to mock response if OCR fails
+      if (this.USE_MOCK) {
+        return this.getMockOCRResponse();
+      }
+      
+      throw new Error('Failed to extract text from image. Please try again with a clearer image.');
+    }
   }
 
   static async generateFlashcardsFromImage(imageBase64: string, useAIEnhancement: boolean = false, userContext?: string): Promise<{ question: string; answer: string }[]> {

@@ -90,6 +90,18 @@ export default function ScanNotesScreen() {
         return;
       }
 
+      // Check if the response is a mock response
+      if (text.includes('mock OCR response') || text.includes('Mock OCR')) {
+        Alert.alert(
+          'OCR Service Unavailable', 
+          'The OCR service is not currently configured. Please check your backend configuration or try again later.',
+          [
+            { text: 'OK', onPress: () => setCurrentStep('camera') }
+          ]
+        );
+        return;
+      }
+
       setExtractedText(text);
       setNoteTitle(`Scanned Notes - ${new Date().toLocaleDateString()}`);
       setCurrentStep('review');
@@ -228,6 +240,9 @@ export default function ScanNotesScreen() {
             <View style={styles.scanFrame} />
             <Text style={styles.scanInstructions}>
               Position your notes within the frame and tap the capture button
+            </Text>
+            <Text style={styles.scanTip}>
+              💡 Tip: Ensure good lighting and clear handwriting for better text extraction
             </Text>
           </View>
         </CameraView>
@@ -495,6 +510,15 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 40,
     fontWeight: '500',
+  },
+  scanTip: {
+    color: colors.cardBackground,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 40,
+    fontWeight: '400',
+    opacity: 0.9,
   },
   cameraControls: {
     position: 'absolute',

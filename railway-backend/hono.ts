@@ -76,6 +76,52 @@ app.post("/ai/generate", async (c) => {
       });
     }
 
+    // Check if this is a multimodal request (contains images)
+    const hasImages = messages.some(msg => 
+      Array.isArray(msg.content) && 
+      msg.content.some((part: any) => part.type === 'image')
+    );
+
+    if (hasImages) {
+      // Use a multimodal model for image processing
+      const multimodalModel = 'openai/gpt-4o-mini'; // Supports images
+      
+      try {
+        const completion = await openai.chat.completions.create({
+          model: multimodalModel,
+          messages: messages as any, // Type assertion for multimodal messages
+          max_tokens: 1000,
+          temperature: 0.3
+        });
+
+        const aiResponse = completion.choices[0]?.message?.content;
+        if (!aiResponse) {
+          throw new Error('No response from multimodal API');
+        }
+
+        return c.json({ 
+          success: true, 
+          response: aiResponse,
+          type: 'multimodal',
+          model: multimodalModel,
+          timestamp: new Date().toISOString(),
+          source: 'OpenRouter Multimodal SDK'
+        });
+      } catch (multimodalError) {
+        console.error('Multimodal API error:', multimodalError);
+        // Fallback to mock response for image processing
+        return c.json({ 
+          success: true, 
+          response: getMockResponse(type),
+          type: 'multimodal',
+          model: multimodalModel,
+          timestamp: new Date().toISOString(),
+          note: 'Using mock response due to multimodal API error'
+        });
+      }
+    }
+
+    // Handle text-only requests as before
     // Determine the type and create appropriate prompt
     let systemPrompt = 'You are a helpful study assistant.';
     let userPrompt = messages[messages.length - 1]?.content || '';
@@ -144,10 +190,9 @@ app.post("/ai/generate", async (c) => {
     return c.json({ 
       success: true, 
       response: getMockResponse(type),
-      type: type,
+      type,
       timestamp: new Date().toISOString(),
-      note: 'Using mock response due to error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      note: 'Using mock response due to error'
     });
   }
 });
@@ -299,6 +344,89 @@ IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.`
   }
 });
 
+// OCR endpoint specifically for extracting text from images
+app.post("/ai/ocr", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { imageBase64, model = 'openai/gpt-4o-mini' } = body;
+
+    if (!imageBase64) {
+      return c.json({ error: 'No image data provided' }, 400);
+    }
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      // Fallback to mock OCR response
+      return c.json({ 
+        success: true, 
+        extractedText: getMockOCRResponse(),
+        timestamp: new Date().toISOString(),
+        note: 'Using mock OCR response (no OpenRouter API key configured)'
+      });
+    }
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an OCR assistant. Extract all text from the provided image. Focus on handwritten notes, typed text, diagrams with labels, and any other readable content. Return the extracted text in a clean, organized format that preserves the structure and meaning of the original notes. If no text is visible, respond with "No readable text found in the image."'
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Please extract all text from this image of notes:'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.1
+      });
+
+      const extractedText = completion.choices[0]?.message?.content;
+      if (!extractedText) {
+        throw new Error('No response from OCR API');
+      }
+
+      return c.json({ 
+        success: true, 
+        extractedText,
+        model,
+        timestamp: new Date().toISOString(),
+        source: 'OpenRouter Multimodal SDK'
+      });
+
+    } catch (ocrError) {
+      console.error('OCR API error:', ocrError);
+      // Fallback to mock OCR response
+      return c.json({ 
+        success: true, 
+        extractedText: getMockOCRResponse(),
+        timestamp: new Date().toISOString(),
+        note: 'Using mock OCR response due to API error'
+      });
+    }
+
+  } catch (error) {
+    console.error('OCR endpoint error:', error);
+    return c.json({ 
+      success: false, 
+      error: 'Failed to process image',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Helper function for mock responses
 function getMockResponse(type: string) {
   switch (type) {
@@ -315,6 +443,11 @@ function getMockResponse(type: string) {
   }
 }
 
+// Helper function for mock OCR responses
+function getMockOCRResponse() {
+  return "This is a mock OCR response. The actual OCR service will be available when OpenRouter is configured.";
+}
+
 // Root endpoint
 app.get("/", (c) => {
   return c.json({ 
@@ -326,7 +459,8 @@ app.get("/", (c) => {
       trpc: "/trpc",
       ai: {
         generate: "/ai/generate",
-        flashcards: "/ai/flashcards"
+        flashcards: "/ai/flashcards",
+        ocr: "/ai/ocr"
       }
     },
     ai: {
