@@ -44,8 +44,8 @@ The app includes a backend verification system that:
 
 ### Subscription Plans
 - **Free**: 5 notes/month, 25 flashcards/month, 10 AI questions/day
-- **Pro Monthly**: $9.99/month - Unlimited everything
-- **Pro Yearly**: $99.99/year - Unlimited everything + 2 months free
+- **Pro Monthly**: £9.99/month - Unlimited everything
+- **Pro Yearly**: £99.99/year - Unlimited everything + 2 months free
 
 ## Files Structure
 ```

@@ -53,7 +53,7 @@ export default function SubscriptionScreen() {
 
     Alert.alert(
       'Subscribe',
-      `Subscribe to ${plan.name} for $${plan.price.toFixed(2)}/${plan.interval}?`,
+      `Subscribe to ${plan.name} for £${plan.price.toFixed(2)}/${plan.interval}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -81,7 +81,7 @@ export default function SubscriptionScreen() {
 
   const formatPrice = (price: number, interval: string) => {
     if (price === 0) return 'Free';
-    return `$${price.toFixed(2)}/${interval}`;
+    return `£${price.toFixed(2)}/${interval}`;
   };
 
   const getUsageText = (used: number, limit: number) => {
