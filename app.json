@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.rork.study-buddy-4fpqfs7",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
+        "NSCameraUsageDescription": "Study Buddy uses the camera to scan handwritten notes and convert them to digital text. For example, you can take a photo of your lecture notes and the app will extract the text to create searchable digital notes and flashcards.",
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
       }
     },
@@ -45,7 +45,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "cameraPermission": "Study Buddy uses the camera to scan handwritten notes and convert them to digital text. For example, you can take a photo of your lecture notes and the app will extract the text to create searchable digital notes and flashcards.",
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "recordAudioAndroid": true
         }

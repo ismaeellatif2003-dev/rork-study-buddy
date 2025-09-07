@@ -57,12 +57,7 @@ export default function ScanNotesScreen() {
             We need camera access to scan your notes and convert them to text
           </Text>
           <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => {
-            router.replace('/(tabs)');
-          }}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.permissionButtonText}>Continue</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -551,13 +546,6 @@ const styles = StyleSheet.create({
     color: colors.cardBackground,
     fontSize: 16,
     fontWeight: '600',
-  },
-  cancelButton: {
-    marginTop: 16,
-  },
-  cancelButtonText: {
-    color: colors.textSecondary,
-    fontSize: 16,
   },
   cameraContainer: {
     flex: 1,
