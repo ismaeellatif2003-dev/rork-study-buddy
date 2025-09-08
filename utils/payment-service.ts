@@ -17,12 +17,12 @@ import type { UserSubscription } from '@/types/study';
 // Product IDs for different platforms
 const PRODUCT_IDS = {
   PRO_MONTHLY: {
-    ios: 'app.rork.study_buddy_4fpqfs7.subscription.monthly123',
-    android: 'study_buddy_pro_monthly123',
+    ios: 'app.rork.study_buddy_4fpqfs7.subscription.monthly',
+    android: 'study_buddy_pro_monthly',
   },
   PRO_YEARLY: {
-    ios: 'app.rork.study_buddy_4fpqfs7.subscription.yearly123',
-    android: 'study_buddy_pro_yearly123',
+    ios: 'app.rork.study_buddy_4fpqfs7.subscription.yearly',
+    android: 'study_buddy_pro_yearly',
   },
 };
 

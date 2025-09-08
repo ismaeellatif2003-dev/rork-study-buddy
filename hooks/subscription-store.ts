@@ -13,11 +13,11 @@ const STORAGE_KEYS = {
 // Product IDs for App Store and Google Play
 export const PRODUCT_IDS = {
   PRO_MONTHLY: Platform.OS === 'ios' 
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly123'
-    : 'study_buddy_pro_monthly123',
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly'
+    : 'study_buddy_pro_monthly',
   PRO_YEARLY: Platform.OS === 'ios'
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
-    : 'study_buddy_pro_yearly123'
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
+    : 'study_buddy_pro_yearly'
 };
 
 // Subscription plans
