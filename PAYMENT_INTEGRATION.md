@@ -14,15 +14,15 @@ This app uses **React Native IAP** for seamless subscription processing on both 
 
 ### 1. App Store Connect (iOS)
 1. Create subscription products in App Store Connect:
-   - Product ID: `app.rork.study_buddy_4fpqfs7.subscription.monthly`
-   - Product ID: `app.rork.study_buddy_4fpqfs7.subscription.yearly`
+   - Product ID: `app.rork.study_buddy_4fpqfs7.subscription.monthly123`
+   - Product ID: `app.rork.study_buddy_4fpqfs7.subscription.yearly123`
 
 2. Configure subscription groups and pricing
 
 ### 2. Google Play Console (Android)
 1. Create subscription products:
-   - Product ID: `study_buddy_pro_monthly`
-   - Product ID: `study_buddy_pro_yearly`
+   - Product ID: `study_buddy_pro_monthly123`
+   - Product ID: `study_buddy_pro_yearly123`
 
 2. Configure subscription details and pricing
 

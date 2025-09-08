@@ -78,18 +78,18 @@ if (error.message.includes('cancelled') || error.message.includes('user cancelle
 ```typescript
 // Before: Static product IDs
 export const PRODUCT_IDS = {
-  PRO_MONTHLY: 'app.rork.study_buddy_4fpqfs7.subscription.monthly',
-  PRO_YEARLY: 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
+  PRO_MONTHLY: 'app.rork.study_buddy_4fpqfs7.subscription.monthly123',
+  PRO_YEARLY: 'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
 };
 
 // After: Platform-specific product IDs
 export const PRODUCT_IDS = {
   PRO_MONTHLY: Platform.OS === 'ios' 
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly'
-    : 'study_buddy_pro_monthly',
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly123'
+    : 'study_buddy_pro_monthly123',
   PRO_YEARLY: Platform.OS === 'ios'
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
-    : 'study_buddy_pro_yearly'
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
+    : 'study_buddy_pro_yearly123'
 };
 ```
 
