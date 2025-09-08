@@ -122,7 +122,7 @@ async function verifyApplePurchase(input: any) {
 }
 
 // Helper function to verify receipt with Apple
-async function verifyWithApple(url: string, receiptData: string, sharedSecret: string) {
+async function verifyWithApple(url: string, receiptData: string, sharedSecret: string): Promise<any> {
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
