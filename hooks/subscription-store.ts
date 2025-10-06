@@ -102,6 +102,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [isPaymentInitialized, setIsPaymentInitialized] = useState(false);
+  const [isUpdatingSubscription, setIsUpdatingSubscription] = useState(false);
 
   // Load subscription data
   useEffect(() => {
@@ -297,6 +298,12 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         
         // Set up payment service callbacks
         paymentService.onPurchaseSuccess = async (newSubscription) => {
+          if (isUpdatingSubscription) {
+            console.log('Subscription update already in progress, skipping...');
+            return;
+          }
+          
+          setIsUpdatingSubscription(true);
           console.log('Purchase success callback called with:', newSubscription);
           console.log('Setting subscription state...');
           setSubscription(newSubscription);
@@ -306,6 +313,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           
           // No success alert - user will see the updated subscription status on the subscription tab
           console.log('Subscription activated successfully and saved to storage');
+          setIsUpdatingSubscription(false);
         };
         
         paymentService.onPurchaseError = (error) => {
@@ -533,6 +541,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     isProcessingPayment,
     availableProducts,
     isPaymentInitialized,
+    isUpdatingSubscription,
     getCurrentPlan,
     canCreateNote,
     canGenerateFlashcards,
@@ -548,5 +557,5 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     cancelSubscription,
     restorePurchases,
     initializePayment,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
 });

@@ -29,11 +29,15 @@ export default function SubscriptionScreen() {
   const isProUser = currentPlan.id !== 'free';
   const isMobile = Platform.OS !== 'web';
 
-  // Log subscription changes for debugging
+  // Log subscription changes for debugging (debounced to prevent multiple logs)
   useEffect(() => {
-    console.log('Subscription changed in UI:', subscription);
-    console.log('Current plan:', currentPlan);
-    console.log('Is Pro user:', isProUser);
+    const timeoutId = setTimeout(() => {
+      console.log('Subscription changed in UI:', subscription);
+      console.log('Current plan:', currentPlan);
+      console.log('Is Pro user:', isProUser);
+    }, 100); // 100ms debounce
+    
+    return () => clearTimeout(timeoutId);
   }, [subscription, currentPlan, isProUser]);
 
   const handleSubscribe = async (planId: string) => {
