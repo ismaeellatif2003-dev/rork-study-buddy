@@ -60,8 +60,8 @@ const COPY = {
   expandParagraph: 'Expand Paragraph',
   expandAll: 'Expand All',
   copyToClipboard: 'Copy to Clipboard',
-  downloadDocx: 'Download as DOCX',
-  downloadPdf: 'Download as PDF',
+  downloadDocx: 'Download as Text',
+  downloadPdf: 'Download as Text',
   copyWithCitations: 'Copy with Citations',
 };
 
@@ -251,6 +251,35 @@ export default function GroundedEssayWriter() {
   const getNextOrder = (group: 'notes' | 'references') => {
     const groupFiles = files.filter(f => f.group === group);
     return groupFiles.length > 0 ? Math.max(...groupFiles.map(f => f.order)) + 1 : 0;
+  };
+
+  // Generate references list based on citation style
+  const generateReferencesList = () => {
+    if (!includeReferences || citationStyle === 'none') return null;
+    
+    const referenceFiles = files.filter(f => f.group === 'references');
+    if (referenceFiles.length === 0) return null;
+
+    const references = referenceFiles.map((file, index) => {
+      const year = new Date().getFullYear();
+      const author = `Author ${index + 1}`;
+      const title = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+      
+      switch (citationStyle) {
+        case 'apa':
+          return `${author}. (${year}). ${title}. Retrieved from source.`;
+        case 'mla':
+          return `${author}. "${title}." Source, ${year}.`;
+        case 'harvard':
+          return `${author} ${year}, ${title}, Source.`;
+        case 'chicago':
+          return `${author}. "${title}." Source, ${year}.`;
+        default:
+          return `${author}. (${year}). ${title}.`;
+      }
+    });
+
+    return references.join('\n\n');
   };
 
   const stripCitationsFromText = (text: string): string => {
@@ -551,16 +580,27 @@ export default function GroundedEssayWriter() {
   const copyToClipboard = async () => {
     if (!outline) return;
 
+    const essayTitle = thesis || 'Generated Essay';
     const essayText = outline.paragraphs
       .map((p, i) => {
         const text = edits[i] || p.expandedText || '';
         const cleanText = stripCitationsFromText(text);
-        return `**${p.title}**\n\n${cleanText}`;
+        return `${p.title}\n\n${cleanText}`;
       })
-      .join('\n\n');
+      .join('\n\n\n');
+
+    // Add references if they exist and are enabled
+    let fullText = `${essayTitle}\n\n${essayText}`;
+    
+    if (includeReferences && citationStyle !== 'none') {
+      const references = generateReferencesList();
+      if (references) {
+        fullText += `\n\n\nReferences\n\n${references}`;
+      }
+    }
 
     await Share.share({
-      message: essayText,
+      message: fullText,
       title: 'Essay',
     });
   };
@@ -569,27 +609,44 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
+      // Create a proper document structure
+      const essayTitle = thesis || 'Generated Essay';
       const essayText = outline.paragraphs
         .map((p, i) => {
           const text = edits[i] || p.expandedText || '';
           const cleanText = stripCitationsFromText(text);
-          return `**${p.title}**\n\n${cleanText}`;
+          return `${p.title}\n\n${cleanText}`;
         })
-        .join('\n\n');
+        .join('\n\n\n');
 
-      const fileUri = `${FileSystem.documentDirectory}essay.docx`;
-      await FileSystem.writeAsStringAsync(fileUri, essayText);
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
+      }
+
+      // Create a proper filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `essay_${timestamp}.txt`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, fullText);
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          dialogTitle: 'Save Essay as DOCX'
+          mimeType: 'text/plain',
+          dialogTitle: 'Save Essay as Text Document'
         });
       } else {
         Alert.alert('Success', 'Essay saved successfully');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save DOCX file');
+      console.error('Error saving document:', error);
+      Alert.alert('Error', 'Failed to save document');
     }
   };
 
@@ -597,33 +654,51 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
+      // Create a proper document structure
+      const essayTitle = thesis || 'Generated Essay';
       const essayText = outline.paragraphs
         .map((p, i) => {
           const text = edits[i] || p.expandedText || '';
           const cleanText = stripCitationsFromText(text);
-          return `**${p.title}**\n\n${cleanText}`;
+          return `${p.title}\n\n${cleanText}`;
         })
-        .join('\n\n');
+        .join('\n\n\n');
 
-      const fileUri = `${FileSystem.documentDirectory}essay.pdf`;
-      await FileSystem.writeAsStringAsync(fileUri, essayText);
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
+      }
+
+      // Create a proper filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `essay_${timestamp}.txt`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, fullText);
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Save Essay as PDF'
+          mimeType: 'text/plain',
+          dialogTitle: 'Save Essay as Text Document'
         });
       } else {
         Alert.alert('Success', 'Essay saved successfully');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save PDF file');
+      console.error('Error saving document:', error);
+      Alert.alert('Error', 'Failed to save document');
     }
   };
 
   const copyWithCitations = async () => {
     if (!outline) return;
 
+    const essayTitle = thesis || 'Generated Essay';
     const essayWithCitations = outline.paragraphs
       .map((p, i) => {
         let text = edits[i] || p.expandedText || '';
@@ -638,12 +713,22 @@ export default function GroundedEssayWriter() {
           });
         }
 
-        return `**${p.title}**\n\n${text}`;
+        return `${p.title}\n\n${text}`;
       })
-      .join('\n\n');
+      .join('\n\n\n');
+
+    // Add references if they exist and are enabled
+    let fullText = `${essayTitle}\n\n${essayWithCitations}`;
+    
+    if (includeReferences && citationStyle !== 'none') {
+      const references = generateReferencesList();
+      if (references) {
+        fullText += `\n\n\nReferences\n\n${references}`;
+      }
+    }
 
     await Share.share({
-      message: essayWithCitations,
+      message: fullText,
       title: 'Essay with Citations',
     });
   };
@@ -1570,7 +1655,7 @@ export default function GroundedEssayWriter() {
               >
                 <Download size={20} color={colors.cardBackground} />
                 <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadDocx}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Editable format</Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Text document</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -1579,7 +1664,7 @@ export default function GroundedEssayWriter() {
               >
                 <Download size={20} color={colors.cardBackground} />
                 <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadPdf}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Print ready</Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Text document</Text>
               </TouchableOpacity>
               
               {citationStyle !== 'none' && (
