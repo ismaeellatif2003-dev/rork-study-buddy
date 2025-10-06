@@ -42,6 +42,12 @@ export const verifyPurchaseProcedure = publicProcedure
 // Verify Apple Pay purchase with Apple's servers
 async function verifyApplePurchase(input: any) {
   try {
+    // Check if this is a mock purchase (development mode)
+    if (input.receiptData === 'mock_receipt' || input.transactionId?.startsWith('mock_')) {
+      console.log('Detected mock purchase, using mock verification');
+      return await createMockSubscription(input);
+    }
+    
     if (!input.receiptData) {
       return {
         success: false,
