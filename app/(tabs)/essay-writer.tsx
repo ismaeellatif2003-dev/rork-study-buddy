@@ -35,8 +35,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import jsPDF from 'jspdf';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+// PDF and Word generation libraries - will be loaded dynamically
+let jsPDF: any = null;
+let Document: any = null;
+let Packer: any = null;
+let Paragraph: any = null;
+let TextRun: any = null;
+let HeadingLevel: any = null;
 import { mockApi } from '../../services/mockApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
@@ -110,6 +115,24 @@ type Mode = 'grounded' | 'mixed' | 'teach';
 export default function GroundedEssayWriter() {
   // Subscription hooks
   const { canGenerateEssay, trackEssayGeneration } = useSubscription();
+
+  // Global error handler for the component
+  React.useEffect(() => {
+    const originalError = console.error;
+    console.error = (...args) => {
+      // Log the error but don't let it crash the app
+      originalError(...args);
+      
+      // If it's a critical error, show a user-friendly message
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
+        console.warn('Caught error in essay writer:', args[0]);
+      }
+    };
+
+    return () => {
+      console.error = originalError;
+    };
+  }, []);
   
   // State management
   const [currentStep, setCurrentStep] = useState<Step>('materials');
@@ -140,16 +163,47 @@ export default function GroundedEssayWriter() {
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Load PDF/Word libraries dynamically
+  const loadLibraries = async () => {
+    try {
+      // Only load libraries when needed to prevent crashes
+      if (!jsPDF) {
+        const jsPDFModule = await import('jspdf');
+        jsPDF = jsPDFModule.default;
+      }
+      
+      if (!Document) {
+        const docxModule = await import('docx');
+        Document = docxModule.Document;
+        Packer = docxModule.Packer;
+        Paragraph = docxModule.Paragraph;
+        TextRun = docxModule.TextRun;
+        HeadingLevel = docxModule.HeadingLevel;
+      }
+    } catch (error) {
+      console.warn('PDF/Word libraries not available:', error);
+      // Libraries will remain null, fallback functions will be used
+    }
+  };
+
   // Load saved essays on component mount
   React.useEffect(() => {
-    loadSavedEssays();
+    try {
+      loadSavedEssays();
+    } catch (error) {
+      console.error('Error loading saved essays:', error);
+    }
   }, []);
 
   // Cleanup effect to prevent memory leaks
   React.useEffect(() => {
     return () => {
-      // Cleanup any pending timeouts or async operations
-      setShowSavedDocuments(false);
+      try {
+        // Cleanup any pending timeouts or async operations
+        setShowSavedDocuments(false);
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+      }
     };
   }, []);
 
@@ -306,6 +360,51 @@ export default function GroundedEssayWriter() {
     });
 
     return references.join('\n\n');
+  };
+
+  // Fallback text download function
+  const downloadAsText = async () => {
+    if (!outline) return;
+
+    try {
+      const essayTitle = thesis || 'Generated Essay';
+      const essayText = outline.paragraphs
+        .map((p, i) => {
+          const text = edits[i] || p.expandedText || '';
+          const cleanText = stripCitationsFromText(text);
+          return `${p.title}\n\n${cleanText}`;
+        })
+        .join('\n\n\n');
+
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
+      }
+
+      // Create a proper filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `essay_${timestamp}.txt`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, fullText);
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/plain',
+          dialogTitle: 'Save Essay as Text Document'
+        });
+      } else {
+        Alert.alert('Success', 'Essay saved successfully');
+      }
+    } catch (error) {
+      console.error('Error saving text document:', error);
+      Alert.alert('Error', 'Failed to save document');
+    }
   };
 
   const stripCitationsFromText = (text: string): string => {
@@ -635,6 +734,15 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
+      // Load libraries dynamically
+      await loadLibraries();
+      
+      // Check if Word document library is available
+      if (!Document || !Packer || !Paragraph || !TextRun || !HeadingLevel) {
+        Alert.alert('Error', 'Word document generation is not available. Please try downloading as text instead.');
+        return;
+      }
+
       const essayTitle = thesis || 'Generated Essay';
       
       // Create Word document structure
@@ -735,6 +843,15 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
+      // Load libraries dynamically
+      await loadLibraries();
+      
+      // Check if PDF library is available
+      if (!jsPDF) {
+        Alert.alert('Error', 'PDF generation is not available. Please try downloading as text instead.');
+        return;
+      }
+
       const essayTitle = thesis || 'Generated Essay';
       
       // Create PDF document
@@ -1799,21 +1916,29 @@ export default function GroundedEssayWriter() {
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={downloadAsDocx}
+                onPress={Document && Packer ? downloadAsDocx : downloadAsText}
                 style={[styles.exportButton, styles.exportButtonSuccess]}
               >
                 <Download size={20} color={colors.cardBackground} />
-                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadDocx}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Editable format</Text>
+                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+                  {Document && Packer ? COPY.downloadDocx : 'Download as Text'}
+                </Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+                  {Document && Packer ? 'Editable format' : 'Text document'}
+                </Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={downloadAsPdf}
+                onPress={jsPDF ? downloadAsPdf : downloadAsText}
                 style={[styles.exportButton, styles.exportButtonError]}
               >
                 <Download size={20} color={colors.cardBackground} />
-                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadPdf}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Print ready</Text>
+                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+                  {jsPDF ? COPY.downloadPdf : 'Download as Text'}
+                </Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+                  {jsPDF ? 'Print ready' : 'Text document'}
+                </Text>
               </TouchableOpacity>
               
               {citationStyle !== 'none' && (
