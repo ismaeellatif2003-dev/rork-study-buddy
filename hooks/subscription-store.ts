@@ -298,8 +298,14 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         // Set up payment service callbacks
         paymentService.onPurchaseSuccess = async (newSubscription) => {
           console.log('Purchase success callback called with:', newSubscription);
+          console.log('Setting subscription state...');
           setSubscription(newSubscription);
+          console.log('Subscription state set, saving to storage...');
           await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
+          console.log('Subscription saved to storage, forcing re-render...');
+          
+          // Force a re-render by updating a dummy state
+          setSubscription(prev => ({ ...prev, ...newSubscription }));
           
           // No success alert - user will see the updated subscription status on the subscription tab
           console.log('Subscription activated successfully and saved to storage');
