@@ -222,7 +222,7 @@ export default function GroundedEssayWriter() {
 
   // Save current essay
   const saveEssay = async () => {
-    if (!outline || !thesis) {
+    if (!outline || !outline.thesis) {
       Alert.alert('Error', 'No essay to save. Please generate an essay first.');
       return;
     }
@@ -231,8 +231,8 @@ export default function GroundedEssayWriter() {
     try {
       const essayData = {
         id: Date.now().toString(),
-        title: thesis,
-        thesis,
+        title: outline.thesis,
+        thesis: outline.thesis,
         outline,
         files,
         sampleEssay,
@@ -240,6 +240,11 @@ export default function GroundedEssayWriter() {
         academicLevel,
         citationStyle,
         includeReferences,
+        assignmentTitle,
+        essayTopic,
+        prompt,
+        mode,
+        edits,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -261,17 +266,21 @@ export default function GroundedEssayWriter() {
   const loadSavedEssay = (essay: any) => {
     // Use setTimeout to ensure modal is fully dismissed before state changes
     setTimeout(() => {
-      setThesis(essay.thesis);
       setOutline(essay.outline);
       setFiles(essay.files || []);
       setSampleEssay(essay.sampleEssay || null);
-      setWordCount(essay.wordCount || 1000);
+      setWordCount(essay.wordCount || 800);
       setAcademicLevel(essay.academicLevel || 'undergraduate');
-      setCitationStyle(essay.citationStyle || 'apa');
+      setCitationStyle(essay.citationStyle || 'none');
       setIncludeReferences(essay.includeReferences || false);
+      setAssignmentTitle(essay.assignmentTitle || '');
+      setEssayTopic(essay.essayTopic || '');
+      setPrompt(essay.prompt || '');
+      setMode(essay.mode || 'grounded');
+      setEdits(essay.edits || {});
       setCurrentStep('generate');
+      setShowSavedDocuments(false);
     }, 100);
-    setShowSavedDocuments(false);
   };
 
   // Delete a saved essay
@@ -285,6 +294,42 @@ export default function GroundedEssayWriter() {
       console.error('Error deleting essay:', error);
       Alert.alert('Error', 'Failed to delete essay. Please try again.');
     }
+  };
+
+  // Rename a saved essay
+  const renameSavedEssay = async (essayId: string, currentTitle: string) => {
+    Alert.prompt(
+      'Rename Essay',
+      'Enter a new name for this essay:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Rename',
+          onPress: async (newTitle) => {
+            if (!newTitle || newTitle.trim() === '') {
+              Alert.alert('Error', 'Please enter a valid name');
+              return;
+            }
+            
+            try {
+              const updatedEssays = savedEssays.map(essay => 
+                essay.id === essayId 
+                  ? { ...essay, title: newTitle.trim(), updatedAt: new Date().toISOString() }
+                  : essay
+              );
+              setSavedEssays(updatedEssays);
+              await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+              Alert.alert('Success', 'Essay renamed successfully');
+            } catch (error) {
+              console.error('Error renaming essay:', error);
+              Alert.alert('Error', 'Failed to rename essay');
+            }
+          }
+        }
+      ],
+      'plain-text',
+      currentTitle
+    );
   };
 
   // Create new essay
@@ -301,19 +346,28 @@ export default function GroundedEssayWriter() {
             onPress: () => {
               try {
                 // Reset all state in a single batch
-                setThesis('');
-                setOutline(null);
-                setFiles([]);
-                setSampleEssay(null);
-                setWordCount(1000);
+                setAssignmentTitle('');
+                setEssayTopic('');
+                setPrompt('');
+                setWordCount(800);
+                setCustomWordCount('');
                 setAcademicLevel('undergraduate');
-                setCitationStyle('apa');
+                setCitationStyle('none');
                 setIncludeReferences(false);
-                setCurrentStep('materials');
+                setMode('grounded');
+                setIntegrityChecked(false);
+                setOutline(null);
+                setIsGenerating(false);
                 setExpandedParagraphs(new Set());
                 setEdits({});
+                setIsUploading(false);
+                setIsAnalyzingReferences(false);
                 setReferenceAnalysis({});
                 setSmartSelection(null);
+                setFiles([]);
+                setSampleEssay(null);
+                setCurrentStep('materials');
+                setIsSaving(false);
               } catch (error) {
                 console.error('Error creating new essay:', error);
                 Alert.alert('Error', 'Failed to create new essay. Please try again.');
@@ -2146,6 +2200,14 @@ export default function GroundedEssayWriter() {
                       </TouchableOpacity>
                       
                       <TouchableOpacity
+                        onPress={() => renameSavedEssay(essay.id, essay.title)}
+                        style={[styles.savedEssayButton, styles.renameButton]}
+                      >
+                        <Edit3 size={16} color={colors.primary} />
+                        <Text style={styles.renameButtonText}>Rename</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
                         onPress={() => deleteSavedEssay(essay.id)}
                         style={[styles.savedEssayButton, styles.deleteButton]}
                       >
@@ -3278,5 +3340,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.error,
+  },
+  renameButton: {
+    backgroundColor: colors.primary + '20',
+    borderColor: colors.primary,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  renameButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });
