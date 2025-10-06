@@ -34,6 +34,7 @@ import { FileText, Upload, Star, Trash2, Edit3, Download, Copy, CheckCircle, Ale
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // PDF and Word generation libraries - will be loaded dynamically
 let jsPDF: any = null;
@@ -705,29 +706,33 @@ export default function GroundedEssayWriter() {
   const copyToClipboard = async () => {
     if (!outline) return;
 
-    const essayTitle = thesis || 'Generated Essay';
-    const essayText = outline.paragraphs
-      .map((p, i) => {
-        const text = edits[i] || p.expandedText || '';
-        const cleanText = stripCitationsFromText(text);
-        return `${p.title}\n\n${cleanText}`;
-      })
-      .join('\n\n\n');
+    try {
+      const essayTitle = thesis || 'Generated Essay';
+      const essayText = outline.paragraphs
+        .map((p, i) => {
+          const text = edits[i] || p.expandedText || '';
+          const cleanText = stripCitationsFromText(text);
+          return `${p.title}\n\n${cleanText}`;
+        })
+        .join('\n\n\n');
 
-    // Add references if they exist and are enabled
-    let fullText = `${essayTitle}\n\n${essayText}`;
-    
-    if (includeReferences && citationStyle !== 'none') {
-      const references = generateReferencesList();
-      if (references) {
-        fullText += `\n\n\nReferences\n\n${references}`;
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
       }
-    }
 
-    await Share.share({
-      message: fullText,
-      title: 'Essay',
-    });
+      // Actually copy to clipboard
+      await Clipboard.setStringAsync(fullText);
+      Alert.alert('Success', 'Essay copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
   };
 
   const downloadAsDocx = async () => {
@@ -821,7 +826,15 @@ export default function GroundedEssayWriter() {
       const filename = `essay_${timestamp}.docx`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
-      await FileSystem.writeAsStringAsync(fileUri, buffer.toString('base64'), {
+      // Convert buffer to base64 and write
+      // Convert ArrayBuffer to base64 string for React Native
+      const uint8Array = new Uint8Array(buffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64String = btoa(binaryString);
+      await FileSystem.writeAsStringAsync(fileUri, base64String, {
         encoding: FileSystem.EncodingType.Base64
       });
       
