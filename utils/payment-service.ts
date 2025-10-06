@@ -167,6 +167,31 @@ class PaymentService {
     }
   }
 
+  // Create a local subscription for development/testing
+  private createLocalSubscription(purchase: any): UserSubscription {
+    const planId = purchase.productId.includes('yearly') ? 'pro_yearly' : 'pro_monthly';
+    const startDate = new Date();
+    const endDate = new Date();
+    
+    if (planId === 'pro_monthly') {
+      endDate.setMonth(endDate.getMonth() + 1);
+    } else {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    }
+
+    return {
+      id: `sub_${Date.now()}`,
+      planId,
+      status: 'active',
+      startDate,
+      endDate,
+      autoRenew: true,
+      platform: Platform.OS,
+      productId: purchase.productId,
+      transactionId: purchase.transactionId,
+    };
+  }
+
   // Verify purchase with backend
   private async verifyPurchaseWithBackend(purchase: SubscriptionPurchase): Promise<{
     success: boolean;
@@ -198,6 +223,16 @@ class PaymentService {
           };
         } else {
           console.error('Backend verification returned failure:', verificationResult);
+          
+          // In development mode, if verification fails, create a local subscription instead of showing error
+          if (__DEV__) {
+            console.log('Development mode: Creating local subscription despite verification failure');
+            return {
+              success: true,
+              subscription: this.createLocalSubscription(purchase),
+            };
+          }
+          
           return {
             success: false,
             error: verificationResult.error || 'Verification failed',

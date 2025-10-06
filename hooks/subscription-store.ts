@@ -102,7 +102,6 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [isPaymentInitialized, setIsPaymentInitialized] = useState(false);
-  const [hasShownSuccessNotification, setHasShownSuccessNotification] = useState(false);
 
   // Load subscription data
   useEffect(() => {
@@ -291,20 +290,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           setSubscription(newSubscription);
           await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
           
-          // Show success notification only once
-          if (!hasShownSuccessNotification) {
-            setHasShownSuccessNotification(true);
-            Alert.alert(
-              'Subscription Successful! 🎉',
-              'Your subscription has been activated successfully!',
-              [{ text: 'Great!', style: 'default' }]
-            );
-            
-            // Reset the flag after 5 seconds to allow future notifications
-            setTimeout(() => {
-              setHasShownSuccessNotification(false);
-            }, 5000);
-          }
+          // No success alert - user will see the updated subscription status on the subscription tab
+          console.log('Subscription activated successfully');
         };
         
         paymentService.onPurchaseError = (error) => {
