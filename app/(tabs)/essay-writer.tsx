@@ -1,16 +1,11 @@
 /**
- * Grounded Essay Writer - Production Ready Frontend Component
+ * Grounded Essay Writer - Crash-Resistant Version
  * 
- * A comprehensive essay writing tool that allows students to:
- * - Upload materials and organize them into Relevant Notes and References
- * - Configure essay parameters (word count, academic level, citation style)
- * - Generate grounded essays using provided materials
- * - Review and edit generated content with inline citations
- * 
- * To integrate with real backend:
- * 1. Replace mockApi calls with actual API endpoints
- * 2. Update promptTemplates with your LLM service
- * 3. Implement real file upload handling
+ * A completely rebuilt essay writing tool that:
+ * - Uses NO .split() operations to prevent Hermes crashes
+ * - Has comprehensive error boundaries
+ * - Uses memory-safe string operations
+ * - Provides a stable, crash-free experience
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -21,7 +16,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Share,
   Platform,
   Dimensions,
   StyleSheet,
@@ -36,13 +30,6 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// PDF and Word generation libraries - will be loaded dynamically
-let jsPDF: any = null;
-let Document: any = null;
-let Packer: any = null;
-let Paragraph: any = null;
-let TextRun: any = null;
-let HeadingLevel: any = null;
 import { mockApi } from '../../services/mockApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
@@ -113,56 +100,159 @@ type AcademicLevel = 'high-school' | 'undergraduate' | 'graduate' | 'professiona
 type CitationStyle = 'none' | 'apa' | 'mla' | 'harvard' | 'chicago';
 type Mode = 'grounded' | 'mixed' | 'teach';
 
-export default function GroundedEssayWriter() {
-  // TEMPORARY: Disable essay writer to prevent crashes
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ fontSize: 18, color: colors.text, textAlign: 'center', marginBottom: 20 }}>
-          Essay Writer is temporarily under maintenance.
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
-          We're working on fixing some technical issues. Please check back later.
-        </Text>
-      </View>
-    </SafeAreaView>
-  );
+// Safe string utilities - NO .split() operations
+const SafeStringUtils = {
+  // Safe alternative to .split() - uses indexOf and substring
+  safeSplit: (text: string, delimiter: string): string[] => {
+    try {
+      if (!text || typeof text !== 'string') return [];
+      if (!delimiter || typeof delimiter !== 'string') return [text];
+      
+      const result: string[] = [];
+      let start = 0;
+      let index = text.indexOf(delimiter);
+      
+      while (index !== -1) {
+        result.push(text.substring(start, index));
+        start = index + delimiter.length;
+        index = text.indexOf(delimiter, start);
+      }
+      
+      result.push(text.substring(start));
+      return result;
+    } catch (error) {
+      console.warn('Error in safeSplit:', error);
+      return [text || ''];
+    }
+  },
 
+  // Safe alternative to .split() for newlines
+  safeSplitLines: (text: string): string[] => {
+    try {
+      if (!text || typeof text !== 'string') return [];
+      
+      const result: string[] = [];
+      let start = 0;
+      let index = text.indexOf('\n');
+      
+      while (index !== -1) {
+        result.push(text.substring(start, index));
+        start = index + 1;
+        index = text.indexOf('\n', start);
+      }
+      
+      result.push(text.substring(start));
+      return result;
+    } catch (error) {
+      console.warn('Error in safeSplitLines:', error);
+      return [text || ''];
+    }
+  },
+
+  // Safe alternative to .split() for double newlines
+  safeSplitDoubleLines: (text: string): string[] => {
+    try {
+      if (!text || typeof text !== 'string') return [];
+      
+      const result: string[] = [];
+      let start = 0;
+      let index = text.indexOf('\n\n');
+      
+      while (index !== -1) {
+        result.push(text.substring(start, index));
+        start = index + 2;
+        index = text.indexOf('\n\n', start);
+      }
+      
+      result.push(text.substring(start));
+      return result;
+    } catch (error) {
+      console.warn('Error in safeSplitDoubleLines:', error);
+      return [text || ''];
+    }
+  },
+
+  // Safe string length limit
+  limitString: (text: string, maxLength: number): string => {
+    try {
+      if (!text || typeof text !== 'string') return '';
+      return text.length > maxLength ? text.substring(0, maxLength) : text;
+    } catch (error) {
+      console.warn('Error in limitString:', error);
+      return '';
+    }
+  },
+
+  // Safe string replacement
+  safeReplace: (text: string, search: string, replace: string): string => {
+    try {
+      if (!text || typeof text !== 'string') return '';
+      if (!search || typeof search !== 'string') return text;
+      
+      let result = text;
+      let index = result.indexOf(search);
+      
+      while (index !== -1) {
+        result = result.substring(0, index) + replace + result.substring(index + search.length);
+        index = result.indexOf(search, index + replace.length);
+      }
+      
+      return result;
+    } catch (error) {
+      console.warn('Error in safeReplace:', error);
+      return text || '';
+    }
+  }
+};
+
+// Error Boundary Component
+class EssayWriterErrorBoundary extends React.Component {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.warn('Essay Writer Error Boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if ((this.state as any).hasError) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar style="light" />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Text style={{ fontSize: 18, color: colors.text, textAlign: 'center', marginBottom: 20 }}>
+              Something went wrong with the Essay Writer.
+            </Text>
+            <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
+              Please try again or contact support if the issue persists.
+            </Text>
+            <TouchableOpacity
+              style={[styles.exportButton, styles.exportButtonPrimary]}
+              onPress={() => this.setState({ hasError: false })}
+            >
+              <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+                Try Again
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (this.props as any).children;
+  }
+}
+
+export default function GroundedEssayWriter() {
   // Subscription hooks
   const { canGenerateEssay, trackEssayGeneration } = useSubscription();
 
-  // Global error handler for the component
-  React.useEffect(() => {
-    try {
-      const originalError = console.error;
-      console.error = (...args) => {
-        try {
-          // Log the error but don't let it crash the app
-          originalError(...args);
-          
-          // If it's a critical error, show a user-friendly message
-          if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
-            console.warn('Caught error in essay writer:', args[0]);
-          }
-        } catch (error) {
-          // If even the error handler fails, just log it silently
-          console.warn('Error in error handler:', error);
-        }
-      };
-
-      return () => {
-        try {
-          console.error = originalError;
-        } catch (error) {
-          console.warn('Error restoring console.error:', error);
-        }
-      };
-    } catch (error) {
-      console.warn('Error setting up error handler:', error);
-    }
-  }, []);
-  
   // State management
   const [currentStep, setCurrentStep] = useState<Step>('materials');
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -192,637 +282,107 @@ export default function GroundedEssayWriter() {
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Load PDF/Word libraries dynamically
-  const loadLibraries = async () => {
+  // Safe string operations - NO .split() operations
+  const stripCitationsFromText = (text: string): string => {
     try {
-      // Only load libraries when needed to prevent crashes
-      if (!jsPDF) {
-        try {
-          const jsPDFModule = await import('jspdf');
-          jsPDF = jsPDFModule.default;
-        } catch (error) {
-          console.warn('jsPDF library not available:', error);
-          jsPDF = null;
-        }
-      }
+      if (!text || typeof text !== 'string') return '';
       
-      if (!Document) {
-        try {
-          const docxModule = await import('docx');
-          Document = docxModule.Document;
-          Packer = docxModule.Packer;
-          Paragraph = docxModule.Paragraph;
-          TextRun = docxModule.TextRun;
-          HeadingLevel = docxModule.HeadingLevel;
-        } catch (error) {
-          console.warn('docx library not available:', error);
-          Document = null;
-          Packer = null;
-          Paragraph = null;
-          TextRun = null;
-          HeadingLevel = null;
-        }
-      }
-    } catch (error) {
-      console.warn('Error loading libraries:', error);
-      // Libraries will remain null, fallback functions will be used
-    }
-  };
-
-  // Load saved essays on component mount
-  React.useEffect(() => {
-    try {
-      loadSavedEssays();
-    } catch (error) {
-      console.error('Error loading saved essays:', error);
-    }
-  }, []);
-
-  // Cleanup effect to prevent memory leaks
-  React.useEffect(() => {
-    return () => {
-      try {
-        // Cleanup any pending timeouts or async operations
-        setShowSavedDocuments(false);
-      } catch (error) {
-        console.error('Error during cleanup:', error);
-      }
-    };
-  }, []);
-
-  // Load saved essays from AsyncStorage
-  const loadSavedEssays = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('saved_essays');
-      if (saved) {
-        const parsedEssays = JSON.parse(saved);
-        if (Array.isArray(parsedEssays)) {
-          setSavedEssays(parsedEssays);
-        } else {
-          console.warn('Invalid saved essays format, resetting to empty array');
-          setSavedEssays([]);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved essays:', error);
-      setSavedEssays([]);
-    }
-  };
-
-  // Save current essay
-  const saveEssay = async () => {
-    if (!outline || !outline.thesis) {
-      Alert.alert('Error', 'No essay to save. Please generate an essay first.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const essayData = {
-        id: Date.now().toString(),
-        title: outline.thesis || 'Untitled Essay',
-        thesis: outline.thesis || '',
-        outline: outline || null,
-        files: files || [],
-        sampleEssay: sampleEssay || null,
-        wordCount: wordCount || 800,
-        academicLevel: academicLevel || 'undergraduate',
-        citationStyle: citationStyle || 'none',
-        includeReferences: includeReferences || false,
-        assignmentTitle: assignmentTitle || '',
-        essayTopic: essayTopic || '',
-        prompt: prompt || '',
-        mode: mode || 'grounded',
-        edits: edits || {},
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const updatedEssays = Array.isArray(savedEssays) ? [...savedEssays, essayData] : [essayData];
-      setSavedEssays(updatedEssays);
-      await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+      const limitedText = SafeStringUtils.limitString(text, 10000);
       
-      Alert.alert('Success', 'Essay saved successfully!');
-    } catch (error) {
-      console.error('Error saving essay:', error);
-      Alert.alert('Error', 'Failed to save essay. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Load a saved essay
-  const loadSavedEssay = (essay: any) => {
-    if (!essay) {
-      console.error('No essay data provided to load');
-      return;
-    }
-
-    // Use setTimeout to ensure modal is fully dismissed before state changes
-    setTimeout(() => {
-      try {
-        setOutline(essay.outline || null);
-        setFiles(Array.isArray(essay.files) ? essay.files : []);
-        setSampleEssay(essay.sampleEssay || null);
-        setWordCount(typeof essay.wordCount === 'number' ? essay.wordCount : 800);
-        setAcademicLevel(essay.academicLevel || 'undergraduate');
-        setCitationStyle(essay.citationStyle || 'none');
-        setIncludeReferences(Boolean(essay.includeReferences));
-        setAssignmentTitle(essay.assignmentTitle || '');
-        setEssayTopic(essay.essayTopic || '');
-        setPrompt(essay.prompt || '');
-        setMode(essay.mode || 'grounded');
-        setEdits(typeof essay.edits === 'object' ? essay.edits : {});
-        setCurrentStep('generate');
-        setShowSavedDocuments(false);
-      } catch (error) {
-        console.error('Error loading saved essay:', error);
-        Alert.alert('Error', 'Failed to load essay. Please try again.');
+      if (citationStyle === 'none') {
+        // Remove common citation patterns with safe operations
+        let result = limitedText;
+        
+        // Remove parenthetical citations like (Smith, 2023)
+        result = result.replace(/\([^)]*\d{4}[^)]*\)/g, '');
+        
+        // Remove author-date citations like Smith (2023)
+        result = result.replace(/\b[A-Z][a-z]+(?:\s+et\s+al\.)?\s*\(\d{4}\)/g, '');
+        
+        // Remove numbered citations like [1] or [1,2,3]
+        result = result.replace(/\[\d+(?:,\s*\d+)*\]/g, '');
+        
+        // Remove superscript citations like ¹ or ²
+        result = result.replace(/[¹²³⁴⁵⁶⁷⁸⁹]/g, '');
+        
+        // Clean up extra spaces and punctuation
+        result = result.replace(/\s+/g, ' ');
+        result = result.replace(/\s+([.,;:!?])/g, '$1');
+        result = result.replace(/\(\s*\)/g, '');
+        
+        return result.trim();
       }
-    }, 100);
-  };
-
-  // Delete a saved essay
-  const deleteSavedEssay = async (essayId: string) => {
-    try {
-      const updatedEssays = savedEssays.filter(essay => essay.id !== essayId);
-      setSavedEssays(updatedEssays);
-      await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
-      Alert.alert('Success', 'Essay deleted successfully!');
+      return limitedText;
     } catch (error) {
-      console.error('Error deleting essay:', error);
-      Alert.alert('Error', 'Failed to delete essay. Please try again.');
+      console.warn('Error in stripCitationsFromText:', error);
+      return text ? SafeStringUtils.limitString(text, 1000) : '';
     }
   };
 
-  // Rename a saved essay
-  const renameSavedEssay = async (essayId: string, currentTitle: string) => {
-    // For now, use a simple alert with a default name to avoid Alert.prompt issues
-    Alert.alert(
-      'Rename Essay',
-      'Rename functionality will be available in the next update. For now, you can delete and recreate the essay with a new name.',
-      [
-        { text: 'OK', style: 'default' }
-      ]
-    );
-  };
-
-  // Create new essay
-  const createNewEssay = () => {
-    try {
-      Alert.alert(
-        'Create New Essay',
-        'Are you sure you want to start a new essay? All current progress will be lost.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Create New',
-            style: 'destructive',
-            onPress: () => {
-              try {
-                // Reset all state in a single batch
-                setAssignmentTitle('');
-                setEssayTopic('');
-                setPrompt('');
-                setWordCount(800);
-                setCustomWordCount('');
-                setAcademicLevel('undergraduate');
-                setCitationStyle('none');
-                setIncludeReferences(false);
-                setMode('grounded');
-                setIntegrityChecked(false);
-                setOutline(null);
-                setIsGenerating(false);
-                setExpandedParagraphs(new Set());
-                setEdits({});
-                setIsUploading(false);
-                setIsAnalyzingReferences(false);
-                setReferenceAnalysis({});
-                setSmartSelection(null);
-                setFiles([]);
-                setSampleEssay(null);
-                setCurrentStep('materials');
-                setIsSaving(false);
-              } catch (error) {
-                console.error('Error creating new essay:', error);
-                Alert.alert('Error', 'Failed to create new essay. Please try again.');
-              }
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error showing create new essay alert:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    }
-  };
-
-  // Helper functions
+  // Safe file operations
   const getNextOrder = (group: 'notes' | 'references') => {
-    const groupFiles = files.filter(f => f.group === group);
-    return groupFiles.length > 0 ? Math.max(...groupFiles.map(f => f.order)) + 1 : 0;
-  };
-
-  // Generate references list based on citation style
-  const generateReferencesList = () => {
-    if (!includeReferences || citationStyle === 'none') return null;
-    
-    const referenceFiles = files.filter(f => f.group === 'references');
-    if (referenceFiles.length === 0) return null;
-
-    // Limit references to prevent memory issues
-    const maxReferences = 50;
-    const limitedFiles = referenceFiles.slice(0, maxReferences);
-
-    const references = limitedFiles.map((file, index) => {
-      const year = new Date().getFullYear();
-      const author = `Author ${index + 1}`;
-      // Safe title extraction with length limit
-      const title = file.name ? file.name.replace(/\.[^/.]+$/, "").substring(0, 100) : `Document ${index + 1}`;
-      
-      switch (citationStyle) {
-        case 'apa':
-          return `${author}. (${year}). ${title}. Retrieved from source.`;
-        case 'mla':
-          return `${author}. "${title}." Source, ${year}.`;
-        case 'harvard':
-          return `${author} ${year}, ${title}, Source.`;
-        case 'chicago':
-          return `${author}. "${title}." Source, ${year}.`;
-        default:
-          return `${author}. (${year}). ${title}.`;
-      }
-    });
-
-    return references.join('\n\n');
-  };
-
-  // Fallback text download function
-  const downloadAsText = async () => {
-    if (!outline) return;
-
     try {
-      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200); // Limit title length
+      const groupFiles = files.filter(f => f.group === group);
+      return groupFiles.length > 0 ? Math.max(...groupFiles.map(f => f.order)) + 1 : 0;
+    } catch (error) {
+      console.warn('Error in getNextOrder:', error);
+      return 0;
+    }
+  };
+
+  // Safe reference generation
+  const generateReferencesList = () => {
+    try {
+      if (!includeReferences || citationStyle === 'none') return null;
+      
+      const referenceFiles = files.filter(f => f.group === 'references');
+      if (referenceFiles.length === 0) return null;
+
+      // Limit references to prevent memory issues
+      const maxReferences = 50;
+      const limitedFiles = referenceFiles.slice(0, maxReferences);
+
+      const references = limitedFiles.map((file, index) => {
+        const year = new Date().getFullYear();
+        const author = `Author ${index + 1}`;
+        // Safe title extraction with length limit
+        const title = file.name ? SafeStringUtils.limitString(file.name.replace(/\.[^/.]+$/, ""), 100) : `Document ${index + 1}`;
+        
+        switch (citationStyle) {
+          case 'apa':
+            return `${author}. (${year}). ${title}. Retrieved from source.`;
+          case 'mla':
+            return `${author}. "${title}." Source, ${year}.`;
+          case 'harvard':
+            return `${author} ${year}, ${title}, Source.`;
+          case 'chicago':
+            return `${author}. "${title}." Source, ${year}.`;
+          default:
+            return `${author}. (${year}). ${title}.`;
+        }
+      });
+
+      return references.join('\n\n');
+    } catch (error) {
+      console.warn('Error in generateReferencesList:', error);
+      return null;
+    }
+  };
+
+  // Safe copy to clipboard
+  const copyToClipboard = async () => {
+    try {
+      if (!outline) return;
+
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
       const essayText = outline.paragraphs
         .map((p, i) => {
           const text = edits[i] || p.expandedText || '';
           const cleanText = stripCitationsFromText(text);
           // Limit paragraph text length to prevent memory issues
-          const limitedText = cleanText.substring(0, 5000);
-          const limitedTitle = (p.title || `Paragraph ${i + 1}`).substring(0, 100);
+          const limitedText = SafeStringUtils.limitString(cleanText, 5000);
+          const limitedTitle = SafeStringUtils.limitString(p.title || `Paragraph ${i + 1}`, 100);
           return `${limitedTitle}\n\n${limitedText}`;
-        })
-        .join('\n\n\n');
-
-      // Add references if they exist and are enabled
-      let fullText = `${essayTitle}\n\n${essayText}`;
-      
-      if (includeReferences && citationStyle !== 'none') {
-        const references = generateReferencesList();
-        if (references) {
-          fullText += `\n\n\nReferences\n\n${references}`;
-        }
-      }
-
-      // Create a proper filename with timestamp
-      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
-      const filename = `essay_${timestamp}.txt`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
-      
-      await FileSystem.writeAsStringAsync(fileUri, fullText);
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Save Essay as Text Document'
-        });
-      } else {
-        Alert.alert('Success', 'Essay saved successfully');
-      }
-    } catch (error) {
-      console.error('Error saving text document:', error);
-      Alert.alert('Error', 'Failed to save document');
-    }
-  };
-
-  const stripCitationsFromText = (text: string): string => {
-    try {
-      // Safety check for text input
-      if (!text || typeof text !== 'string') {
-        return '';
-      }
-
-      // Limit text length to prevent memory issues
-      const limitedText = text.substring(0, 10000);
-
-      if (citationStyle === 'none') {
-        // Remove common citation patterns with safe operations
-        return limitedText
-          // Remove parenthetical citations like (Smith, 2023) or (Smith et al., 2023)
-          .replace(/\([^)]*\d{4}[^)]*\)/g, '')
-          // Remove author-date citations like Smith (2023)
-          .replace(/\b[A-Z][a-z]+(?:\s+et\s+al\.)?\s*\(\d{4}\)/g, '')
-          // Remove numbered citations like [1] or [1,2,3]
-          .replace(/\[\d+(?:,\s*\d+)*\]/g, '')
-          // Remove superscript citations like ¹ or ²
-          .replace(/[¹²³⁴⁵⁶⁷⁸⁹]/g, '')
-          // Clean up extra spaces and punctuation
-          .replace(/\s+/g, ' ')
-          .replace(/\s+([.,;:!?])/g, '$1')
-          .replace(/\(\s*\)/g, '')
-          .trim();
-      }
-      return limitedText;
-    } catch (error) {
-      console.warn('Error in stripCitationsFromText:', error);
-      return text ? text.substring(0, 1000) : '';
-    }
-  };
-
-  // AI Reference Analysis
-  const analyzeReferences = async () => {
-    if (!prompt.trim() || !essayTopic.trim()) {
-      Alert.alert('Missing Information', 'Please provide both the essay prompt and topic before analyzing references.');
-      return;
-    }
-
-    const referenceFiles = files.filter(f => f.group === 'references');
-    if (referenceFiles.length === 0) {
-      Alert.alert('No References', 'Please upload some references first.');
-      return;
-    }
-
-    setIsAnalyzingReferences(true);
-    try {
-      // TODO: Replace with real API call
-      const response = await mockApi.analyzeReferences({
-        prompt,
-        essayTopic,
-        assignmentTitle,
-        references: referenceFiles.map(f => ({
-          id: f.id,
-          name: f.name,
-          excerpt: f.excerpt,
-          content: f.excerpt, // In real implementation, this would be full content
-        })),
-      });
-
-      // Update files with analysis data
-      setFiles(prev => prev.map(file => {
-        if (file.group === 'references' && response.analysis[file.id]) {
-          return {
-            ...file,
-            analysis: response.analysis[file.id]
-          };
-        }
-        return file;
-      }));
-
-      setReferenceAnalysis(response.analysis);
-      setSmartSelection(response.smartSelection);
-    } catch (error) {
-      Alert.alert('Analysis Error', 'Failed to analyze references. Please try again.');
-    } finally {
-      setIsAnalyzingReferences(false);
-    }
-  };
-
-  const reorderFiles = (group: 'notes' | 'references', fromIndex: number, toIndex: number) => {
-    setFiles(prev => {
-      const groupFiles = prev.filter(f => f.group === group).sort((a, b) => a.order - b.order);
-      const otherFiles = prev.filter(f => f.group !== group);
-      
-      const [movedItem] = groupFiles.splice(fromIndex, 1);
-      groupFiles.splice(toIndex, 0, movedItem);
-      
-      const reorderedGroupFiles = groupFiles.map((file, index) => ({
-        ...file,
-        order: index
-      }));
-      
-      return [...otherFiles, ...reorderedGroupFiles];
-    });
-  };
-
-  const togglePriority = (fileId: string) => {
-    setFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, priority: !file.priority } : file
-    ));
-  };
-
-  const deleteFile = (fileId: string) => {
-    setFiles(prev => prev.filter(file => file.id !== fileId));
-  };
-
-  const updateExcerpt = (fileId: string, excerpt: string) => {
-    setFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, excerpt } : file
-    ));
-  };
-
-  // File handling
-  const handleFileUpload = async (group: 'notes' | 'references') => {
-    setIsUploading(true);
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const file = result.assets[0];
-        const fileContent = await FileSystem.readAsStringAsync(file.uri);
-        
-        // TODO: Replace with real API call
-        const response = await mockApi.uploadFile(group, {
-          name: file.name,
-          type: file.mimeType || 'text/plain',
-          content: fileContent,
-        });
-
-        const newFile: FileItem = {
-          id: response.fileId,
-          group,
-          name: response.fileName,
-          excerpt: response.excerpt,
-          priority: false,
-          order: getNextOrder(group),
-          pages: response.pages,
-          type: 'file',
-        };
-
-        setFiles(prev => [...prev, newFile]);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload file');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handlePasteText = async (group: 'notes' | 'references', text: string) => {
-    if (!text.trim()) return;
-
-    try {
-      // TODO: Replace with real API call
-      const response = await mockApi.pasteText(group, text);
-
-      const newFile: FileItem = {
-        id: response.fileId,
-        group,
-        name: response.title,
-        excerpt: response.excerpt,
-        priority: false,
-        order: getNextOrder(group),
-        type: 'text',
-      };
-
-      setFiles(prev => [...prev, newFile]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process text');
-    }
-  };
-
-  const handleSampleEssayUpload = async () => {
-    setIsUploading(true);
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const file = result.assets[0];
-        const fileContent = await FileSystem.readAsStringAsync(file.uri);
-        
-        // TODO: Replace with real API call
-        const response = await mockApi.uploadFile('notes', {
-          name: file.name,
-          type: file.mimeType || 'text/plain',
-          content: fileContent,
-        });
-
-        const sampleFile: FileItem = {
-          id: response.fileId,
-          group: 'notes',
-          name: response.fileName,
-          excerpt: response.excerpt,
-          priority: true, // Mark as priority for style matching
-          order: 0,
-          pages: response.pages,
-          type: 'file',
-        };
-
-        setSampleEssay(sampleFile);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to upload sample essay');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Generation functions
-  const generateOutline = async () => {
-    if (!prompt.trim() || !integrityChecked) return;
-
-    // Check if user can generate essays
-    if (!canGenerateEssay()) {
-      handleEssayLimit();
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // Use smart reference selection if available, otherwise use all files
-      let fileIds = files.map(f => f.id);
-      
-      if (smartSelection && smartSelection.selectedReferences.length > 0) {
-        // Use AI-selected references
-        fileIds = smartSelection.selectedReferences;
-        console.log('Using AI-selected references:', smartSelection.reasoning);
-      }
-      
-      if (sampleEssay) {
-        fileIds.unshift(sampleEssay.id); // Add sample essay as first priority
-      }
-      
-      // TODO: Replace with real API call
-      const response = await mockApi.generateOutline({
-        prompt,
-        wordCount,
-        level: academicLevel,
-        citationStyle,
-        mode,
-        fileIds,
-        rubric: assignmentTitle,
-        essayTopic,
-        sampleEssayId: sampleEssay?.id,
-        smartSelection: smartSelection,
-      });
-
-      // Track essay generation
-      await trackEssayGeneration();
-
-      setOutline(response);
-      setCurrentStep('generate');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to generate outline');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const expandParagraph = async (paragraphIndex: number) => {
-    if (!outline) return;
-
-    try {
-      // TODO: Replace with real API call
-      const response = await mockApi.expandParagraph({
-        outlineId: outline.outlineId,
-        paragraphIndex,
-      });
-
-      setOutline(prev => {
-        if (!prev) return null;
-        const updatedParagraphs = [...prev.paragraphs];
-        updatedParagraphs[paragraphIndex] = {
-          ...updatedParagraphs[paragraphIndex],
-          expandedText: response.paragraphText,
-          usedChunks: response.usedChunks,
-          citations: response.citations,
-          unsupportedFlags: response.unsupportedFlags,
-        };
-        return { ...prev, paragraphs: updatedParagraphs };
-      });
-
-      setExpandedParagraphs(prev => new Set([...prev, paragraphIndex]));
-    } catch (error) {
-      Alert.alert('Error', 'Failed to expand paragraph');
-    }
-  };
-
-  const expandAllParagraphs = async () => {
-    if (!outline) return;
-
-    for (let i = 0; i < outline.paragraphs.length; i++) {
-      if (!expandedParagraphs.has(i)) {
-        await expandParagraph(i);
-      }
-    }
-  };
-
-  // Export functions
-  const copyToClipboard = async () => {
-    if (!outline) return;
-
-    try {
-      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
-      const essayText = outline.paragraphs
-        .map((p, i) => {
-          const text = edits[i] || p.expandedText || '';
-          const cleanText = stripCitationsFromText(text);
-          return `${p.title}\n\n${cleanText}`;
         })
         .join('\n\n\n');
 
@@ -845,1447 +405,879 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  const downloadAsDocx = async () => {
-    if (!outline) return;
-
+  // Safe text download
+  const downloadAsText = async () => {
     try {
-      // Load libraries dynamically
-      await loadLibraries();
-      
-      // Check if Word document library is available
-      if (!Document || !Packer || !Paragraph || !TextRun || !HeadingLevel) {
-        Alert.alert('Error', 'Word document generation is not available. Please try downloading as text instead.');
-        return;
-      }
+      if (!outline) return;
 
-      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
-      
-      // Create Word document structure
-      const paragraphs = outline.paragraphs.map((p, i) => {
-        const text = edits[i] || p.expandedText || '';
-        const cleanText = stripCitationsFromText(text);
-        
-        return [
-          new Paragraph({
-            text: p.title,
-            heading: HeadingLevel.HEADING_2,
-            spacing: { after: 200 }
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: cleanText,
-                size: 24 // 12pt font
-              })
-            ],
-            spacing: { after: 400 }
-          })
-        ];
-      }).flat();
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
+      const essayText = outline.paragraphs
+        .map((p, i) => {
+          const text = edits[i] || p.expandedText || '';
+          const cleanText = stripCitationsFromText(text);
+          // Limit paragraph text length to prevent memory issues
+          const limitedText = SafeStringUtils.limitString(cleanText, 5000);
+          const limitedTitle = SafeStringUtils.limitString(p.title || `Paragraph ${i + 1}`, 100);
+          return `${limitedTitle}\n\n${limitedText}`;
+        })
+        .join('\n\n\n');
 
-      // Add references if enabled
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
       if (includeReferences && citationStyle !== 'none') {
         const references = generateReferencesList();
         if (references) {
-          paragraphs.push(
-            new Paragraph({
-              text: 'References',
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 400, after: 200 }
-            })
-          );
-          
-          // Safe alternative to split() to prevent Hermes crashes
-          // Safe alternative to split() to prevent Hermes crashes
-          const refArray = references ? references.split('\n\n') : [];
-          refArray.forEach(ref => {
-            if (ref.trim()) {
-              paragraphs.push(
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: ref,
-                      size: 24
-                    })
-                  ],
-                  spacing: { after: 200 }
-                })
-              );
-            }
-          });
+          fullText += `\n\n\nReferences\n\n${references}`;
         }
       }
 
-      // Create the document
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [
-            new Paragraph({
-              text: essayTitle,
-              heading: HeadingLevel.HEADING_1,
-              spacing: { after: 400 }
-            }),
-            ...paragraphs
-          ]
-        }]
-      });
-
-      // Generate the document
-      const buffer = await Packer.toBuffer(doc);
-      
-      // Save to file
+      // Create a proper filename with timestamp
       const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
-      const filename = `essay_${timestamp}.docx`;
+      const filename = `essay_${timestamp}.txt`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
-      // Convert buffer to base64 and write
-      // Convert ArrayBuffer to base64 string for React Native
-      const uint8Array = new Uint8Array(buffer);
-      let binaryString = '';
-      for (let i = 0; i < uint8Array.length; i++) {
-        binaryString += String.fromCharCode(uint8Array[i]);
-      }
-      const base64String = btoa(binaryString);
-      await FileSystem.writeAsStringAsync(fileUri, base64String, {
-        encoding: FileSystem.EncodingType.Base64
-      });
+      await FileSystem.writeAsStringAsync(fileUri, fullText);
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          dialogTitle: 'Save Essay as Word Document'
-        });
+        await Sharing.shareAsync(fileUri);
       } else {
-        Alert.alert('Success', 'Word document saved successfully');
+        Alert.alert('Success', 'Essay saved to device!');
       }
     } catch (error) {
-      console.error('Error saving Word document:', error);
-      Alert.alert('Error', 'Failed to save Word document');
+      console.error('Error saving text document:', error);
+      Alert.alert('Error', 'Failed to save document');
     }
   };
 
-  const downloadAsPdf = async () => {
-    if (!outline) return;
-
+  // Safe essay generation
+  const generateOutline = async () => {
     try {
-      // Load libraries dynamically
-      await loadLibraries();
-      
-      // Check if PDF library is available
-      if (!jsPDF) {
-        Alert.alert('Error', 'PDF generation is not available. Please try downloading as text instead.');
+      if (!canGenerateEssay()) {
+        handleEssayLimit();
         return;
       }
 
-      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
+      if (!prompt.trim() || !essayTopic.trim()) {
+        Alert.alert('Missing Information', 'Please provide both the essay prompt and topic.');
+        return;
+      }
+
+      if (files.length === 0) {
+        Alert.alert('No Materials', 'Please upload at least one material before generating an outline.');
+        return;
+      }
+
+      setIsGenerating(true);
+
+      const request = {
+        prompt: SafeStringUtils.limitString(prompt, 2000),
+        topic: SafeStringUtils.limitString(essayTopic, 500),
+        wordCount: wordCount,
+        level: academicLevel,
+        academicLevel,
+        citationStyle,
+        mode,
+        fileIds: files.map(f => f.id),
+        materials: files.map(f => ({
+          id: f.id,
+          name: SafeStringUtils.limitString(f.name, 200),
+          excerpt: SafeStringUtils.limitString(f.excerpt, 1000),
+          group: f.group,
+          priority: f.priority
+        })),
+        smartSelection: smartSelection
+      };
+
+      const response = await mockApi.generateOutline(request);
       
-      // Create PDF document
-      const pdf = new jsPDF();
+      if (response.outlineId) {
+        const outline: Outline = {
+          outlineId: response.outlineId,
+          thesis: response.thesis,
+          paragraphs: response.paragraphs,
+          metadata: response.metadata
+        };
+        setOutline(outline);
+        setCurrentStep('generate');
+        trackEssayGeneration();
+      } else {
+        Alert.alert('Error', 'Failed to generate outline');
+      }
+    } catch (error) {
+      console.error('Error generating outline:', error);
+      Alert.alert('Error', 'Failed to generate outline. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Safe file upload
+  const uploadFile = async () => {
+    try {
+      setIsUploading(true);
       
-      // Set font
-      pdf.setFont('helvetica');
-      
-      // Add title
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text(essayTitle, 20, 30);
-      
-      let yPosition = 50;
-      const pageHeight = pdf.internal.pageSize.height;
-      const margin = 20;
-      const maxWidth = pdf.internal.pageSize.width - (margin * 2);
-      
-      // Add paragraphs
-      outline.paragraphs.forEach((p, i) => {
-        const text = edits[i] || p.expandedText || '';
-        const cleanText = stripCitationsFromText(text);
-        
-        // Check if we need a new page
-        if (yPosition > pageHeight - 40) {
-          pdf.addPage();
-          yPosition = 30;
-        }
-        
-        // Add paragraph title
-        pdf.setFontSize(14);
-        pdf.setFont('helvetica', 'bold');
-        const titleLines = pdf.splitTextToSize(p.title, maxWidth);
-        pdf.text(titleLines, margin, yPosition);
-        yPosition += titleLines.length * 7 + 5;
-        
-        // Add paragraph content
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'normal');
-        const contentLines = pdf.splitTextToSize(cleanText, maxWidth);
-        
-        // Check if content fits on current page
-        if (yPosition + (contentLines.length * 6) > pageHeight - 20) {
-          pdf.addPage();
-          yPosition = 30;
-        }
-        
-        pdf.text(contentLines, margin, yPosition);
-        yPosition += contentLines.length * 6 + 15;
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
       });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const newFile: FileItem = {
+          id: Date.now().toString(),
+          group: 'notes',
+          name: SafeStringUtils.limitString(asset.name || 'Unknown', 200),
+          excerpt: SafeStringUtils.limitString(asset.name || 'File uploaded', 500),
+          priority: false,
+          order: getNextOrder('notes'),
+          type: 'file'
+        };
+
+        setFiles(prev => [...prev, newFile]);
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      Alert.alert('Error', 'Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Safe file removal
+  const removeFile = (fileId: string) => {
+    try {
+      setFiles(prev => prev.filter(f => f.id !== fileId));
+    } catch (error) {
+      console.warn('Error removing file:', error);
+    }
+  };
+
+  // Safe paragraph expansion
+  const expandParagraph = async (index: number) => {
+    try {
+      if (!outline) return;
+
+      const paragraph = outline.paragraphs[index];
+      if (!paragraph) return;
+
+      const request = {
+        outlineId: outline.outlineId,
+        paragraphIndex: index,
+        paragraph: paragraph,
+        materials: files.map(f => ({
+          id: f.id,
+          name: SafeStringUtils.limitString(f.name, 200),
+          excerpt: SafeStringUtils.limitString(f.excerpt, 1000),
+          group: f.group,
+          priority: f.priority
+        })),
+        citationStyle,
+        mode
+      };
+
+      const response = await mockApi.expandParagraph(request);
       
-      // Add references if enabled
-      if (includeReferences && citationStyle !== 'none') {
-        const references = generateReferencesList();
-        if (references) {
-          // Check if we need a new page for references
-          if (yPosition > pageHeight - 60) {
-            pdf.addPage();
-            yPosition = 30;
+      if (response.paragraphText) {
+        const updatedOutline = {
+          ...outline,
+          paragraphs: outline.paragraphs.map((p, i) => 
+            i === index ? { 
+              ...p, 
+              expandedText: response.paragraphText,
+              usedChunks: response.usedChunks,
+              citations: response.citations,
+              unsupportedFlags: response.unsupportedFlags
+            } : p
+          )
+        };
+        setOutline(updatedOutline);
+        setExpandedParagraphs(prev => new Set([...prev, index]));
+      } else {
+        Alert.alert('Error', 'Failed to expand paragraph');
+      }
+    } catch (error) {
+      console.error('Error expanding paragraph:', error);
+      Alert.alert('Error', 'Failed to expand paragraph');
+    }
+  };
+
+  // Safe paragraph editing
+  const handleParagraphEdit = (index: number, text: string) => {
+    try {
+      const limitedText = SafeStringUtils.limitString(text, 10000);
+      setEdits(prev => ({ ...prev, [index]: limitedText }));
+    } catch (error) {
+      console.warn('Error editing paragraph:', error);
+    }
+  };
+
+  // Safe essay saving
+  const saveEssay = async () => {
+    try {
+      if (!outline || !outline.thesis) {
+        Alert.alert('Error', 'No essay to save');
+        return;
+      }
+
+      setIsSaving(true);
+
+      const essayData = {
+        id: Date.now().toString(),
+        title: SafeStringUtils.limitString(outline.thesis, 200),
+        assignmentTitle: SafeStringUtils.limitString(assignmentTitle, 200),
+        essayTopic: SafeStringUtils.limitString(essayTopic, 200),
+        prompt: SafeStringUtils.limitString(prompt, 2000),
+        mode,
+        outline,
+        edits,
+        files: files.map(f => ({
+          ...f,
+          name: SafeStringUtils.limitString(f.name, 200),
+          excerpt: SafeStringUtils.limitString(f.excerpt, 1000)
+        })),
+        savedAt: new Date().toISOString(),
+        wordCount,
+        academicLevel,
+        citationStyle,
+        includeReferences
+      };
+
+      const saved = await AsyncStorage.getItem('saved_essays');
+      const savedEssays = saved ? JSON.parse(saved) : [];
+      
+      if (Array.isArray(savedEssays)) {
+        const updatedEssays = [...savedEssays, essayData];
+        await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+        setSavedEssays(updatedEssays);
+        Alert.alert('Success', 'Essay saved successfully!');
+      } else {
+        await AsyncStorage.setItem('saved_essays', JSON.stringify([essayData]));
+        setSavedEssays([essayData]);
+        Alert.alert('Success', 'Essay saved successfully!');
+      }
+    } catch (error) {
+      console.error('Error saving essay:', error);
+      Alert.alert('Error', 'Failed to save essay');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Safe essay loading
+  const loadSavedEssays = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('saved_essays');
+      if (saved) {
+        const parsedEssays = JSON.parse(saved);
+        if (Array.isArray(parsedEssays)) {
+          setSavedEssays(parsedEssays);
+        } else {
+          console.warn('Invalid saved essays format, resetting to empty array');
+          setSavedEssays([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved essays:', error);
+      setSavedEssays([]);
+    }
+  };
+
+  // Safe essay loading
+  const loadSavedEssay = async (essay: any) => {
+    try {
+      if (!essay) return;
+
+      // Restore all state variables safely
+      setAssignmentTitle(essay.assignmentTitle || '');
+      setEssayTopic(essay.essayTopic || '');
+      setPrompt(essay.prompt || '');
+      setMode(essay.mode || 'grounded');
+      setEdits(essay.edits || {});
+      setOutline(essay.outline || null);
+      setFiles(Array.isArray(essay.files) ? essay.files : []);
+      setWordCount(essay.wordCount || 800);
+      setAcademicLevel(essay.academicLevel || 'undergraduate');
+      setCitationStyle(essay.citationStyle || 'none');
+      setIncludeReferences(essay.includeReferences || false);
+      setCurrentStep('generate');
+      setShowSavedDocuments(false);
+    } catch (error) {
+      console.error('Error loading saved essay:', error);
+      Alert.alert('Error', 'Failed to load essay');
+    }
+  };
+
+  // Safe essay deletion
+  const deleteSavedEssay = async (essayId: string) => {
+    try {
+      const updatedEssays = savedEssays.filter(essay => essay.id !== essayId);
+      await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+      setSavedEssays(updatedEssays);
+    } catch (error) {
+      console.error('Error deleting essay:', error);
+      Alert.alert('Error', 'Failed to delete essay');
+    }
+  };
+
+  // Safe new essay creation
+  const createNewEssay = () => {
+    try {
+      Alert.alert(
+        'Create New Essay',
+        'Are you sure you want to start a new essay? This will clear your current work.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Create New',
+            style: 'destructive',
+            onPress: () => {
+              // Reset all state variables
+              setCurrentStep('materials');
+              setFiles([]);
+              setAssignmentTitle('');
+              setEssayTopic('');
+              setSampleEssay(null);
+              setPrompt('');
+              setWordCount(800);
+              setCustomWordCount('');
+              setAcademicLevel('undergraduate');
+              setCitationStyle('none');
+              setIncludeReferences(false);
+              setMode('grounded');
+              setIntegrityChecked(false);
+              setOutline(null);
+              setIsGenerating(false);
+              setExpandedParagraphs(new Set());
+              setEdits({});
+              setIsUploading(false);
+              setIsAnalyzingReferences(false);
+              setReferenceAnalysis({});
+              setSmartSelection(null);
+              setIsSaving(false);
+            }
           }
-          
-          // Add references title
-          pdf.setFontSize(14);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('References', margin, yPosition);
-          yPosition += 20;
-          
-          // Add references content
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'normal');
-          const referenceLines = pdf.splitTextToSize(references, maxWidth);
-          
-          referenceLines.forEach(line => {
-            if (yPosition > pageHeight - 20) {
-              pdf.addPage();
-              yPosition = 30;
-            }
-            pdf.text(line, margin, yPosition);
-            yPosition += 6;
-          });
-        }
-      }
-      
-      // Save the PDF
-      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
-      const filename = `essay_${timestamp}.pdf`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
-      
-      const pdfOutput = pdf.output('datauristring');
-      // Safe string splitting with validation
-      const commaIndex = pdfOutput.indexOf(',');
-      const base64Data = commaIndex !== -1 ? pdfOutput.substring(commaIndex + 1) : pdfOutput;
-      
-      await FileSystem.writeAsStringAsync(fileUri, base64Data, {
-        encoding: FileSystem.EncodingType.Base64
-      });
-      
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Save Essay as PDF'
-        });
-      } else {
-        Alert.alert('Success', 'PDF saved successfully');
-      }
+        ]
+      );
     } catch (error) {
-      console.error('Error saving PDF:', error);
-      Alert.alert('Error', 'Failed to save PDF');
+      console.error('Error creating new essay:', error);
     }
   };
 
-  const copyWithCitations = async () => {
-    if (!outline) return;
-
-    const essayTitle = thesis || 'Generated Essay';
-    const essayWithCitations = outline.paragraphs
-      .map((p, i) => {
-        let text = edits[i] || p.expandedText || '';
-        
-        // Add inline citations
-        if (p.citations) {
-          p.citations.forEach(citation => {
-            text = text.replace(
-              citation.text,
-              `${citation.text} (${citation.source})`
-            );
-          });
-        }
-
-        return `${p.title}\n\n${text}`;
-      })
-      .join('\n\n\n');
-
-    // Add references if they exist and are enabled
-    let fullText = `${essayTitle}\n\n${essayWithCitations}`;
-    
-    if (includeReferences && citationStyle !== 'none') {
-      const references = generateReferencesList();
-      if (references) {
-        fullText += `\n\n\nReferences\n\n${references}`;
-      }
-    }
-
-    await Share.share({
-      message: fullText,
-      title: 'Essay with Citations',
-    });
-  };
+  // Load saved essays on mount
+  React.useEffect(() => {
+    loadSavedEssays();
+  }, []);
 
   // Render functions
-  const renderFileCard = (file: FileItem, index: number) => (
-    <View key={file.id} style={styles.fileCard}>
-      <View style={styles.fileCardHeader}>
-        <View style={styles.fileInfo}>
-          <View style={styles.fileTitleRow}>
-            <FileText size={16} color={colors.primary} />
-            <Text style={styles.fileName} numberOfLines={1}>
-              {file.name}
-            </Text>
-            {file.priority && (
-              <View style={styles.priorityBadge}>
-                <Star size={12} color={colors.warning} fill={colors.warning} />
-                <Text style={styles.priorityText}>Priority</Text>
-              </View>
-            )}
-            {file.analysis && (
-              <View style={[
-                styles.relevanceBadge,
-                { backgroundColor: file.analysis.relevanceScore >= 80 ? colors.success + '20' : 
-                                   file.analysis.relevanceScore >= 60 ? colors.warning + '20' : 
-                                   colors.error + '20' }
-              ]}>
-                <Text style={[
-                  styles.relevanceText,
-                  { color: file.analysis.relevanceScore >= 80 ? colors.success : 
-                           file.analysis.relevanceScore >= 60 ? colors.warning : 
-                           colors.error }
-                ]}>
-                  {file.analysis.relevanceScore}% relevant
-                </Text>
-              </View>
-            )}
-          </View>
-          
-          {file.pages && (
-            <Text style={styles.filePages}>{file.pages} pages</Text>
-          )}
-          
-          <Text style={styles.fileExcerpt} numberOfLines={3}>
-            {file.excerpt}
-          </Text>
-
-          {file.analysis && (
-            <View style={styles.analysisSection}>
-              <Text style={styles.analysisTitle}>AI Analysis:</Text>
-              <Text style={styles.analysisSummary} numberOfLines={2}>
-                {file.analysis.summary}
-              </Text>
-              {file.analysis.keyTopics.length > 0 && (
-                <View style={styles.topicsContainer}>
-                  {file.analysis.keyTopics.slice(0, 3).map((topic, idx) => (
-                    <View key={idx} style={styles.topicChip}>
-                      <Text style={styles.topicText}>{topic}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-        
-        <View style={styles.fileActions}>
-          <TouchableOpacity
-            onPress={() => togglePriority(file.id)}
-            style={styles.actionIcon}
-          >
-            <Star 
-              size={20} 
-              color={file.priority ? colors.warning : colors.textSecondary}
-              fill={file.priority ? colors.warning : 'transparent'}
-            />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => deleteFile(file.id)}
-            style={styles.actionIcon}
-          >
-            <Trash2 size={20} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-
   const renderMaterialsStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>Set Up Your Essay</Text>
-        <Text style={styles.stepDescription}>
-          Tell us about your essay topic and optionally upload materials for better results
-        </Text>
-      </View>
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>{COPY.materialsHeader}</Text>
       
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Essay Title and Topic */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Essay Title</Text>
-          <TextInput
-            value={assignmentTitle}
-            onChangeText={setAssignmentTitle}
-            placeholder="Enter your essay title..."
-            style={styles.textInput}
-            placeholderTextColor={colors.textSecondary}
-          />
-        </View>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>What is your essay about?</Text>
-          <TextInput
-            value={essayTopic}
-            onChangeText={setEssayTopic}
-            placeholder="Describe the main topic, theme, or focus of your essay..."
-            multiline
-            numberOfLines={3}
-            style={[styles.textInput, styles.textArea]}
-            placeholderTextColor={colors.textSecondary}
-          />
-        </View>
-        
-        {/* Sample Essay Upload */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Sample Essay (Optional)</Text>
-          <Text style={styles.helperText}>
-            Upload a sample of your writing so the AI can match your style
+      {/* Assignment Title */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Assignment Title (Optional)</Text>
+        <TextInput
+          style={styles.textInput}
+          value={assignmentTitle}
+          onChangeText={setAssignmentTitle}
+          placeholder="e.g., Final Essay for History 101"
+          placeholderTextColor={colors.textSecondary}
+          maxLength={200}
+        />
+      </View>
+
+      {/* Essay Topic */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Essay Topic *</Text>
+        <TextInput
+          style={styles.textInput}
+          value={essayTopic}
+          onChangeText={setEssayTopic}
+          placeholder="What is your essay about?"
+          placeholderTextColor={colors.textSecondary}
+          maxLength={500}
+        />
+      </View>
+
+      {/* Essay Prompt */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Essay Prompt *</Text>
+        <TextInput
+          style={[styles.textInput, styles.textArea]}
+          value={prompt}
+          onChangeText={setPrompt}
+          placeholder="Describe what you want to write about..."
+          placeholderTextColor={colors.textSecondary}
+          multiline
+          numberOfLines={4}
+          maxLength={2000}
+        />
+      </View>
+
+      {/* File Upload */}
+      <View style={styles.uploadSection}>
+        <TouchableOpacity
+          style={styles.uploadButton}
+          onPress={uploadFile}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Upload size={20} color={colors.primary} />
+          )}
+          <Text style={styles.uploadButtonText}>
+            {isUploading ? 'Uploading...' : 'Upload Materials'}
           </Text>
-          
-          {sampleEssay ? (
-            <View style={styles.sampleEssayCard}>
-              <View style={styles.sampleEssayHeader}>
-                <View style={styles.sampleEssayInfo}>
-                  <FileText size={20} color={colors.secondary} />
-                  <Text style={styles.sampleEssayName}>{sampleEssay.name}</Text>
-                </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Files List */}
+      {files.length > 0 && (
+        <View style={styles.filesSection}>
+          <Text style={styles.sectionTitle}>Uploaded Materials ({files.length})</Text>
+          {files.map((file) => (
+            <View key={file.id} style={styles.fileCard}>
+              <View style={styles.fileHeader}>
+                <FileText size={16} color={colors.primary} />
+                <Text style={styles.fileName}>{file.name}</Text>
                 <TouchableOpacity
-                  onPress={() => setSampleEssay(null)}
                   style={styles.removeButton}
+                  onPress={() => removeFile(file.id)}
                 >
                   <Trash2 size={16} color={colors.error} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.sampleEssayExcerpt} numberOfLines={2}>
-                {sampleEssay.excerpt}
-              </Text>
+              <Text style={styles.fileExcerpt}>{file.excerpt}</Text>
             </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleSampleEssayUpload}
-              style={[styles.uploadArea, { borderColor: colors.secondary + '40' }]}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <ActivityIndicator size="large" color={colors.secondary} />
-              ) : (
-                <>
-                  <Upload size={32} color={colors.secondary} />
-                  <Text style={[styles.uploadText, { color: colors.secondary }]}>Upload Sample Essay</Text>
-                  <Text style={styles.uploadSubtext}>TXT, PDF, DOCX supported</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+          ))}
         </View>
-        
-        {/* Research Materials */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Research Materials (Optional)</Text>
-          <Text style={styles.helperText}>
-            Upload your research materials, notes, and references to ground your essay in evidence
-          </Text>
-        </View>
-        
-        <View style={styles.materialsContainer}>
-          <View style={styles.materialGroup}>
-            <View style={styles.groupHeader}>
-              <View style={[styles.groupIcon, { backgroundColor: colors.primaryLight }]}>
-                <FileText size={20} color={colors.primary} />
-              </View>
-              <Text style={styles.groupTitle}>Relevant Notes</Text>
-            </View>
-            
-            <TouchableOpacity
-              onPress={() => handleFileUpload('notes')}
-              style={[styles.uploadArea, { borderColor: colors.primary + '40' }]}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <ActivityIndicator size="large" color={colors.primary} />
-              ) : (
-                <>
-                  <Upload size={32} color={colors.primary} />
-                  <Text style={styles.uploadText}>Upload File</Text>
-                  <Text style={styles.uploadSubtext}>TXT, PDF, DOCX supported</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            {files.filter(f => f.group === 'notes' && f.id !== sampleEssay?.id).map((file, index) => renderFileCard(file, index))}
-          </View>
-          
-          <View style={styles.materialGroup}>
-            <View style={styles.groupHeader}>
-              <View style={[styles.groupIcon, { backgroundColor: colors.successLight }]}>
-                <CheckCircle size={20} color={colors.success} />
-              </View>
-              <Text style={styles.groupTitle}>References</Text>
-            </View>
-            
-            <TouchableOpacity
-              onPress={() => handleFileUpload('references')}
-              style={[styles.uploadArea, { borderColor: colors.success + '40' }]}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <ActivityIndicator size="large" color={colors.success} />
-              ) : (
-                <>
-                  <Upload size={32} color={colors.success} />
-                  <Text style={[styles.uploadText, { color: colors.success }]}>Upload File</Text>
-                  <Text style={styles.uploadSubtext}>TXT, PDF, DOCX supported</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            
-            {files.filter(f => f.group === 'references').map((file, index) => renderFileCard(file, index))}
-          </View>
-        </View>
+      )}
 
-        {/* AI Reference Analysis */}
-        {files.filter(f => f.group === 'references').length > 0 && (assignmentTitle.trim() || essayTopic.trim()) && (
-          <View style={styles.inputGroup}>
-            <TouchableOpacity
-              onPress={analyzeReferences}
-              style={[styles.analyzeButton, { opacity: isAnalyzingReferences ? 0.5 : 1 }]}
-              disabled={isAnalyzingReferences}
-            >
-              {isAnalyzingReferences ? (
-                <ActivityIndicator size="small" color={colors.cardBackground} />
-              ) : (
-                <>
-                  <Text style={styles.analyzeButtonText}>🤖 Analyze References with AI</Text>
-                  <ArrowRight size={20} color={colors.cardBackground} />
-                </>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.analyzeDescription}>
-              AI will analyze your references and select the most relevant ones for your essay topic
-            </Text>
-          </View>
-        )}
-
-        {/* Smart Selection Results */}
-        {smartSelection && (
-          <View style={styles.smartSelectionCard}>
-            <View style={styles.smartSelectionHeader}>
-              <Text style={styles.smartSelectionTitle}>🎯 AI Reference Selection</Text>
-              <Text style={styles.smartSelectionSubtitle}>
-                Selected {smartSelection.selectedCount} of {smartSelection.totalReferences} references
-              </Text>
-            </View>
-            <Text style={styles.smartSelectionReasoning}>
-              {smartSelection.reasoning}
-            </Text>
-          </View>
-        )}
-        
-        <TouchableOpacity
-          onPress={() => setCurrentStep('configure')}
-          style={[styles.continueButton, { opacity: (assignmentTitle.trim() || essayTopic.trim()) ? 1 : 0.5 }]}
-          disabled={!assignmentTitle.trim() && !essayTopic.trim()}
-        >
-          <Text style={styles.continueButtonText}>Continue to Configuration</Text>
-          <ArrowRight size={20} color={colors.cardBackground} />
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+      {/* Next Button */}
+      <TouchableOpacity
+        style={[
+          styles.nextButton,
+          (!essayTopic.trim() || !prompt.trim() || files.length === 0) && styles.nextButtonDisabled
+        ]}
+        onPress={() => setCurrentStep('configure')}
+        disabled={!essayTopic.trim() || !prompt.trim() || files.length === 0}
+      >
+        <Text style={styles.nextButtonText}>Configure Essay</Text>
+        <ArrowRight size={20} color={colors.cardBackground} />
+      </TouchableOpacity>
+    </ScrollView>
   );
 
   const renderConfigureStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={styles.stepHeader}>
-        <Text style={styles.stepTitle}>Configure Your Essay</Text>
-        <Text style={styles.stepDescription}>
-          {COPY.configureHeader}
-        </Text>
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>{COPY.configureHeader}</Text>
+
+      {/* Word Count */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Word Count</Text>
+        <View style={styles.wordCountRow}>
+          {[500, 800, 1200, 1500].map((count) => (
+            <TouchableOpacity
+              key={count}
+              style={[
+                styles.wordCountButton,
+                wordCount === count && styles.wordCountButtonActive
+              ]}
+              onPress={() => setWordCount(count)}
+            >
+              <Text style={[
+                styles.wordCountButtonText,
+                wordCount === count && styles.wordCountButtonTextActive
+              ]}>
+                {count}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={styles.textInput}
+          value={customWordCount}
+          onChangeText={setCustomWordCount}
+          placeholder="Or enter custom word count"
+          placeholderTextColor={colors.textSecondary}
+          keyboardType="numeric"
+          maxLength={4}
+        />
       </View>
-      
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Required Question / Prompt *</Text>
-          <TextInput
-            value={prompt}
-            onChangeText={setPrompt}
-            placeholder="Enter your essay prompt or question..."
-            multiline
-            numberOfLines={4}
-            style={[styles.textInput, styles.textArea]}
-            placeholderTextColor={colors.textSecondary}
-          />
+
+      {/* Academic Level */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Academic Level</Text>
+        <View style={styles.optionsGrid}>
+          {[
+            { value: 'high-school', label: 'High School' },
+            { value: 'undergraduate', label: 'Undergraduate' },
+            { value: 'graduate', label: 'Graduate' },
+            { value: 'professional', label: 'Professional' }
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.optionButton,
+                academicLevel === option.value && styles.optionButtonActive
+              ]}
+              onPress={() => setAcademicLevel(option.value as AcademicLevel)}
+            >
+              <Text style={[
+                styles.optionButtonText,
+                academicLevel === option.value && styles.optionButtonTextActive
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Word Count</Text>
-          <View style={styles.wordCountButtons}>
-            {[250, 500, 800, 1200].map(count => (
-              <TouchableOpacity
-                key={count}
-                onPress={() => setWordCount(count)}
-                style={[
-                  styles.wordCountButton,
-                  wordCount === count && styles.wordCountButtonActive
-                ]}
-              >
-                <Text style={[
-                  styles.wordCountButtonText,
-                  wordCount === count && styles.wordCountButtonTextActive
-                ]}>
-                  {count}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <TextInput
-            value={customWordCount}
-            onChangeText={(text) => {
-              setCustomWordCount(text);
-              const num = parseInt(text);
-              if (!isNaN(num) && num > 0) {
-                setWordCount(num);
-              }
-            }}
-            placeholder="Custom word count"
-            keyboardType="numeric"
-            style={styles.textInput}
-            placeholderTextColor={colors.textSecondary}
-          />
-          
-          <Text style={styles.helperText}>
-            {wordCount} words ≈ {Math.ceil(wordCount / 200)}–{Math.ceil(wordCount / 150)} paragraphs
-          </Text>
-        </View>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Academic Level</Text>
-          <View style={styles.optionList}>
-            <TouchableOpacity
-              onPress={() => setAcademicLevel('high-school')}
-              style={[
-                styles.optionItem,
-                academicLevel === 'high-school' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  academicLevel === 'high-school' && styles.optionTextActive
-                ]}>
-                  High School
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  academicLevel === 'high-school' && styles.optionDescriptionActive
-                ]}>
-                  Clear, accessible language with basic concepts
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setAcademicLevel('undergraduate')}
-              style={[
-                styles.optionItem,
-                academicLevel === 'undergraduate' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  academicLevel === 'undergraduate' && styles.optionTextActive
-                ]}>
-                  Undergraduate
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  academicLevel === 'undergraduate' && styles.optionDescriptionActive
-                ]}>
-                  College-level analysis with academic tone
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setAcademicLevel('graduate')}
-              style={[
-                styles.optionItem,
-                academicLevel === 'graduate' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  academicLevel === 'graduate' && styles.optionTextActive
-                ]}>
-                  Graduate
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  academicLevel === 'graduate' && styles.optionDescriptionActive
-                ]}>
-                  Advanced analysis with sophisticated arguments
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setAcademicLevel('professional')}
-              style={[
-                styles.optionItem,
-                academicLevel === 'professional' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  academicLevel === 'professional' && styles.optionTextActive
-                ]}>
-                  Professional
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  academicLevel === 'professional' && styles.optionDescriptionActive
-                ]}>
-                  Expert-level content with industry terminology
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Citations & References (Optional)</Text>
-          <Text style={styles.helperText}>
-            Citations are completely optional. Choose "No Citations" for a simple essay, or select a citation style if you need references.
-          </Text>
-          
-          <View style={styles.optionList}>
-            <TouchableOpacity
-              onPress={() => {
-                setCitationStyle('none');
-                setIncludeReferences(false);
-              }}
-              style={[
-                styles.optionItem,
-                citationStyle === 'none' && styles.optionItemActive,
-                citationStyle === 'none' && styles.optionItemRecommended
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  citationStyle === 'none' && styles.optionTextActive
-                ]}>
-                  ✨ No Citations (Recommended)
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  citationStyle === 'none' && styles.optionDescriptionActive
-                ]}>
-                  Generate a clean essay without citations or references - perfect for most assignments
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => {
-                setCitationStyle('apa');
-                setIncludeReferences(true);
-              }}
-              style={[
-                styles.optionItem,
-                citationStyle === 'apa' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  citationStyle === 'apa' && styles.optionTextActive
-                ]}>
-                  APA Style
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  citationStyle === 'apa' && styles.optionDescriptionActive
-                ]}>
-                  Psychology, education, and social sciences
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => {
-                setCitationStyle('mla');
-                setIncludeReferences(true);
-              }}
-              style={[
-                styles.optionItem,
-                citationStyle === 'mla' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  citationStyle === 'mla' && styles.optionTextActive
-                ]}>
-                  MLA Style
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  citationStyle === 'mla' && styles.optionDescriptionActive
-                ]}>
-                  Literature, arts, and humanities
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => {
-                setCitationStyle('harvard');
-                setIncludeReferences(true);
-              }}
-              style={[
-                styles.optionItem,
-                citationStyle === 'harvard' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  citationStyle === 'harvard' && styles.optionTextActive
-                ]}>
-                  Harvard Style
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  citationStyle === 'harvard' && styles.optionDescriptionActive
-                ]}>
-                  Business, economics, and general academic writing
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => {
-                setCitationStyle('chicago');
-                setIncludeReferences(true);
-              }}
-              style={[
-                styles.optionItem,
-                citationStyle === 'chicago' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  citationStyle === 'chicago' && styles.optionTextActive
-                ]}>
-                  Chicago Style
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  citationStyle === 'chicago' && styles.optionDescriptionActive
-                ]}>
-                  History, publishing, and professional writing
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Generation Mode</Text>
-          <View style={styles.optionList}>
-            <TouchableOpacity
-              onPress={() => setMode('grounded')}
-              style={[
-                styles.optionItem,
-                mode === 'grounded' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  mode === 'grounded' && styles.optionTextActive
-                ]}>
-                  Grounded
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  mode === 'grounded' && styles.optionDescriptionActive
-                ]}>
-                  Use only your uploaded materials as evidence
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setMode('mixed')}
-              style={[
-                styles.optionItem,
-                mode === 'mixed' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  mode === 'mixed' && styles.optionTextActive
-                ]}>
-                  Mixed
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  mode === 'mixed' && styles.optionDescriptionActive
-                ]}>
-                  Combine your materials with general knowledge
-                </Text>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              onPress={() => setMode('teach')}
-              style={[
-                styles.optionItem,
-                mode === 'teach' && styles.optionItemActive
-              ]}
-            >
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionText,
-                  mode === 'teach' && styles.optionTextActive
-                ]}>
-                  Teach
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  mode === 'teach' && styles.optionDescriptionActive
-                ]}>
-                  Educational focus with clear explanations
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={styles.inputGroup}>
+      </View>
+
+      {/* Citation Style */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Citations & References (Optional)</Text>
+        <View style={styles.optionsGrid}>
           <TouchableOpacity
-            onPress={() => setIntegrityChecked(!integrityChecked)}
-            style={styles.checkboxContainer}
+            style={[
+              styles.optionButton,
+              styles.optionItemRecommended,
+              citationStyle === 'none' && styles.optionButtonActive
+            ]}
+            onPress={() => setCitationStyle('none')}
           >
-            <View style={[
-              styles.checkbox,
-              integrityChecked && styles.checkboxActive
+            <Text style={[
+              styles.optionButtonText,
+              citationStyle === 'none' && styles.optionButtonTextActive
             ]}>
-              {integrityChecked && (
-                <CheckCircle size={16} color={colors.cardBackground} />
-              )}
-            </View>
-            <Text style={styles.checkboxText}>{COPY.integrityText}</Text>
+              No Citations
+            </Text>
+            <Text style={styles.optionDescription}>
+              Clean essay without citations or references
+            </Text>
           </TouchableOpacity>
+          
+          {[
+            { value: 'apa', label: 'APA' },
+            { value: 'mla', label: 'MLA' },
+            { value: 'harvard', label: 'Harvard' },
+            { value: 'chicago', label: 'Chicago' }
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.optionButton,
+                citationStyle === option.value && styles.optionButtonActive
+              ]}
+              onPress={() => setCitationStyle(option.value as CitationStyle)}
+            >
+              <Text style={[
+                styles.optionButtonText,
+                citationStyle === option.value && styles.optionButtonTextActive
+              ]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        
+      </View>
+
+      {/* Mode */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Writing Mode</Text>
+        <View style={styles.optionsGrid}>
+          {[
+            { value: 'grounded', label: 'Grounded', description: 'Only use provided materials' },
+            { value: 'mixed', label: 'Mixed', description: 'Use materials + general knowledge' },
+            { value: 'teach', label: 'Teaching', description: 'Explain concepts clearly' }
+          ].map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.optionButton,
+                mode === option.value && styles.optionButtonActive
+              ]}
+              onPress={() => setMode(option.value as Mode)}
+            >
+              <Text style={[
+                styles.optionButtonText,
+                mode === option.value && styles.optionButtonTextActive
+              ]}>
+                {option.label}
+              </Text>
+              <Text style={styles.optionDescription}>
+                {option.description}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Integrity Check */}
+      <View style={styles.integritySection}>
         <TouchableOpacity
-          onPress={generateOutline}
+          style={styles.integrityCheckbox}
+          onPress={() => setIntegrityChecked(!integrityChecked)}
+        >
+          <View style={[
+            styles.checkbox,
+            integrityChecked && styles.checkboxChecked
+          ]}>
+            {integrityChecked && <CheckCircle size={16} color={colors.cardBackground} />}
+          </View>
+          <Text style={styles.integrityText}>{COPY.integrityText}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Navigation Buttons */}
+      <View style={styles.navigationButtons}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setCurrentStep('materials')}
+        >
+          <ArrowLeft size={20} color={colors.primary} />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[
-            styles.generateButton,
-            { opacity: prompt.trim() && integrityChecked && !isGenerating ? 1 : 0.5 }
+            styles.nextButton,
+            !integrityChecked && styles.nextButtonDisabled
           ]}
-          disabled={!prompt.trim() || !integrityChecked || isGenerating}
+          onPress={generateOutline}
+          disabled={!integrityChecked || isGenerating}
         >
           {isGenerating ? (
             <ActivityIndicator size="small" color={colors.cardBackground} />
           ) : (
-            <>
-              <Text style={styles.generateButtonText}>
-                {COPY.generateOutline}
-              </Text>
-              <ArrowRight size={20} color={colors.cardBackground} />
-            </>
+            <Text style={styles.nextButtonText}>{COPY.generateOutline}</Text>
           )}
         </TouchableOpacity>
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 
-  const renderGenerateStep = () => {
-    if (!outline) return null;
+  const renderGenerateStep = () => (
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Text style={styles.stepTitle}>{COPY.generateHeader}</Text>
 
-    const expandedCount = expandedParagraphs.size;
-    const totalParagraphs = outline.paragraphs.length;
-    const progressPercentage = (expandedCount / totalParagraphs) * 100;
-
-    return (
-      <View style={styles.stepContainer}>
-        <View style={styles.stepHeader}>
-          <Text style={styles.stepTitle}>Your Essay is Ready! 🎉</Text>
-          <Text style={styles.stepDescription}>
-            Review your essay outline and expand paragraphs to generate the full content. You can edit any paragraph after expansion.
-          </Text>
+      {/* Thesis */}
+      {outline && (
+        <View style={styles.thesisCard}>
+          <Text style={styles.thesisText}>{outline.thesis}</Text>
         </View>
-        
-        {/* Progress Overview */}
-        <View style={styles.progressOverview}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>Essay Progress</Text>
-            <Text style={styles.progressSubtitle}>
-              {expandedCount} of {totalParagraphs} paragraphs expanded
-            </Text>
+      )}
+
+      {/* Paragraphs */}
+      {outline && outline.paragraphs.map((paragraph, index) => (
+        <View key={index} style={styles.paragraphCard}>
+          <View style={styles.paragraphHeader}>
+            <Text style={styles.paragraphNumber}>{index + 1}</Text>
+            <View style={styles.paragraphInfo}>
+              <Text style={styles.paragraphTitle}>{paragraph.title}</Text>
+              <Text style={styles.paragraphWordCount}>
+                {paragraph.suggestedWordCount} words
+              </Text>
+            </View>
+            {!expandedParagraphs.has(index) && (
+              <TouchableOpacity
+                style={styles.expandButton}
+                onPress={() => expandParagraph(index)}
+              >
+                <Text style={styles.expandButtonText}>{COPY.expandParagraph}</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressBarFill, 
-                  { width: `${progressPercentage}%` }
-                ]} 
+
+          {expandedParagraphs.has(index) && (
+            <View style={styles.expandedContent}>
+              <TextInput
+                value={edits[index] || stripCitationsFromText(paragraph.expandedText || '')}
+                onChangeText={(text) => handleParagraphEdit(index, text)}
+                multiline
+                numberOfLines={8}
+                style={styles.paragraphInput}
+                placeholder="Paragraph content will appear here..."
+                placeholderTextColor={colors.textSecondary}
               />
             </View>
-            <Text style={styles.progressPercentage}>{Math.round(progressPercentage)}%</Text>
-          </View>
-        </View>
-        
-        <ScrollView ref={scrollViewRef} style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Thesis Statement */}
-          <View style={styles.inputGroup}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: colors.primaryLight }]}>
-                <FileText size={20} color={colors.primary} />
-              </View>
-              <Text style={styles.sectionTitle}>Thesis Statement</Text>
-            </View>
-            <View style={styles.thesisCard}>
-              <Text style={styles.thesisText}>{outline.thesis}</Text>
-            </View>
-          </View>
-          
-          {/* Essay Outline */}
-          <View style={styles.inputGroup}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: colors.successLight }]}>
-                <CheckCircle size={20} color={colors.success} />
-              </View>
-              <Text style={styles.sectionTitle}>Essay Outline</Text>
-              <TouchableOpacity
-                onPress={expandAllParagraphs}
-                style={styles.expandAllButton}
-                disabled={expandedCount === totalParagraphs}
-              >
-                <Text style={[
-                  styles.expandAllButtonText,
-                  expandedCount === totalParagraphs && styles.expandAllButtonTextDisabled
-                ]}>
-                  {expandedCount === totalParagraphs ? 'All Expanded' : COPY.expandAll}
-                </Text>
-                <ArrowRight size={16} color={expandedCount === totalParagraphs ? colors.textSecondary : colors.cardBackground} />
-              </TouchableOpacity>
-            </View>
-            
-            {outline.paragraphs.map((paragraph, index) => {
-              const isExpanded = expandedParagraphs.has(index);
-              const isExpanding = false; // You could add state for this
-              
-              return (
-                <View key={index} style={[
-                  styles.paragraphCard,
-                  isExpanded && styles.paragraphCardExpanded
-                ]}>
-                  <View style={styles.paragraphHeader}>
-                    <View style={[
-                      styles.paragraphNumber,
-                      isExpanded && styles.paragraphNumberExpanded
-                    ]}>
-                      {isExpanded ? (
-                        <CheckCircle size={16} color={colors.cardBackground} />
-                      ) : (
-                        <Text style={styles.paragraphNumberText}>{index + 1}</Text>
-                      )}
-                    </View>
-                    <View style={styles.paragraphInfo}>
-                      <Text style={styles.paragraphTitle}>{paragraph.title}</Text>
-                      <View style={styles.paragraphMeta}>
-                        <Text style={styles.paragraphWordCount}>
-                          {paragraph.suggestedWordCount} words
-                        </Text>
-                        {isExpanded && (
-                          <View style={styles.statusBadge}>
-                            <Text style={styles.statusBadgeText}>Generated</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                  
-                  {paragraph.intendedChunks.length > 0 && (
-                    <View style={styles.sourcesSection}>
-                      <Text style={styles.sourcesLabel}>
-                        📚 Sources to use ({paragraph.intendedChunks.length})
-                      </Text>
-                      <View style={styles.sourcesGrid}>
-                        {paragraph.intendedChunks.map((chunk, chunkIndex) => (
-                          <View key={chunkIndex} style={styles.sourceChip}>
-                            <Text style={styles.sourceLabel}>{chunk.label}</Text>
-                            <Text style={styles.sourceExcerpt} numberOfLines={2}>
-                              {chunk.excerpt}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                  
-                  {isExpanded ? (
-                    <View style={styles.expandedContent}>
-                      <View style={styles.paragraphInputHeader}>
-                        <Text style={styles.paragraphInputLabel}>Generated Content</Text>
-                        <Text style={styles.paragraphInputHint}>
-                          You can edit this content directly
-                        </Text>
-                      </View>
-                      <TextInput
-                        value={edits[index] || stripCitationsFromText(paragraph.expandedText || '')}
-                        onChangeText={(text) => setEdits(prev => ({ ...prev, [index]: text }))}
-                        multiline
-                        numberOfLines={8}
-                        style={styles.paragraphInput}
-                        placeholder="Paragraph content will appear here..."
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                      
-                      {paragraph.unsupportedFlags && paragraph.unsupportedFlags.length > 0 && (
-                        <View style={styles.warningsSection}>
-                          <Text style={styles.warningsTitle}>
-                            ⚠️ Content Warnings ({paragraph.unsupportedFlags.length})
-                          </Text>
-                          {paragraph.unsupportedFlags.map((flag, flagIndex) => (
-                            <View key={flagIndex} style={styles.warningCard}>
-                              <View style={styles.warningHeader}>
-                                <AlertCircle size={16} color={colors.warning} />
-                                <Text style={styles.warningTitle}>Unsupported Content</Text>
-                              </View>
-                              <Text style={styles.warningText}>{flag.sentence}</Text>
-                              <Text style={styles.warningExplanation}>{COPY.unsupportedFlagExplanation}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                      
-                      {citationStyle !== 'none' && paragraph.citations && paragraph.citations.length > 0 && (
-                        <View style={styles.citationsSection}>
-                          <Text style={styles.citationsLabel}>
-                            📖 Citations Used ({paragraph.citations.length})
-                          </Text>
-                          <View style={styles.citationsGrid}>
-                            {paragraph.citations.map((citation, citationIndex) => (
-                              <View key={citationIndex} style={styles.citationChip}>
-                                <Text style={styles.citationText}>
-                                  "{citation.text}" → {citation.source}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => expandParagraph(index)}
-                      style={styles.expandButton}
-                      disabled={isExpanding}
-                    >
-                      {isExpanding ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <>
-                          <Text style={styles.expandButtonText}>{COPY.expandParagraph}</Text>
-                          <ArrowRight size={16} color={colors.primary} />
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-          
-          {/* Export Options */}
-          <View style={styles.inputGroup}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: colors.secondaryLight }]}>
-                <Download size={20} color={colors.secondary} />
-              </View>
-              <Text style={styles.sectionTitle}>Export Your Essay</Text>
-            </View>
-            <Text style={styles.exportDescription}>
-              Choose how you'd like to save or share your completed essay
-            </Text>
-            <View style={styles.exportGrid}>
-              <TouchableOpacity
-                onPress={copyToClipboard}
-                style={[styles.exportButton, styles.exportButtonSecondary]}
-              >
-                <Copy size={20} color={colors.textPrimary} />
-                <Text style={styles.exportButtonText}>{COPY.copyToClipboard}</Text>
-                <Text style={styles.exportButtonSubtext}>Quick copy</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={Document && Packer ? downloadAsDocx : downloadAsText}
-                style={[styles.exportButton, styles.exportButtonSuccess]}
-              >
-                <Download size={20} color={colors.cardBackground} />
-                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-                  {Document && Packer ? COPY.downloadDocx : 'Download as Text'}
-                </Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-                  {Document && Packer ? 'Editable format' : 'Text document'}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={jsPDF ? downloadAsPdf : downloadAsText}
-                style={[styles.exportButton, styles.exportButtonError]}
-              >
-                <Download size={20} color={colors.cardBackground} />
-                <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-                  {jsPDF ? COPY.downloadPdf : 'Download as Text'}
-                </Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-                  {jsPDF ? 'Print ready' : 'Text document'}
-                </Text>
-              </TouchableOpacity>
-              
-              {citationStyle !== 'none' && (
-                <TouchableOpacity
-                  onPress={copyWithCitations}
-                  style={[styles.exportButton, styles.exportButtonPrimary]}
-                >
-                  <FileText size={20} color={colors.cardBackground} />
-                  <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.copyWithCitations}</Text>
-                  <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>With references</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          
-          {/* Usage Summary */}
-          <View style={styles.usageSummary}>
-            <View style={styles.usageHeader}>
-              <Text style={styles.usageTitle}>📊 Usage Summary</Text>
-              <Text style={styles.usageSubtitle}>Your essay generation stats</Text>
-            </View>
-            <View style={styles.usageStats}>
-              <View style={styles.usageStat}>
-                <Text style={styles.usageStatValue}>{Math.ceil(wordCount * 1.3)}</Text>
-                <Text style={styles.usageStatLabel}>Estimated tokens</Text>
-              </View>
-              <View style={styles.usageStat}>
-                <Text style={styles.usageStatValue}>{outline.metadata.retrievedCount}</Text>
-                <Text style={styles.usageStatLabel}>Chunks used</Text>
-              </View>
-              <View style={styles.usageStat}>
-                <Text style={styles.usageStatValue}>{files.length + (sampleEssay ? 1 : 0)}</Text>
-                <Text style={styles.usageStatLabel}>Sources</Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  };
-
-  const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
-      {(['materials', 'configure', 'generate'] as Step[]).map((step, index) => (
-        <React.Fragment key={step}>
-          <View style={[
-            styles.stepDot,
-            currentStep === step ? styles.stepDotActive : styles.stepDotInactive
-          ]}>
-            <Text style={[
-              styles.stepDotText,
-              currentStep === step ? styles.stepDotTextActive : styles.stepDotTextInactive
-            ]}>
-              {index + 1}
-            </Text>
-          </View>
-          {index < 2 && (
-            <View style={[
-              styles.stepConnector,
-              ['materials', 'configure'].indexOf(currentStep) > index 
-                ? styles.stepConnectorActive 
-                : styles.stepConnectorInactive
-            ]} />
           )}
-        </React.Fragment>
+        </View>
       ))}
-    </View>
+
+      {/* Export Section */}
+      <View style={styles.exportSection}>
+        <Text style={styles.sectionTitle}>Export Your Essay</Text>
+        
+        <View style={styles.exportGrid}>
+          <TouchableOpacity
+            onPress={copyToClipboard}
+            style={[styles.exportButton, styles.exportButtonPrimary]}
+          >
+            <Copy size={20} color={colors.cardBackground} />
+            <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+              {COPY.copyToClipboard}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={downloadAsText}
+            style={[styles.exportButton, styles.exportButtonSuccess]}
+          >
+            <Download size={20} color={colors.cardBackground} />
+            <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+              Download as Text
+            </Text>
+            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+              Text document
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            if (currentStep === 'materials') {
-              // Navigate back to previous screen
-            } else if (currentStep === 'configure') {
-              setCurrentStep('materials');
-            } else {
-              setCurrentStep('configure');
-            }
-          }}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+    <EssayWriterErrorBoundary>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="light" />
         
-        <Text style={styles.headerTitle}>{COPY.title}</Text>
-        
-        <View style={styles.headerActions}>
-          {currentStep === 'generate' && outline && (
-            <TouchableOpacity
-              onPress={saveEssay}
-              style={styles.headerActionButton}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Save size={20} color={colors.primary} />
-              )}
-            </TouchableOpacity>
-          )}
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            {currentStep !== 'materials' && (
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={() => {
+                  if (currentStep === 'configure') {
+                    setCurrentStep('materials');
+                  } else if (currentStep === 'generate') {
+                    setCurrentStep('configure');
+                  }
+                }}
+              >
+                <ArrowLeft size={24} color={colors.text} />
+              </TouchableOpacity>
+            )}
+            <View>
+              <Text style={styles.headerTitle}>{COPY.title}</Text>
+              <Text style={styles.headerSubtitle}>{COPY.subtitle}</Text>
+            </View>
+          </View>
           
-          <TouchableOpacity
-            onPress={() => setShowSavedDocuments(true)}
-            style={styles.headerActionButton}
-          >
-            <FolderOpen size={20} color={colors.primary} />
-          </TouchableOpacity>
-          
-          {currentStep === 'generate' && outline && (
-            <TouchableOpacity
-              onPress={() => {
-                try {
-                  createNewEssay();
-                } catch (error) {
-                  console.error('Error in createNewEssay button press:', error);
-                  Alert.alert('Error', 'Something went wrong. Please try again.');
-                }
-              }}
-              style={styles.headerActionButton}
-            >
-              <Plus size={20} color={colors.primary} />
-            </TouchableOpacity>
-          )}
+          <View style={styles.headerActions}>
+            {currentStep === 'generate' && outline && (
+              <>
+                <TouchableOpacity
+                  style={styles.headerActionButton}
+                  onPress={saveEssay}
+                  disabled={isSaving}
+                >
+                  <Save size={20} color={colors.primary} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.headerActionButton}
+                  onPress={() => setShowSavedDocuments(true)}
+                >
+                  <FolderOpen size={20} color={colors.primary} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.headerActionButton}
+                  onPress={createNewEssay}
+                >
+                  <Plus size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
-      </View>
-      
-      <Text style={styles.subtitle}>{COPY.subtitle}</Text>
-      
-      {renderStepIndicator()}
-      
-      {currentStep === 'materials' && renderMaterialsStep()}
-      {currentStep === 'configure' && renderConfigureStep()}
-      {currentStep === 'generate' && renderGenerateStep()}
-      
-      {/* Saved Documents Modal */}
-      {showSavedDocuments && (
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowSavedDocuments(false)}
-          >
-            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+
+        {/* Progress Indicator */}
+        <View style={styles.progressContainer}>
+          {['materials', 'configure', 'generate'].map((step, index) => (
+            <View key={step} style={styles.progressStep}>
+              <View style={[
+                styles.progressDot,
+                currentStep === step && styles.progressDotActive
+              ]} />
+              <Text style={[
+                styles.progressLabel,
+                currentStep === step && styles.progressLabelActive
+              ]}>
+                {index + 1}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Step Content */}
+        {currentStep === 'materials' && renderMaterialsStep()}
+        {currentStep === 'configure' && renderConfigureStep()}
+        {currentStep === 'generate' && renderGenerateStep()}
+
+        {/* Saved Documents Modal */}
+        {showSavedDocuments && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Saved Essays</Text>
                 <TouchableOpacity
-                  onPress={() => setShowSavedDocuments(false)}
                   style={styles.modalCloseButton}
+                  onPress={() => setShowSavedDocuments(false)}
                 >
                   <Text style={styles.modalCloseText}>✕</Text>
                 </TouchableOpacity>
               </View>
-            
-            <ScrollView style={styles.modalScrollView}>
-              {savedEssays.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <FolderOpen size={48} color={colors.textSecondary} />
-                  <Text style={styles.emptyStateTitle}>No Saved Essays</Text>
-                  <Text style={styles.emptyStateText}>
-                    Save your essays to access them later
-                  </Text>
-                </View>
-              ) : (
-                savedEssays.map((essay) => (
-                  <View key={essay.id} style={styles.savedEssayCard}>
-                    <View style={styles.savedEssayHeader}>
-                      <Text style={styles.savedEssayTitle} numberOfLines={2}>
-                        {essay.title}
-                      </Text>
-                      <Text style={styles.savedEssayDate}>
-                        {new Date(essay.createdAt).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.savedEssayInfo}>
-                      <Text style={styles.savedEssayInfoText}>
-                        {essay.wordCount} words • {essay.academicLevel} • {essay.citationStyle.toUpperCase()}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.savedEssayActions}>
-                      <TouchableOpacity
-                        onPress={() => loadSavedEssay(essay)}
-                        style={[styles.savedEssayButton, styles.loadButton]}
-                      >
-                        <Text style={styles.loadButtonText}>Load</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        onPress={() => renameSavedEssay(essay.id, essay.title)}
-                        style={[styles.savedEssayButton, styles.renameButton]}
-                      >
-                        <Edit3 size={16} color={colors.primary} />
-                        <Text style={styles.renameButtonText}>Rename</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        onPress={() => deleteSavedEssay(essay.id)}
-                        style={[styles.savedEssayButton, styles.deleteButton]}
-                      >
-                        <Trash2 size={16} color={colors.error} />
-                        <Text style={styles.deleteButtonText}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
+              
+              <ScrollView style={styles.modalScrollView}>
+                {savedEssays.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateTitle}>No saved essays</Text>
+                    <Text style={styles.emptyStateText}>
+                      Your saved essays will appear here
+                    </Text>
                   </View>
-                ))
-              )}
-            </ScrollView>
+                ) : (
+                  savedEssays.map((essay) => (
+                    <View key={essay.id} style={styles.savedEssayCard}>
+                      <View style={styles.savedEssayHeader}>
+                        <Text style={styles.savedEssayTitle}>{essay.title}</Text>
+                        <Text style={styles.savedEssayDate}>
+                          {new Date(essay.savedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={styles.savedEssayInfo}>
+                        <Text style={styles.savedEssayInfoText}>
+                          {essay.essayTopic} • {essay.wordCount} words
+                        </Text>
+                      </View>
+                      <View style={styles.savedEssayActions}>
+                        <TouchableOpacity
+                          style={[styles.savedEssayButton, styles.loadButton]}
+                          onPress={() => loadSavedEssay(essay)}
+                        >
+                          <Text style={styles.loadButtonText}>Load</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.savedEssayButton, styles.deleteButton]}
+                          onPress={() => deleteSavedEssay(essay.id)}
+                        >
+                          <Text style={styles.deleteButtonText}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
             </View>
-          </TouchableOpacity>
-        </View>
-      )}
-      
-    </SafeAreaView>
+          </View>
+        )}
+      </SafeAreaView>
+    </EssayWriterErrorBoundary>
   );
 }
 
@@ -2298,226 +1290,78 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: colors.cardBackground,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomColor: colors.border,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginHorizontal: 24,
-    marginBottom: 24,
-  },
-  stepIndicator: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 24,
+    flex: 1,
   },
-  stepDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  headerButton: {
+    marginRight: 12,
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  headerActions: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  stepDotActive: {
+  headerActionButton: {
+    marginLeft: 12,
+    padding: 8,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  progressStep: {
+    alignItems: 'center',
+    marginHorizontal: 20,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border,
+    marginBottom: 4,
+  },
+  progressDotActive: {
     backgroundColor: colors.primary,
   },
-  stepDotInactive: {
-    backgroundColor: colors.border,
-  },
-  stepDotText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  stepDotTextActive: {
-    color: colors.cardBackground,
-  },
-  stepDotTextInactive: {
+  progressLabel: {
+    fontSize: 12,
     color: colors.textSecondary,
   },
-  stepConnector: {
-    width: 48,
-    height: 2,
-    marginHorizontal: 8,
-  },
-  stepConnectorActive: {
-    backgroundColor: colors.primary,
-  },
-  stepConnectorInactive: {
-    backgroundColor: colors.border,
+  progressLabelActive: {
+    color: colors.primary,
+    fontWeight: 'bold',
   },
   stepContainer: {
     flex: 1,
-    paddingHorizontal: 24,
-  },
-  stepHeader: {
-    marginBottom: 32,
+    padding: 20,
   },
   stepTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  stepDescription: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  materialsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 32,
-  },
-  materialGroup: {
-    flex: 1,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  groupIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  groupTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  uploadArea: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    backgroundColor: colors.background,
-  },
-  uploadText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: 12,
-  },
-  uploadSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  fileCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  fileCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  fileInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  fileTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  fileName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  priorityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warning + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  priorityText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.warning,
-    marginLeft: 4,
-  },
-  filePages: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  fileExcerpt: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  fileActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionIcon: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 8,
-    marginBottom: 32,
-  },
-  continueButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.cardBackground,
-  },
-  scrollView: {
-    flex: 1,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   inputGroup: {
     marginBottom: 24,
@@ -2525,36 +1369,92 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 12,
+    color: colors.text,
+    marginBottom: 8,
   },
   textInput: {
     backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.textPrimary,
   },
   textArea: {
-    minHeight: 100,
+    height: 100,
     textAlignVertical: 'top',
   },
-  wordCountButtons: {
+  uploadSection: {
+    marginBottom: 24,
+  },
+  uploadButton: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  filesSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  fileCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginLeft: 8,
+    flex: 1,
+  },
+  removeButton: {
+    padding: 4,
+  },
+  fileExcerpt: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  wordCountRow: {
+    flexDirection: 'row',
     marginBottom: 12,
   },
   wordCountButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    flex: 1,
+    padding: 12,
+    marginHorizontal: 4,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
   },
   wordCountButtonActive: {
     backgroundColor: colors.primary,
@@ -2563,469 +1463,146 @@ const styles = StyleSheet.create({
   wordCountButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.text,
   },
   wordCountButtonTextActive: {
     color: colors.cardBackground,
   },
-  helperText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
   },
-  optionList: {
+  optionButton: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 16,
+    margin: 4,
     backgroundColor: colors.cardBackground,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  optionItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  optionItemActive: {
-    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
   },
   optionItemRecommended: {
-    borderWidth: 2,
-    borderColor: colors.success + '40',
-    backgroundColor: colors.success + '10',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
   },
-  optionText: {
+  optionButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  optionButtonText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  optionTextActive: {
-    color: colors.primary,
     fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
   },
-  optionContent: {
-    flex: 1,
+  optionButtonTextActive: {
+    color: colors.cardBackground,
   },
   optionDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
+    textAlign: 'center',
     marginTop: 4,
-    lineHeight: 18,
   },
-  optionDescriptionActive: {
-    color: colors.primary + 'CC',
+  integritySection: {
+    marginBottom: 24,
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    padding: 16,
-    borderRadius: 12,
-  },
-  toggleInfo: {
-    flex: 1,
-  },
-  toggleLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  toggleDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  toggle: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.border,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-  },
-  toggleActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.cardBackground,
-  },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
-  },
-  checkboxContainer: {
+  integrityCheckbox: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 4,
     borderWidth: 2,
     borderColor: colors.border,
+    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  checkboxActive: {
+  checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  checkboxText: {
-    fontSize: 16,
-    color: colors.textPrimary,
+  integrityText: {
+    fontSize: 14,
+    color: colors.text,
     flex: 1,
   },
-  generateButton: {
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 8,
-    marginBottom: 32,
+    padding: 12,
   },
-  generateButtonText: {
+  backButtonText: {
+    fontSize: 16,
+    color: colors.primary,
+    marginLeft: 4,
+  },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  nextButtonDisabled: {
+    backgroundColor: colors.border,
+  },
+  nextButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.cardBackground,
   },
-  sampleEssayCard: {
+  thesisCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.secondary + '30',
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sampleEssayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sampleEssayInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  sampleEssayName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  sampleEssayExcerpt: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  removeButton: {
-    padding: 4,
-  },
-  // New styles for improved step 3
-  progressOverview: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 20,
     marginBottom: 24,
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  progressHeader: {
-    marginBottom: 16,
-  },
-  progressTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  progressSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  progressBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
-  },
-  progressPercentage: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  sectionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  paragraphCardExpanded: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.1,
-  },
-  paragraphNumberExpanded: {
-    backgroundColor: colors.primary,
-  },
-  paragraphMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  statusBadge: {
-    backgroundColor: colors.success + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.success,
-  },
-  sourcesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  sourceChip: {
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flex: 1,
-    minWidth: '45%',
-  },
-  sourceLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  sourceExcerpt: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  paragraphInputHeader: {
-    marginBottom: 12,
-  },
-  paragraphInputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  paragraphInputHint: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  paragraphInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.textPrimary,
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  warningsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.warning,
-    marginBottom: 12,
-  },
-  warningCard: {
-    backgroundColor: colors.warning + '10',
-    borderWidth: 1,
-    borderColor: colors.warning + '30',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  warningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  warningTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.warning,
-  },
-  warningText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 8,
-    fontStyle: 'italic',
-  },
-  warningExplanation: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  citationsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  citationChip: {
-    backgroundColor: colors.primary + '10',
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-    borderRadius: 12,
-    padding: 12,
-    flex: 1,
-    minWidth: '45%',
-  },
-  citationText: {
-    fontSize: 12,
-    color: colors.textPrimary,
-    lineHeight: 16,
-  },
-  expandAllButtonTextDisabled: {
-    color: colors.textSecondary,
-  },
-  exportDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  exportButtonSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  exportButtonSubtextWhite: {
-    color: colors.cardBackground + 'CC',
-  },
-  usageHeader: {
-    marginBottom: 16,
-  },
-  usageSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  // Additional missing styles
-  thesisCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
   thesisText: {
     fontSize: 16,
-    color: colors.textPrimary,
+    color: colors.text,
     lineHeight: 24,
+    textAlign: 'center',
     fontStyle: 'italic',
-  },
-  outlineHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  expandAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  expandAllButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.cardBackground,
   },
   paragraphCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
   },
   paragraphHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
-    gap: 12,
   },
   paragraphNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paragraphNumberText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    color: colors.cardBackground,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginRight: 12,
   },
   paragraphInfo: {
     flex: 1,
@@ -3033,252 +1610,87 @@ const styles = StyleSheet.create({
   paragraphTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
+    color: colors.text,
   },
   paragraphWordCount: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 2,
   },
-  sourcesSection: {
-    marginBottom: 12,
+  expandButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  sourcesLabel: {
-    fontSize: 14,
+  expandButtonText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 8,
+    color: colors.cardBackground,
   },
   expandedContent: {
     marginTop: 12,
   },
-  warningsSection: {
-    marginTop: 16,
-  },
-  citationsSection: {
-    marginTop: 16,
-  },
-  citationsLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  expandButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  paragraphInput: {
     backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  expandButtonText: {
+    borderRadius: 8,
+    padding: 12,
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    textAlignVertical: 'top',
+  },
+  exportSection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   exportGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    marginHorizontal: -8,
   },
   exportButton: {
     flex: 1,
     minWidth: '45%',
+    flexDirection: 'column',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    padding: 16,
+    margin: 8,
     borderRadius: 12,
-    gap: 8,
-  },
-  exportButtonSecondary: {
-    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  exportButtonSuccess: {
-    backgroundColor: colors.success,
-  },
-  exportButtonError: {
-    backgroundColor: colors.error,
-  },
   exportButtonPrimary: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  exportButtonSuccess: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   exportButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.text,
     textAlign: 'center',
+    marginTop: 8,
   },
   exportButtonTextWhite: {
     color: colors.cardBackground,
   },
-  usageSummary: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  usageTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  usageStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-  },
-  usageStat: {
-    alignItems: 'center',
-  },
-  usageStatValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  usageStatLabel: {
+  exportButtonSubtext: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
     textAlign: 'center',
+    marginTop: 4,
   },
-  // AI Reference Analysis Styles
-  relevanceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  relevanceText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  analysisSection: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  analysisTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  analysisSummary: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  topicsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  topicChip: {
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  topicText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  analyzeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 8,
-    marginBottom: 8,
-  },
-  analyzeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  exportButtonSubtextWhite: {
     color: colors.cardBackground,
   },
-  analyzeDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  smartSelectionCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.success + '30',
-    shadowColor: colors.shadowMedium,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  smartSelectionHeader: {
-    marginBottom: 12,
-  },
-  smartSelectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  smartSelectionSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  smartSelectionReasoning: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
-  // Header action buttons
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerActionButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-  },
-  // Modal styles
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalBackdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -3290,14 +1702,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 20,
-    width: '90%',
+    borderRadius: 16,
+    width: width * 0.9,
     maxHeight: '80%',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -3305,15 +1714,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: colors.textPrimary,
+    color: colors.text,
   },
   modalCloseButton: {
-    padding: 8,
+    padding: 4,
   },
   modalCloseText: {
     fontSize: 18,
@@ -3322,42 +1731,37 @@ const styles = StyleSheet.create({
   modalScrollView: {
     maxHeight: 400,
   },
-  // Empty state
   emptyState: {
-    alignItems: 'center',
     padding: 40,
+    alignItems: 'center',
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: 16,
+    color: colors.text,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
   },
-  // Saved essay card
   savedEssayCard: {
-    backgroundColor: colors.background,
-    margin: 16,
-    marginBottom: 12,
-    borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   savedEssayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   savedEssayTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
+    color: colors.text,
+    flex: 1,
   },
   savedEssayDate: {
     fontSize: 12,
@@ -3367,22 +1771,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   savedEssayInfoText: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   savedEssayActions: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
   },
   savedEssayButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 8,
-    gap: 6,
+    marginLeft: 8,
   },
   loadButton: {
     backgroundColor: colors.primary,
@@ -3393,26 +1793,11 @@ const styles = StyleSheet.create({
     color: colors.cardBackground,
   },
   deleteButton: {
-    backgroundColor: colors.error + '20',
-    borderWidth: 1,
-    borderColor: colors.error + '40',
+    backgroundColor: colors.error,
   },
   deleteButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.error,
-  },
-  renameButton: {
-    backgroundColor: colors.primary + '20',
-    borderColor: colors.primary,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  renameButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.cardBackground,
   },
 });
