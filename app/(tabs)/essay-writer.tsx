@@ -114,6 +114,21 @@ type CitationStyle = 'none' | 'apa' | 'mla' | 'harvard' | 'chicago';
 type Mode = 'grounded' | 'mixed' | 'teach';
 
 export default function GroundedEssayWriter() {
+  // TEMPORARY: Disable essay writer to prevent crashes
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ fontSize: 18, color: colors.text, textAlign: 'center', marginBottom: 20 }}>
+          Essay Writer is temporarily under maintenance.
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+          We're working on fixing some technical issues. Please check back later.
+        </Text>
+      </View>
+    </SafeAreaView>
+  );
+
   // Subscription hooks
   const { canGenerateEssay, trackEssayGeneration } = useSubscription();
 
@@ -880,7 +895,8 @@ export default function GroundedEssayWriter() {
             })
           );
           
-          // Safe string splitting with validation
+          // Safe alternative to split() to prevent Hermes crashes
+          // Safe alternative to split() to prevent Hermes crashes
           const refArray = references ? references.split('\n\n') : [];
           refArray.forEach(ref => {
             if (ref.trim()) {
