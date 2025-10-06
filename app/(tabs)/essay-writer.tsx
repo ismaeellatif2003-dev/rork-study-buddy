@@ -234,8 +234,7 @@ export default function GroundedEssayWriter() {
 
   // Create new essay
   const createNewEssay = () => {
-    // Use setTimeout to ensure any pending UI updates are completed
-    setTimeout(() => {
+    try {
       Alert.alert(
         'Create New Essay',
         'Are you sure you want to start a new essay? All current progress will be lost.',
@@ -245,8 +244,8 @@ export default function GroundedEssayWriter() {
             text: 'Create New',
             style: 'destructive',
             onPress: () => {
-              // Use setTimeout to ensure Alert is fully dismissed before state changes
-              setTimeout(() => {
+              try {
+                // Reset all state in a single batch
                 setThesis('');
                 setOutline(null);
                 setFiles([]);
@@ -258,12 +257,20 @@ export default function GroundedEssayWriter() {
                 setCurrentStep('materials');
                 setExpandedParagraphs(new Set());
                 setEdits({});
-              }, 100);
+                setReferenceAnalysis({});
+                setSmartSelection(null);
+              } catch (error) {
+                console.error('Error creating new essay:', error);
+                Alert.alert('Error', 'Failed to create new essay. Please try again.');
+              }
             }
           }
         ]
       );
-    }, 50);
+    } catch (error) {
+      console.error('Error showing create new essay alert:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   // Helper functions
@@ -1922,7 +1929,14 @@ export default function GroundedEssayWriter() {
           
           {currentStep === 'generate' && outline && (
             <TouchableOpacity
-              onPress={createNewEssay}
+              onPress={() => {
+                try {
+                  createNewEssay();
+                } catch (error) {
+                  console.error('Error in createNewEssay button press:', error);
+                  Alert.alert('Error', 'Something went wrong. Please try again.');
+                }
+              }}
               style={styles.headerActionButton}
             >
               <Plus size={20} color={colors.primary} />
