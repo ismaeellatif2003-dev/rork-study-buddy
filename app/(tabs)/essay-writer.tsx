@@ -30,10 +30,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { FileText, Upload, Star, Trash2, Edit3, Download, Copy, CheckCircle, AlertCircle, ArrowLeft, ArrowRight } from 'lucide-react-native';
+import { FileText, Upload, Star, Trash2, Edit3, Download, Copy, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Save, FolderOpen, Plus } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mockApi } from '../../services/mockApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
@@ -130,9 +131,121 @@ export default function GroundedEssayWriter() {
   const [isAnalyzingReferences, setIsAnalyzingReferences] = useState(false);
   const [referenceAnalysis, setReferenceAnalysis] = useState<Record<string, any>>({});
   const [smartSelection, setSmartSelection] = useState<any>(null);
+  const [savedEssays, setSavedEssays] = useState<any[]>([]);
+  const [showSavedDocuments, setShowSavedDocuments] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Load saved essays on component mount
+  React.useEffect(() => {
+    loadSavedEssays();
+  }, []);
+
+  // Load saved essays from AsyncStorage
+  const loadSavedEssays = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('saved_essays');
+      if (saved) {
+        setSavedEssays(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Error loading saved essays:', error);
+    }
+  };
+
+  // Save current essay
+  const saveEssay = async () => {
+    if (!outline || !thesis) {
+      Alert.alert('Error', 'No essay to save. Please generate an essay first.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const essayData = {
+        id: Date.now().toString(),
+        title: thesis,
+        thesis,
+        outline,
+        files,
+        sampleEssay,
+        wordCount,
+        academicLevel,
+        citationStyle,
+        includeReferences,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const updatedEssays = [...savedEssays, essayData];
+      setSavedEssays(updatedEssays);
+      await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+      
+      Alert.alert('Success', 'Essay saved successfully!');
+    } catch (error) {
+      console.error('Error saving essay:', error);
+      Alert.alert('Error', 'Failed to save essay. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Load a saved essay
+  const loadSavedEssay = (essay: any) => {
+    setThesis(essay.thesis);
+    setOutline(essay.outline);
+    setFiles(essay.files || []);
+    setSampleEssay(essay.sampleEssay || null);
+    setWordCount(essay.wordCount || 1000);
+    setAcademicLevel(essay.academicLevel || 'undergraduate');
+    setCitationStyle(essay.citationStyle || 'apa');
+    setIncludeReferences(essay.includeReferences || false);
+    setCurrentStep('generate');
+    setShowSavedDocuments(false);
+  };
+
+  // Delete a saved essay
+  const deleteSavedEssay = async (essayId: string) => {
+    try {
+      const updatedEssays = savedEssays.filter(essay => essay.id !== essayId);
+      setSavedEssays(updatedEssays);
+      await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
+      Alert.alert('Success', 'Essay deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting essay:', error);
+      Alert.alert('Error', 'Failed to delete essay. Please try again.');
+    }
+  };
+
+  // Create new essay
+  const createNewEssay = () => {
+    Alert.alert(
+      'Create New Essay',
+      'Are you sure you want to start a new essay? All current progress will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Create New',
+          style: 'destructive',
+          onPress: () => {
+            setThesis('');
+            setOutline(null);
+            setFiles([]);
+            setSampleEssay(null);
+            setWordCount(1000);
+            setAcademicLevel('undergraduate');
+            setCitationStyle('apa');
+            setIncludeReferences(false);
+            setCurrentStep('materials');
+            setExpandedParagraphs(new Set());
+            setEdits({});
+          }
+        }
+      ]
+    );
+  };
 
   // Helper functions
   const getNextOrder = (group: 'notes' | 'references') => {
@@ -1558,7 +1671,37 @@ export default function GroundedEssayWriter() {
         
         <Text style={styles.headerTitle}>{COPY.title}</Text>
         
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerActions}>
+          {currentStep === 'generate' && outline && (
+            <TouchableOpacity
+              onPress={saveEssay}
+              style={styles.headerActionButton}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Save size={20} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity
+            onPress={() => setShowSavedDocuments(true)}
+            style={styles.headerActionButton}
+          >
+            <FolderOpen size={20} color={colors.primary} />
+          </TouchableOpacity>
+          
+          {currentStep === 'generate' && outline && (
+            <TouchableOpacity
+              onPress={createNewEssay}
+              style={styles.headerActionButton}
+            >
+              <Plus size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
       <Text style={styles.subtitle}>{COPY.subtitle}</Text>
@@ -1568,6 +1711,71 @@ export default function GroundedEssayWriter() {
       {currentStep === 'materials' && renderMaterialsStep()}
       {currentStep === 'configure' && renderConfigureStep()}
       {currentStep === 'generate' && renderGenerateStep()}
+      
+      {/* Saved Documents Modal */}
+      {showSavedDocuments && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Saved Essays</Text>
+              <TouchableOpacity
+                onPress={() => setShowSavedDocuments(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalScrollView}>
+              {savedEssays.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <FolderOpen size={48} color={colors.textSecondary} />
+                  <Text style={styles.emptyStateTitle}>No Saved Essays</Text>
+                  <Text style={styles.emptyStateText}>
+                    Save your essays to access them later
+                  </Text>
+                </View>
+              ) : (
+                savedEssays.map((essay) => (
+                  <View key={essay.id} style={styles.savedEssayCard}>
+                    <View style={styles.savedEssayHeader}>
+                      <Text style={styles.savedEssayTitle} numberOfLines={2}>
+                        {essay.title}
+                      </Text>
+                      <Text style={styles.savedEssayDate}>
+                        {new Date(essay.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.savedEssayInfo}>
+                      <Text style={styles.savedEssayInfoText}>
+                        {essay.wordCount} words • {essay.academicLevel} • {essay.citationStyle.toUpperCase()}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.savedEssayActions}>
+                      <TouchableOpacity
+                        onPress={() => loadSavedEssay(essay)}
+                        style={[styles.savedEssayButton, styles.loadButton]}
+                      >
+                        <Text style={styles.loadButtonText}>Load</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        onPress={() => deleteSavedEssay(essay.id)}
+                        style={[styles.savedEssayButton, styles.deleteButton]}
+                      >
+                        <Trash2 size={16} color={colors.error} />
+                        <Text style={styles.deleteButtonText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      )}
       
     </SafeAreaView>
   );
@@ -2539,5 +2747,142 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     lineHeight: 20,
     fontStyle: 'italic',
+  },
+  // Header action buttons
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerActionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+  },
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    color: colors.textSecondary,
+  },
+  modalScrollView: {
+    maxHeight: 400,
+  },
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Saved essay card
+  savedEssayCard: {
+    backgroundColor: colors.background,
+    margin: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  savedEssayHeader: {
+    marginBottom: 8,
+  },
+  savedEssayTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  savedEssayDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  savedEssayInfo: {
+    marginBottom: 12,
+  },
+  savedEssayInfoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  savedEssayActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  savedEssayButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  loadButton: {
+    backgroundColor: colors.primary,
+  },
+  loadButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.cardBackground,
+  },
+  deleteButton: {
+    backgroundColor: colors.error + '20',
+    borderWidth: 1,
+    borderColor: colors.error + '40',
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.error,
   },
 });
