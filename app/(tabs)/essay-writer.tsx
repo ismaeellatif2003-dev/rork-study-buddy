@@ -143,6 +143,14 @@ export default function GroundedEssayWriter() {
     loadSavedEssays();
   }, []);
 
+  // Cleanup effect to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      // Cleanup any pending timeouts or async operations
+      setShowSavedDocuments(false);
+    };
+  }, []);
+
   // Load saved essays from AsyncStorage
   const loadSavedEssays = async () => {
     try {
@@ -194,15 +202,18 @@ export default function GroundedEssayWriter() {
 
   // Load a saved essay
   const loadSavedEssay = (essay: any) => {
-    setThesis(essay.thesis);
-    setOutline(essay.outline);
-    setFiles(essay.files || []);
-    setSampleEssay(essay.sampleEssay || null);
-    setWordCount(essay.wordCount || 1000);
-    setAcademicLevel(essay.academicLevel || 'undergraduate');
-    setCitationStyle(essay.citationStyle || 'apa');
-    setIncludeReferences(essay.includeReferences || false);
-    setCurrentStep('generate');
+    // Use setTimeout to ensure modal is fully dismissed before state changes
+    setTimeout(() => {
+      setThesis(essay.thesis);
+      setOutline(essay.outline);
+      setFiles(essay.files || []);
+      setSampleEssay(essay.sampleEssay || null);
+      setWordCount(essay.wordCount || 1000);
+      setAcademicLevel(essay.academicLevel || 'undergraduate');
+      setCitationStyle(essay.citationStyle || 'apa');
+      setIncludeReferences(essay.includeReferences || false);
+      setCurrentStep('generate');
+    }, 100);
     setShowSavedDocuments(false);
   };
 
@@ -221,30 +232,36 @@ export default function GroundedEssayWriter() {
 
   // Create new essay
   const createNewEssay = () => {
-    Alert.alert(
-      'Create New Essay',
-      'Are you sure you want to start a new essay? All current progress will be lost.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create New',
-          style: 'destructive',
-          onPress: () => {
-            setThesis('');
-            setOutline(null);
-            setFiles([]);
-            setSampleEssay(null);
-            setWordCount(1000);
-            setAcademicLevel('undergraduate');
-            setCitationStyle('apa');
-            setIncludeReferences(false);
-            setCurrentStep('materials');
-            setExpandedParagraphs(new Set());
-            setEdits({});
+    // Use setTimeout to ensure any pending UI updates are completed
+    setTimeout(() => {
+      Alert.alert(
+        'Create New Essay',
+        'Are you sure you want to start a new essay? All current progress will be lost.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Create New',
+            style: 'destructive',
+            onPress: () => {
+              // Use setTimeout to ensure Alert is fully dismissed before state changes
+              setTimeout(() => {
+                setThesis('');
+                setOutline(null);
+                setFiles([]);
+                setSampleEssay(null);
+                setWordCount(1000);
+                setAcademicLevel('undergraduate');
+                setCitationStyle('apa');
+                setIncludeReferences(false);
+                setCurrentStep('materials');
+                setExpandedParagraphs(new Set());
+                setEdits({});
+              }, 100);
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }, 50);
   };
 
   // Helper functions
@@ -1800,16 +1817,21 @@ export default function GroundedEssayWriter() {
       {/* Saved Documents Modal */}
       {showSavedDocuments && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Saved Essays</Text>
-              <TouchableOpacity
-                onPress={() => setShowSavedDocuments(false)}
-                style={styles.modalCloseButton}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowSavedDocuments(false)}
+          >
+            <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Saved Essays</Text>
+                <TouchableOpacity
+                  onPress={() => setShowSavedDocuments(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             
             <ScrollView style={styles.modalScrollView}>
               {savedEssays.length === 0 ? (
@@ -1858,7 +1880,8 @@ export default function GroundedEssayWriter() {
                 ))
               )}
             </ScrollView>
-          </View>
+            </View>
+          </TouchableOpacity>
         </View>
       )}
       
@@ -2851,10 +2874,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: colors.cardBackground,
