@@ -25,16 +25,16 @@ export default function SubscriptionScreen() {
     restorePurchases,
   } = useSubscription();
 
-  const [refreshKey, setRefreshKey] = useState(0);
   const currentPlan = getCurrentPlan();
   const isProUser = currentPlan.id !== 'free';
   const isMobile = Platform.OS !== 'web';
 
-  // Force refresh when subscription changes
+  // Log subscription changes for debugging
   useEffect(() => {
-    console.log('Subscription changed, refreshing UI:', subscription);
-    setRefreshKey(prev => prev + 1);
-  }, [subscription]);
+    console.log('Subscription changed in UI:', subscription);
+    console.log('Current plan:', currentPlan);
+    console.log('Is Pro user:', isProUser);
+  }, [subscription, currentPlan, isProUser]);
 
   const handleSubscribe = async (planId: string) => {
     if (!isMobile) {
@@ -90,7 +90,7 @@ export default function SubscriptionScreen() {
   };
 
   return (
-    <SafeAreaView key={refreshKey} style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: 'Subscription' }} />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>

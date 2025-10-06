@@ -302,10 +302,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           setSubscription(newSubscription);
           console.log('Subscription state set, saving to storage...');
           await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
-          console.log('Subscription saved to storage, forcing re-render...');
-          
-          // Force a re-render by updating a dummy state
-          setSubscription(prev => ({ ...prev, ...newSubscription }));
+          console.log('Subscription saved to storage');
           
           // No success alert - user will see the updated subscription status on the subscription tab
           console.log('Subscription activated successfully and saved to storage');

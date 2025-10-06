@@ -100,16 +100,33 @@ async function verifyApplePurchase(input: any) {
 
     // Create subscription from Apple's response
     const planId = input.productId.includes('yearly') ? 'pro_yearly' : 'pro_monthly';
+    
+    // Handle missing expires_date_ms for non-renewing subscriptions
+    let endDate;
+    if (latestReceiptInfo.expires_date_ms) {
+      endDate = new Date(parseInt(latestReceiptInfo.expires_date_ms));
+    } else {
+      // For non-renewing subscriptions, set end date based on plan
+      endDate = new Date();
+      if (planId === 'pro_monthly') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
+    }
+    
     const subscription = {
       id: `sub_${latestReceiptInfo.original_transaction_id}`,
       planId,
       status: 'active' as const,
       startDate: new Date(parseInt(latestReceiptInfo.purchase_date_ms)),
-      endDate: new Date(parseInt(latestReceiptInfo.expires_date_ms)),
+      endDate,
       autoRenew: latestReceiptInfo.auto_renew_status === '1',
       transactionId: latestReceiptInfo.transaction_id,
       originalTransactionId: latestReceiptInfo.original_transaction_id,
     };
+    
+    console.log('Created subscription from Apple verification:', subscription);
     
     return {
       success: true,
