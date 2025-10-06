@@ -415,10 +415,15 @@ export default function GroundedEssayWriter() {
     const referenceFiles = files.filter(f => f.group === 'references');
     if (referenceFiles.length === 0) return null;
 
-    const references = referenceFiles.map((file, index) => {
+    // Limit references to prevent memory issues
+    const maxReferences = 50;
+    const limitedFiles = referenceFiles.slice(0, maxReferences);
+
+    const references = limitedFiles.map((file, index) => {
       const year = new Date().getFullYear();
       const author = `Author ${index + 1}`;
-      const title = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+      // Safe title extraction with length limit
+      const title = file.name ? file.name.replace(/\.[^/.]+$/, "").substring(0, 100) : `Document ${index + 1}`;
       
       switch (citationStyle) {
         case 'apa':
@@ -442,12 +447,15 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
-      const essayTitle = thesis || 'Generated Essay';
+      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200); // Limit title length
       const essayText = outline.paragraphs
         .map((p, i) => {
           const text = edits[i] || p.expandedText || '';
           const cleanText = stripCitationsFromText(text);
-          return `${p.title}\n\n${cleanText}`;
+          // Limit paragraph text length to prevent memory issues
+          const limitedText = cleanText.substring(0, 5000);
+          const limitedTitle = (p.title || `Paragraph ${i + 1}`).substring(0, 100);
+          return `${limitedTitle}\n\n${limitedText}`;
         })
         .join('\n\n\n');
 
@@ -462,7 +470,7 @@ export default function GroundedEssayWriter() {
       }
 
       // Create a proper filename with timestamp
-      const timestamp = new Date().toISOString().split('T')[0];
+      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
       const filename = `essay_${timestamp}.txt`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
@@ -483,24 +491,37 @@ export default function GroundedEssayWriter() {
   };
 
   const stripCitationsFromText = (text: string): string => {
-    if (citationStyle === 'none') {
-      // Remove common citation patterns
-      return text
-        // Remove parenthetical citations like (Smith, 2023) or (Smith et al., 2023)
-        .replace(/\([^)]*\d{4}[^)]*\)/g, '')
-        // Remove author-date citations like Smith (2023)
-        .replace(/\b[A-Z][a-z]+(?:\s+et\s+al\.)?\s*\(\d{4}\)/g, '')
-        // Remove numbered citations like [1] or [1,2,3]
-        .replace(/\[\d+(?:,\s*\d+)*\]/g, '')
-        // Remove superscript citations like ¹ or ²
-        .replace(/[¹²³⁴⁵⁶⁷⁸⁹]/g, '')
-        // Clean up extra spaces and punctuation
-        .replace(/\s+/g, ' ')
-        .replace(/\s+([.,;:!?])/g, '$1')
-        .replace(/\(\s*\)/g, '')
-        .trim();
+    try {
+      // Safety check for text input
+      if (!text || typeof text !== 'string') {
+        return '';
+      }
+
+      // Limit text length to prevent memory issues
+      const limitedText = text.substring(0, 10000);
+
+      if (citationStyle === 'none') {
+        // Remove common citation patterns with safe operations
+        return limitedText
+          // Remove parenthetical citations like (Smith, 2023) or (Smith et al., 2023)
+          .replace(/\([^)]*\d{4}[^)]*\)/g, '')
+          // Remove author-date citations like Smith (2023)
+          .replace(/\b[A-Z][a-z]+(?:\s+et\s+al\.)?\s*\(\d{4}\)/g, '')
+          // Remove numbered citations like [1] or [1,2,3]
+          .replace(/\[\d+(?:,\s*\d+)*\]/g, '')
+          // Remove superscript citations like ¹ or ²
+          .replace(/[¹²³⁴⁵⁶⁷⁸⁹]/g, '')
+          // Clean up extra spaces and punctuation
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([.,;:!?])/g, '$1')
+          .replace(/\(\s*\)/g, '')
+          .trim();
+      }
+      return limitedText;
+    } catch (error) {
+      console.warn('Error in stripCitationsFromText:', error);
+      return text ? text.substring(0, 1000) : '';
     }
-    return text;
   };
 
   // AI Reference Analysis
@@ -781,7 +802,7 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
-      const essayTitle = thesis || 'Generated Essay';
+      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
       const essayText = outline.paragraphs
         .map((p, i) => {
           const text = edits[i] || p.expandedText || '';
@@ -822,7 +843,7 @@ export default function GroundedEssayWriter() {
         return;
       }
 
-      const essayTitle = thesis || 'Generated Essay';
+      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
       
       // Create Word document structure
       const paragraphs = outline.paragraphs.map((p, i) => {
@@ -859,7 +880,9 @@ export default function GroundedEssayWriter() {
             })
           );
           
-          references.split('\n\n').forEach(ref => {
+          // Safe string splitting with validation
+          const refArray = references ? references.split('\n\n') : [];
+          refArray.forEach(ref => {
             if (ref.trim()) {
               paragraphs.push(
                 new Paragraph({
@@ -896,7 +919,7 @@ export default function GroundedEssayWriter() {
       const buffer = await Packer.toBuffer(doc);
       
       // Save to file
-      const timestamp = new Date().toISOString().split('T')[0];
+      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
       const filename = `essay_${timestamp}.docx`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
@@ -939,7 +962,7 @@ export default function GroundedEssayWriter() {
         return;
       }
 
-      const essayTitle = thesis || 'Generated Essay';
+      const essayTitle = (outline.thesis || 'Generated Essay').substring(0, 200);
       
       // Create PDF document
       const pdf = new jsPDF();
@@ -1023,12 +1046,14 @@ export default function GroundedEssayWriter() {
       }
       
       // Save the PDF
-      const timestamp = new Date().toISOString().split('T')[0];
+      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
       const filename = `essay_${timestamp}.pdf`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
       const pdfOutput = pdf.output('datauristring');
-      const base64Data = pdfOutput.split(',')[1];
+      // Safe string splitting with validation
+      const commaIndex = pdfOutput.indexOf(',');
+      const base64Data = commaIndex !== -1 ? pdfOutput.substring(commaIndex + 1) : pdfOutput;
       
       await FileSystem.writeAsStringAsync(fileUri, base64Data, {
         encoding: FileSystem.EncodingType.Base64
