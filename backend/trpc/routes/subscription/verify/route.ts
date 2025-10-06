@@ -160,7 +160,9 @@ function getAppleErrorMessage(status: number): string {
 // Fallback function for mock verification when Apple shared secret is not configured
 async function createMockSubscription(input: any) {
   console.log('Creating mock subscription for testing...');
+  console.log('Input productId:', input.productId);
   const planId = input.productId.includes('yearly') ? 'pro_yearly' : 'pro_monthly';
+  console.log('Determined planId:', planId);
   const startDate = new Date();
   const endDate = new Date();
   

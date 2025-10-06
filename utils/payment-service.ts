@@ -245,7 +245,9 @@ class PaymentService {
       
       // Create a local subscription as fallback for testing
       console.log('Creating local subscription as fallback...');
+      console.log('Purchase productId:', purchase.productId);
       const planId = purchase.productId.includes('yearly') ? 'pro_yearly' : 'pro_monthly';
+      console.log('Determined planId:', planId);
       const startDate = new Date();
       const endDate = new Date();
       
@@ -304,6 +306,8 @@ class PaymentService {
           transactionDate: Date.now(),
           transactionReceipt: 'mock_receipt',
         };
+        
+        console.log('Mock purchase created with productId:', productId);
         
         // Simulate the purchase update
         setTimeout(() => {
