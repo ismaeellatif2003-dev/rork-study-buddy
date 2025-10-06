@@ -194,10 +194,20 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
 
   // Get current plan
   const getCurrentPlan = useCallback((): SubscriptionPlan => {
+    console.log('getCurrentPlan called with subscription:', subscription);
     if (!subscription || subscription.status !== 'active' || new Date() > subscription.endDate) {
+      console.log('Returning free plan because:', {
+        noSubscription: !subscription,
+        statusNotActive: subscription?.status !== 'active',
+        expired: subscription ? new Date() > subscription.endDate : false,
+        currentDate: new Date(),
+        endDate: subscription?.endDate
+      });
       return SUBSCRIPTION_PLANS[0]; // Free plan
     }
-    return SUBSCRIPTION_PLANS.find(plan => plan.id === subscription.planId) || SUBSCRIPTION_PLANS[0];
+    const plan = SUBSCRIPTION_PLANS.find(plan => plan.id === subscription.planId) || SUBSCRIPTION_PLANS[0];
+    console.log('Returning plan:', plan);
+    return plan;
   }, [subscription]);
 
   // Check if user can perform action
@@ -287,11 +297,12 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         
         // Set up payment service callbacks
         paymentService.onPurchaseSuccess = async (newSubscription) => {
+          console.log('Purchase success callback called with:', newSubscription);
           setSubscription(newSubscription);
           await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
           
           // No success alert - user will see the updated subscription status on the subscription tab
-          console.log('Subscription activated successfully');
+          console.log('Subscription activated successfully and saved to storage');
         };
         
         paymentService.onPurchaseError = (error) => {
