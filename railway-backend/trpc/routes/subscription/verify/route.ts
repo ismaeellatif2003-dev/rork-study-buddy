@@ -87,11 +87,10 @@ async function verifyApplePurchase(input: any) {
       };
     }
     
-    // Verify the product ID matches (allow both old and new product IDs)
+    // Verify the product ID matches (only accept new product IDs with 123 suffix)
     const expectedProductIds = [
-      input.productId,
-      input.productId.replace('123', ''), // Remove 123 suffix
-      input.productId.replace('123', '') + '123' // Add 123 suffix
+      'app.rork.study_buddy_4fpqfs7.subscription.monthly123',
+      'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
     ];
     
     if (!expectedProductIds.includes(latestReceiptInfo.product_id)) {
