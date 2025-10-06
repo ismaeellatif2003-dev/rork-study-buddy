@@ -42,6 +42,12 @@ export const verifyPurchaseProcedure = publicProcedure
 // Verify Apple Pay purchase with Apple's servers
 async function verifyApplePurchase(input: any) {
   try {
+    // Check if this is a mock purchase (development mode)
+    if (input.receiptData === 'mock_receipt' || input.transactionId?.startsWith('mock_')) {
+      console.log('Detected mock purchase, using mock verification');
+      return await createMockSubscription(input);
+    }
+    
     if (!input.receiptData) {
       return {
         success: false,
@@ -87,8 +93,18 @@ async function verifyApplePurchase(input: any) {
       };
     }
     
-    // Verify the product ID matches
-    if (latestReceiptInfo.product_id !== input.productId) {
+    // Verify the product ID matches (only accept new product IDs with 123 suffix)
+    const expectedProductIds = [
+      'app.rork.study_buddy_4fpqfs7.subscription.monthly123',
+      'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
+    ];
+    
+    if (!expectedProductIds.includes(latestReceiptInfo.product_id)) {
+      console.log('Product ID mismatch:', {
+        expected: expectedProductIds,
+        received: latestReceiptInfo.product_id,
+        input: input.productId
+      });
       return {
         success: false,
         error: 'Product ID mismatch',

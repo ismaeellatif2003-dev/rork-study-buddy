@@ -207,6 +207,15 @@ class PaymentService {
       try {
         const { trpcClient } = await import('@/lib/trpc');
         
+        console.log('Sending to backend:', {
+          platform: Platform.OS as 'ios' | 'android' | 'web',
+          purchaseToken: purchase.purchaseToken,
+          productId: purchase.productId,
+          transactionId: purchase.transactionId,
+          originalTransactionId: (purchase as any).originalTransactionId || purchase.transactionId,
+          receiptData: purchase.transactionReceipt,
+        });
+        
         const verificationResult = await trpcClient.subscription.verifyPurchase.mutate({
           platform: Platform.OS as 'ios' | 'android' | 'web',
           purchaseToken: purchase.purchaseToken,
