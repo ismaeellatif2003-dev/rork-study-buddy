@@ -37,6 +37,7 @@ export interface SubscriptionPlan {
   maxNotes: number;
   maxFlashcards: number;
   aiQuestionsPerDay: number;
+  maxEssays: number;
   cameraScanning: boolean;
   aiEnhancedCards: boolean;
 }
@@ -56,6 +57,7 @@ export interface UsageStats {
   notesCreated: number;
   flashcardsGenerated: number;
   aiQuestionsAsked: number;
+  essaysGenerated: number;
   lastResetDate: Date;
 }
 
@@ -116,4 +118,21 @@ export interface NoteTestResult {
   correct: number;
   total: number;
   percentage: number;
+}
+
+export interface ReferenceAnalysis {
+  fileId: string;
+  relevanceScore: number; // 0-100
+  keyTopics: string[];
+  summary: string;
+  recommendedFor: string[]; // essay topics this reference is good for
+  confidence: number; // 0-100
+}
+
+export interface SmartReferenceSelection {
+  selectedReferences: string[]; // file IDs
+  excludedReferences: string[]; // file IDs
+  reasoning: string; // AI explanation of selection
+  totalReferences: number;
+  selectedCount: number;
 }

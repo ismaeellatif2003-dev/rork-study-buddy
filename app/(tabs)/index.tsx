@@ -15,6 +15,7 @@ import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
 import { AIService } from '@/utils/ai-service';
+import { handleNoteLimit, handleFlashcardLimit } from '@/utils/navigation-utils';
 import colors from '@/constants/colors';
 import type { Note } from '@/types/study';
 import { router } from 'expo-router';
@@ -54,7 +55,7 @@ export default function NotesScreen() {
     }
 
     if (!canCreateNote()) {
-      Alert.alert('Note limit reached', 'Upgrade to Pro for unlimited notes.');
+      handleNoteLimit();
       return;
     }
 
@@ -106,7 +107,7 @@ export default function NotesScreen() {
       }));
       
       if (!canGenerateFlashcards(flashcards.length)) {
-        Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
+        handleFlashcardLimit();
         return;
       }
       

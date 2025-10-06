@@ -25,7 +25,6 @@ app.use("*", cors());
 app.use(
   "/trpc/*",
   trpcServer({
-    endpoint: "/api/trpc",
     router: appRouter,
     createContext,
   })

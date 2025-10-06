@@ -17,11 +17,11 @@ import type { UserSubscription } from '@/types/study';
 // Product IDs for different platforms
 const PRODUCT_IDS = {
   PRO_MONTHLY: {
-    ios: 'app.rork.study_buddy_4fpqfs7.subscription.monthly',
+    ios: 'app.rork.study_buddy_4fpqfs7.subscription.monthly123',
     android: 'study_buddy_pro_monthly',
   },
   PRO_YEARLY: {
-    ios: 'app.rork.study_buddy_4fpqfs7.subscription.yearly',
+    ios: 'app.rork.study_buddy_4fpqfs7.subscription.yearly123',
     android: 'study_buddy_pro_yearly',
   },
 };
@@ -54,6 +54,15 @@ class PaymentService {
       return true;
     } catch (error) {
       console.error('Failed to initialize payment service:', error);
+      
+      // In development/simulator, we'll still return true but with fallback products
+      if (__DEV__) {
+        console.log('Payment service failed to initialize - using fallback mode for development');
+        this.isInitialized = true;
+        await this.loadProducts(); // This will use fallback products
+        return true;
+      }
+      
       return false;
     }
   }
@@ -73,7 +82,8 @@ class PaymentService {
       
       console.log('Loaded products:', this.availableProducts.map(p => p.productId));
     } catch (error) {
-      console.error('Failed to load products:', error);
+      // Silently handle product loading errors - this is expected in development
+      console.log('Using fallback products (store products not available)');
       
       // Create fallback products if loading fails
       this.availableProducts = [
@@ -92,13 +102,16 @@ class PaymentService {
           currency: 'GBP',
         } as Product,
       ];
-      
-      console.log('Using fallback products:', this.availableProducts.map(p => p.productId));
     }
   }
 
   // Set up purchase listeners
   private setupPurchaseListeners(): void {
+    // Only set up listeners if they haven't been set up already
+    if (this.purchaseUpdateListener || this.purchaseErrorListener) {
+      return;
+    }
+
     // Purchase update listener
     this.purchaseUpdateListener = purchaseUpdatedListener(
       async (purchase: SubscriptionPurchase) => {
@@ -132,14 +145,8 @@ class PaymentService {
       const verificationResult = await this.verifyPurchaseWithBackend(purchase);
       
       if (verificationResult.success && verificationResult.subscription) {
-        // Emit success event
+        // Emit success event - notification will be handled by subscription store
         this.onPurchaseSuccess?.(verificationResult.subscription);
-        
-        Alert.alert(
-          'Subscription Successful! 🎉',
-          'Your subscription has been activated successfully!',
-          [{ text: 'Great!', style: 'default' }]
-        );
       } else {
         this.onPurchaseError?.(verificationResult.error || 'Verification failed');
       }
@@ -156,12 +163,7 @@ class PaymentService {
     } else {
       console.error('Purchase error:', error);
       this.onPurchaseError?.(error.message || 'Purchase failed');
-      
-      Alert.alert(
-        'Purchase Error',
-        'There was an issue with your purchase. Please try again.',
-        [{ text: 'OK', style: 'default' }]
-      );
+      // Error notification will be handled by subscription store
     }
   }
 
@@ -284,12 +286,33 @@ class PaymentService {
     // Check if product is available
     const product = this.availableProducts.find(p => p.productId === productId);
     if (!product) {
-      console.warn('Product not found in available products, proceeding anyway...');
+      // Silently handle product not found - this is expected in development
+      console.log('Product not found in available products, using fallback product');
       console.log('Available products:', this.availableProducts.map(p => p.productId));
       console.log('Requested product:', productId);
     }
 
     try {
+      // In development mode, simulate a successful purchase
+      if (__DEV__) {
+        console.log('Development mode: Simulating successful purchase');
+        
+        // Create a mock purchase object
+        const mockPurchase = {
+          productId,
+          transactionId: `mock_${Date.now()}`,
+          transactionDate: Date.now(),
+          transactionReceipt: 'mock_receipt',
+        };
+        
+        // Simulate the purchase update
+        setTimeout(() => {
+          this.handlePurchaseUpdate(mockPurchase as any);
+        }, 1000);
+        
+        return;
+      }
+      
       // Request subscription
       await requestSubscription({
         sku: productId,

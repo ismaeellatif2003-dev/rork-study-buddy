@@ -13,10 +13,10 @@ const STORAGE_KEYS = {
 // Product IDs for App Store and Google Play
 export const PRODUCT_IDS = {
   PRO_MONTHLY: Platform.OS === 'ios' 
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly'
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.monthly123'
     : 'study_buddy_pro_monthly',
   PRO_YEARLY: Platform.OS === 'ios'
-    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly'
+    ? 'app.rork.study_buddy_4fpqfs7.subscription.yearly123'
     : 'study_buddy_pro_yearly'
 };
 
@@ -32,11 +32,13 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       '5 notes per month',
       '25 flashcards per month',
       '10 AI questions per day',
+      '1 essay per month',
       'Basic summaries'
     ],
     maxNotes: 5,
     maxFlashcards: 25,
     aiQuestionsPerDay: 10,
+    maxEssays: 1,
     cameraScanning: false,
     aiEnhancedCards: false,
   },
@@ -50,6 +52,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Unlimited notes',
       'Unlimited flashcards',
       'Unlimited AI questions',
+      'Unlimited essays',
       'Camera note scanning',
       'AI-enhanced flashcards',
       'Priority support'
@@ -57,6 +60,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     maxNotes: -1, // -1 means unlimited
     maxFlashcards: -1,
     aiQuestionsPerDay: -1,
+    maxEssays: -1,
     cameraScanning: true,
     aiEnhancedCards: true,
   },
@@ -70,6 +74,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Unlimited notes',
       'Unlimited flashcards',
       'Unlimited AI questions',
+      'Unlimited essays',
       'Camera note scanning',
       'AI-enhanced flashcards',
       'Priority support',
@@ -78,6 +83,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     maxNotes: -1,
     maxFlashcards: -1,
     aiQuestionsPerDay: -1,
+    maxEssays: -1,
     cameraScanning: true,
     aiEnhancedCards: true,
   },
@@ -89,12 +95,14 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     notesCreated: 0,
     flashcardsGenerated: 0,
     aiQuestionsAsked: 0,
+    essaysGenerated: 0,
     lastResetDate: new Date(),
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [availableProducts, setAvailableProducts] = useState<any[]>([]);
   const [isPaymentInitialized, setIsPaymentInitialized] = useState(false);
+  const [hasShownSuccessNotification, setHasShownSuccessNotification] = useState(false);
 
   // Load subscription data
   useEffect(() => {
@@ -172,6 +180,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         if (now.getDate() === 1 && (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear())) {
           newStats.notesCreated = 0;
           newStats.flashcardsGenerated = 0;
+          newStats.essaysGenerated = 0;
         }
 
         setUsageStats(newStats);
@@ -218,6 +227,11 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     return plan.aiEnhancedCards;
   }, [getCurrentPlan]);
 
+  const canGenerateEssay = useCallback((): boolean => {
+    const plan = getCurrentPlan();
+    return plan.maxEssays === -1 || usageStats.essaysGenerated < plan.maxEssays;
+  }, [getCurrentPlan, usageStats.essaysGenerated]);
+
   // Track usage
   const trackNoteCreation = useCallback(async () => {
     const newStats = {
@@ -246,8 +260,22 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(newStats));
   }, [usageStats]);
 
-  // Initialize payment service
+  const trackEssayGeneration = useCallback(async () => {
+    const newStats = {
+      ...usageStats,
+      essaysGenerated: usageStats.essaysGenerated + 1,
+    };
+    setUsageStats(newStats);
+    await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(newStats));
+  }, [usageStats]);
+
+  // Initialize payment service (lazy initialization)
   const initializePayment = useCallback(async () => {
+    // Only initialize if not already initialized
+    if (isPaymentInitialized) {
+      return true;
+    }
+
     try {
       // Initialize payment service
       const success = await paymentService.initialize();
@@ -258,19 +286,33 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         const products = paymentService.getAvailableProducts();
         setAvailableProducts(products);
         
-
-        
         // Set up payment service callbacks
         paymentService.onPurchaseSuccess = async (newSubscription) => {
           setSubscription(newSubscription);
           await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(newSubscription));
           
-
+          // Show success notification only once
+          if (!hasShownSuccessNotification) {
+            setHasShownSuccessNotification(true);
+            Alert.alert(
+              'Subscription Successful! 🎉',
+              'Your subscription has been activated successfully!',
+              [{ text: 'Great!', style: 'default' }]
+            );
+            
+            // Reset the flag after 5 seconds to allow future notifications
+            setTimeout(() => {
+              setHasShownSuccessNotification(false);
+            }, 5000);
+          }
         };
         
         paymentService.onPurchaseError = (error) => {
           console.error('Purchase error:', error);
-          Alert.alert('Purchase Error', error);
+          // Only show alert for non-cancellation errors
+          if (!error.includes('cancelled') && !error.includes('user cancelled')) {
+            Alert.alert('Purchase Error', error);
+          }
         };
         
         paymentService.onPurchaseCancelled = () => {
@@ -278,15 +320,16 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         };
       }
       
+      return success;
     } catch (error) {
       console.error('Failed to initialize payment service:', error);
-      Alert.alert(
-        'Payment Service Unavailable',
-        'Payment service is not available on this device. Please try again later.',
-        [{ text: 'OK', style: 'default' }]
-      );
+      // Only show alert in development mode, not in production
+      if (__DEV__) {
+        console.log('Payment service initialization failed - this is expected in development');
+      }
+      return false;
     }
-  }, []);
+  }, [isPaymentInitialized]);
 
   // Subscribe to plan with payment service
   const subscribeToPlan = useCallback(async (planId: string) => {
@@ -305,13 +348,17 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return;
       }
 
+      // Initialize payment service if not already initialized
       if (!isPaymentInitialized) {
-        Alert.alert(
-          'Payment Service Not Ready',
-          'Payment service is still initializing. Please wait a moment and try again.',
-          [{ text: 'OK', style: 'default' }]
-        );
-        return;
+        const initialized = await initializePayment();
+        if (!initialized) {
+          Alert.alert(
+            'Payment Service Unavailable',
+            'Payment service is not available on this device. Please try again later.',
+            [{ text: 'OK', style: 'default' }]
+          );
+          return;
+        }
       }
 
       const planKey = planId === 'pro_monthly' ? 'pro_monthly' : 'pro_yearly';
@@ -402,6 +449,19 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         return;
       }
 
+      // Initialize payment service if not already initialized
+      if (!isPaymentInitialized) {
+        const initialized = await initializePayment();
+        if (!initialized) {
+          Alert.alert(
+            'Payment Service Unavailable',
+            'Payment service is not available on this device. Please try again later.',
+            [{ text: 'OK', style: 'default' }]
+          );
+          return;
+        }
+      }
+
       const restoredSubscriptions = await paymentService.restorePurchases();
       
       if (restoredSubscriptions.length === 0) {
@@ -447,12 +507,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     }
   }, []);
 
-  // Initialize payment service on mount
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      initializePayment();
-    }
-  }, [initializePayment]);
+  // Payment service will be initialized lazily when needed (e.g., when user tries to subscribe)
 
   // Cleanup payment service on unmount
   useEffect(() => {
@@ -472,14 +527,16 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     canCreateNote,
     canGenerateFlashcards,
     canAskAIQuestion,
+    canGenerateEssay,
     canUseCameraScanning,
     canUseAIEnhancedCards,
     trackNoteCreation,
     trackFlashcardGeneration,
     trackAIQuestion,
+    trackEssayGeneration,
     subscribeToPlan,
     cancelSubscription,
     restorePurchases,
     initializePayment,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
 });

@@ -39,14 +39,7 @@ export default function SubscriptionScreen() {
       return;
     }
 
-    if (!isPaymentInitialized) {
-      Alert.alert(
-        'Payment Service Not Ready',
-        'Please wait a moment and try again.',
-        [{ text: 'OK', style: 'default' }]
-      );
-      return;
-    }
+    // Payment service initialization is handled by subscribeToPlan function
 
     const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
     if (!plan) return;
@@ -110,11 +103,6 @@ export default function SubscriptionScreen() {
             )}
           </View>
           
-          {subscription && subscription.status === 'active' && (
-            <Text style={styles.subscriptionInfo}>
-              Active until {subscription.endDate.toLocaleDateString()}
-            </Text>
-          )}
 
           {/* Usage Stats */}
           <View style={styles.usageStats}>
@@ -137,6 +125,12 @@ export default function SubscriptionScreen() {
                   {getUsageText(usageStats.aiQuestionsAsked, currentPlan.aiQuestionsPerDay)}
                 </Text>
                 <Text style={styles.usageLabel}>AI Questions</Text>
+              </View>
+              <View style={styles.usageItem}>
+                <Text style={styles.usageValue}>
+                  {getUsageText(usageStats.essaysGenerated, currentPlan.maxEssays)}
+                </Text>
+                <Text style={styles.usageLabel}>Essays</Text>
               </View>
             </View>
           </View>
@@ -301,10 +295,12 @@ const styles = StyleSheet.create({
   usageGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
   },
   usageItem: {
     alignItems: 'center',
-    flex: 1,
+    width: '48%',
+    marginBottom: 16,
   },
   usageValue: {
     fontSize: 20,

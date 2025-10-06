@@ -18,6 +18,7 @@ import { useStudy } from '@/hooks/study-store';
 import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
 import { AIService } from '@/utils/ai-service';
+import { handleNoteLimit, handleFlashcardLimit } from '@/utils/navigation-utils';
 import colors from '@/constants/colors';
 
 type ScanStep = 'camera' | 'processing' | 'review' | 'enhance';
@@ -241,7 +242,7 @@ Date: ${new Date().toLocaleDateString()}
     }
 
     if (!canCreateNote()) {
-      Alert.alert('Note limit reached', 'Upgrade to Pro for unlimited notes.');
+      handleNoteLimit();
       return;
     }
 
@@ -283,8 +284,7 @@ Date: ${new Date().toLocaleDateString()}
       }));
       
       if (!canGenerateFlashcards(flashcards.length)) {
-        Alert.alert('Flashcard limit reached', `You can generate ${flashcards.length} more flashcards. Upgrade to Pro for unlimited flashcards.`);
-        router.replace('/(tabs)');
+        handleFlashcardLimit();
         return;
       }
       
