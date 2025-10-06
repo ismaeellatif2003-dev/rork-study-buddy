@@ -87,8 +87,19 @@ async function verifyApplePurchase(input: any) {
       };
     }
     
-    // Verify the product ID matches
-    if (latestReceiptInfo.product_id !== input.productId) {
+    // Verify the product ID matches (allow both old and new product IDs)
+    const expectedProductIds = [
+      input.productId,
+      input.productId.replace('123', ''), // Remove 123 suffix
+      input.productId.replace('123', '') + '123' // Add 123 suffix
+    ];
+    
+    if (!expectedProductIds.includes(latestReceiptInfo.product_id)) {
+      console.log('Product ID mismatch:', {
+        expected: expectedProductIds,
+        received: latestReceiptInfo.product_id,
+        input: input.productId
+      });
       return {
         success: false,
         error: 'Product ID mismatch',
