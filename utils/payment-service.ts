@@ -141,16 +141,7 @@ class PaymentService {
         }
       }
 
-      // In development mode, skip backend verification entirely
-      if (__DEV__) {
-        console.log('Development mode: Skipping backend verification, creating local subscription');
-        const localSubscription = this.createLocalSubscription(purchase);
-        console.log('Created local subscription:', localSubscription);
-        this.onPurchaseSuccess?.(localSubscription);
-        return;
-      }
-      
-      // Verify purchase with backend (production only)
+      // Verify purchase with backend
       const verificationResult = await this.verifyPurchaseWithBackend(purchase);
       
       console.log('Verification result:', verificationResult);
