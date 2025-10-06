@@ -144,10 +144,14 @@ class PaymentService {
       // Verify purchase with backend
       const verificationResult = await this.verifyPurchaseWithBackend(purchase);
       
+      console.log('Verification result:', verificationResult);
+      
       if (verificationResult.success && verificationResult.subscription) {
         // Emit success event - notification will be handled by subscription store
+        console.log('Purchase verification successful, calling onPurchaseSuccess');
         this.onPurchaseSuccess?.(verificationResult.subscription);
       } else {
+        console.log('Purchase verification failed, calling onPurchaseError with:', verificationResult.error);
         this.onPurchaseError?.(verificationResult.error || 'Verification failed');
       }
     } catch (error) {
@@ -223,6 +227,7 @@ class PaymentService {
           };
         } else {
           console.error('Backend verification returned failure:', verificationResult);
+          console.log('__DEV__ is:', __DEV__);
           
           // In development mode, if verification fails, create a local subscription instead of showing error
           if (__DEV__) {
@@ -236,6 +241,7 @@ class PaymentService {
             };
           }
           
+          console.log('Production mode: Returning verification failure');
           return {
             success: false,
             error: verificationResult.error || 'Verification failed',
