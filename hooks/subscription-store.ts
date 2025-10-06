@@ -296,8 +296,10 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         
         paymentService.onPurchaseError = (error) => {
           console.error('Purchase error:', error);
-          // Only show alert for non-cancellation errors
-          if (!error.includes('cancelled') && !error.includes('user cancelled')) {
+          // Only show alert for non-cancellation errors and non-product ID mismatch errors in dev mode
+          if (!error.includes('cancelled') && 
+              !error.includes('user cancelled') && 
+              !(__DEV__ && error.includes('Product ID mismatch'))) {
             Alert.alert('Purchase Error', error);
           }
         };

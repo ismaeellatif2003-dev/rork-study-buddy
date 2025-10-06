@@ -227,9 +227,12 @@ class PaymentService {
           // In development mode, if verification fails, create a local subscription instead of showing error
           if (__DEV__) {
             console.log('Development mode: Creating local subscription despite verification failure');
+            console.log('Verification error:', verificationResult.error);
+            const localSubscription = this.createLocalSubscription(purchase);
+            console.log('Created local subscription:', localSubscription);
             return {
               success: true,
-              subscription: this.createLocalSubscription(purchase),
+              subscription: localSubscription,
             };
           }
           
