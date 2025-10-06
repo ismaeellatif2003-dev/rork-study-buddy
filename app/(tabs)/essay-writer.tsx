@@ -35,6 +35,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import jsPDF from 'jspdf';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { mockApi } from '../../services/mockApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
@@ -60,8 +62,8 @@ const COPY = {
   expandParagraph: 'Expand Paragraph',
   expandAll: 'Expand All',
   copyToClipboard: 'Copy to Clipboard',
-  downloadDocx: 'Download as Text',
-  downloadPdf: 'Download as Text',
+  downloadDocx: 'Download as Word',
+  downloadPdf: 'Download as PDF',
   copyWithCitations: 'Copy with Citations',
 };
 
@@ -626,44 +628,99 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
-      // Create a proper document structure
       const essayTitle = thesis || 'Generated Essay';
-      const essayText = outline.paragraphs
-        .map((p, i) => {
-          const text = edits[i] || p.expandedText || '';
-          const cleanText = stripCitationsFromText(text);
-          return `${p.title}\n\n${cleanText}`;
-        })
-        .join('\n\n\n');
-
-      // Add references if they exist and are enabled
-      let fullText = `${essayTitle}\n\n${essayText}`;
       
+      // Create Word document structure
+      const paragraphs = outline.paragraphs.map((p, i) => {
+        const text = edits[i] || p.expandedText || '';
+        const cleanText = stripCitationsFromText(text);
+        
+        return [
+          new Paragraph({
+            text: p.title,
+            heading: HeadingLevel.HEADING_2,
+            spacing: { after: 200 }
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: cleanText,
+                size: 24 // 12pt font
+              })
+            ],
+            spacing: { after: 400 }
+          })
+        ];
+      }).flat();
+
+      // Add references if enabled
       if (includeReferences && citationStyle !== 'none') {
         const references = generateReferencesList();
         if (references) {
-          fullText += `\n\n\nReferences\n\n${references}`;
+          paragraphs.push(
+            new Paragraph({
+              text: 'References',
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 400, after: 200 }
+            })
+          );
+          
+          references.split('\n\n').forEach(ref => {
+            if (ref.trim()) {
+              paragraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: ref,
+                      size: 24
+                    })
+                  ],
+                  spacing: { after: 200 }
+                })
+              );
+            }
+          });
         }
       }
 
-      // Create a proper filename with timestamp
+      // Create the document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              text: essayTitle,
+              heading: HeadingLevel.HEADING_1,
+              spacing: { after: 400 }
+            }),
+            ...paragraphs
+          ]
+        }]
+      });
+
+      // Generate the document
+      const buffer = await Packer.toBuffer(doc);
+      
+      // Save to file
       const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `essay_${timestamp}.txt`;
+      const filename = `essay_${timestamp}.docx`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
-      await FileSystem.writeAsStringAsync(fileUri, fullText);
+      await FileSystem.writeAsStringAsync(fileUri, buffer.toString('base64'), {
+        encoding: FileSystem.EncodingType.Base64
+      });
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Save Essay as Text Document'
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          dialogTitle: 'Save Essay as Word Document'
         });
       } else {
-        Alert.alert('Success', 'Essay saved successfully');
+        Alert.alert('Success', 'Word document saved successfully');
       }
     } catch (error) {
-      console.error('Error saving document:', error);
-      Alert.alert('Error', 'Failed to save document');
+      console.error('Error saving Word document:', error);
+      Alert.alert('Error', 'Failed to save Word document');
     }
   };
 
@@ -671,44 +728,112 @@ export default function GroundedEssayWriter() {
     if (!outline) return;
 
     try {
-      // Create a proper document structure
       const essayTitle = thesis || 'Generated Essay';
-      const essayText = outline.paragraphs
-        .map((p, i) => {
-          const text = edits[i] || p.expandedText || '';
-          const cleanText = stripCitationsFromText(text);
-          return `${p.title}\n\n${cleanText}`;
-        })
-        .join('\n\n\n');
-
-      // Add references if they exist and are enabled
-      let fullText = `${essayTitle}\n\n${essayText}`;
       
+      // Create PDF document
+      const pdf = new jsPDF();
+      
+      // Set font
+      pdf.setFont('helvetica');
+      
+      // Add title
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(essayTitle, 20, 30);
+      
+      let yPosition = 50;
+      const pageHeight = pdf.internal.pageSize.height;
+      const margin = 20;
+      const maxWidth = pdf.internal.pageSize.width - (margin * 2);
+      
+      // Add paragraphs
+      outline.paragraphs.forEach((p, i) => {
+        const text = edits[i] || p.expandedText || '';
+        const cleanText = stripCitationsFromText(text);
+        
+        // Check if we need a new page
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        // Add paragraph title
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        const titleLines = pdf.splitTextToSize(p.title, maxWidth);
+        pdf.text(titleLines, margin, yPosition);
+        yPosition += titleLines.length * 7 + 5;
+        
+        // Add paragraph content
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        const contentLines = pdf.splitTextToSize(cleanText, maxWidth);
+        
+        // Check if content fits on current page
+        if (yPosition + (contentLines.length * 6) > pageHeight - 20) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        pdf.text(contentLines, margin, yPosition);
+        yPosition += contentLines.length * 6 + 15;
+      });
+      
+      // Add references if enabled
       if (includeReferences && citationStyle !== 'none') {
         const references = generateReferencesList();
         if (references) {
-          fullText += `\n\n\nReferences\n\n${references}`;
+          // Check if we need a new page for references
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+          
+          // Add references title
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('References', margin, yPosition);
+          yPosition += 20;
+          
+          // Add references content
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          const referenceLines = pdf.splitTextToSize(references, maxWidth);
+          
+          referenceLines.forEach(line => {
+            if (yPosition > pageHeight - 20) {
+              pdf.addPage();
+              yPosition = 30;
+            }
+            pdf.text(line, margin, yPosition);
+            yPosition += 6;
+          });
         }
       }
-
-      // Create a proper filename with timestamp
+      
+      // Save the PDF
       const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `essay_${timestamp}.txt`;
+      const filename = `essay_${timestamp}.pdf`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
       
-      await FileSystem.writeAsStringAsync(fileUri, fullText);
+      const pdfOutput = pdf.output('datauristring');
+      const base64Data = pdfOutput.split(',')[1];
+      
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+        encoding: FileSystem.EncodingType.Base64
+      });
       
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Save Essay as Text Document'
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save Essay as PDF'
         });
       } else {
-        Alert.alert('Success', 'Essay saved successfully');
+        Alert.alert('Success', 'PDF saved successfully');
       }
     } catch (error) {
-      console.error('Error saving document:', error);
-      Alert.alert('Error', 'Failed to save document');
+      console.error('Error saving PDF:', error);
+      Alert.alert('Error', 'Failed to save PDF');
     }
   };
 
@@ -1672,7 +1797,7 @@ export default function GroundedEssayWriter() {
               >
                 <Download size={20} color={colors.cardBackground} />
                 <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadDocx}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Text document</Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Editable format</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -1681,7 +1806,7 @@ export default function GroundedEssayWriter() {
               >
                 <Download size={20} color={colors.cardBackground} />
                 <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>{COPY.downloadPdf}</Text>
-                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Text document</Text>
+                <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>Print ready</Text>
               </TouchableOpacity>
               
               {citationStyle !== 'none' && (
