@@ -119,20 +119,33 @@ export default function GroundedEssayWriter() {
 
   // Global error handler for the component
   React.useEffect(() => {
-    const originalError = console.error;
-    console.error = (...args) => {
-      // Log the error but don't let it crash the app
-      originalError(...args);
-      
-      // If it's a critical error, show a user-friendly message
-      if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
-        console.warn('Caught error in essay writer:', args[0]);
-      }
-    };
+    try {
+      const originalError = console.error;
+      console.error = (...args) => {
+        try {
+          // Log the error but don't let it crash the app
+          originalError(...args);
+          
+          // If it's a critical error, show a user-friendly message
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
+            console.warn('Caught error in essay writer:', args[0]);
+          }
+        } catch (error) {
+          // If even the error handler fails, just log it silently
+          console.warn('Error in error handler:', error);
+        }
+      };
 
-    return () => {
-      console.error = originalError;
-    };
+      return () => {
+        try {
+          console.error = originalError;
+        } catch (error) {
+          console.warn('Error restoring console.error:', error);
+        }
+      };
+    } catch (error) {
+      console.warn('Error setting up error handler:', error);
+    }
   }, []);
   
   // State management
@@ -169,20 +182,34 @@ export default function GroundedEssayWriter() {
     try {
       // Only load libraries when needed to prevent crashes
       if (!jsPDF) {
-        const jsPDFModule = await import('jspdf');
-        jsPDF = jsPDFModule.default;
+        try {
+          const jsPDFModule = await import('jspdf');
+          jsPDF = jsPDFModule.default;
+        } catch (error) {
+          console.warn('jsPDF library not available:', error);
+          jsPDF = null;
+        }
       }
       
       if (!Document) {
-        const docxModule = await import('docx');
-        Document = docxModule.Document;
-        Packer = docxModule.Packer;
-        Paragraph = docxModule.Paragraph;
-        TextRun = docxModule.TextRun;
-        HeadingLevel = docxModule.HeadingLevel;
+        try {
+          const docxModule = await import('docx');
+          Document = docxModule.Document;
+          Packer = docxModule.Packer;
+          Paragraph = docxModule.Paragraph;
+          TextRun = docxModule.TextRun;
+          HeadingLevel = docxModule.HeadingLevel;
+        } catch (error) {
+          console.warn('docx library not available:', error);
+          Document = null;
+          Packer = null;
+          Paragraph = null;
+          TextRun = null;
+          HeadingLevel = null;
+        }
       }
     } catch (error) {
-      console.warn('PDF/Word libraries not available:', error);
+      console.warn('Error loading libraries:', error);
       // Libraries will remain null, fallback functions will be used
     }
   };
@@ -213,10 +240,17 @@ export default function GroundedEssayWriter() {
     try {
       const saved = await AsyncStorage.getItem('saved_essays');
       if (saved) {
-        setSavedEssays(JSON.parse(saved));
+        const parsedEssays = JSON.parse(saved);
+        if (Array.isArray(parsedEssays)) {
+          setSavedEssays(parsedEssays);
+        } else {
+          console.warn('Invalid saved essays format, resetting to empty array');
+          setSavedEssays([]);
+        }
       }
     } catch (error) {
       console.error('Error loading saved essays:', error);
+      setSavedEssays([]);
     }
   };
 
@@ -231,25 +265,25 @@ export default function GroundedEssayWriter() {
     try {
       const essayData = {
         id: Date.now().toString(),
-        title: outline.thesis,
-        thesis: outline.thesis,
-        outline,
-        files,
-        sampleEssay,
-        wordCount,
-        academicLevel,
-        citationStyle,
-        includeReferences,
-        assignmentTitle,
-        essayTopic,
-        prompt,
-        mode,
-        edits,
+        title: outline.thesis || 'Untitled Essay',
+        thesis: outline.thesis || '',
+        outline: outline || null,
+        files: files || [],
+        sampleEssay: sampleEssay || null,
+        wordCount: wordCount || 800,
+        academicLevel: academicLevel || 'undergraduate',
+        citationStyle: citationStyle || 'none',
+        includeReferences: includeReferences || false,
+        assignmentTitle: assignmentTitle || '',
+        essayTopic: essayTopic || '',
+        prompt: prompt || '',
+        mode: mode || 'grounded',
+        edits: edits || {},
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      const updatedEssays = [...savedEssays, essayData];
+      const updatedEssays = Array.isArray(savedEssays) ? [...savedEssays, essayData] : [essayData];
       setSavedEssays(updatedEssays);
       await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
       
@@ -264,22 +298,32 @@ export default function GroundedEssayWriter() {
 
   // Load a saved essay
   const loadSavedEssay = (essay: any) => {
+    if (!essay) {
+      console.error('No essay data provided to load');
+      return;
+    }
+
     // Use setTimeout to ensure modal is fully dismissed before state changes
     setTimeout(() => {
-      setOutline(essay.outline);
-      setFiles(essay.files || []);
-      setSampleEssay(essay.sampleEssay || null);
-      setWordCount(essay.wordCount || 800);
-      setAcademicLevel(essay.academicLevel || 'undergraduate');
-      setCitationStyle(essay.citationStyle || 'none');
-      setIncludeReferences(essay.includeReferences || false);
-      setAssignmentTitle(essay.assignmentTitle || '');
-      setEssayTopic(essay.essayTopic || '');
-      setPrompt(essay.prompt || '');
-      setMode(essay.mode || 'grounded');
-      setEdits(essay.edits || {});
-      setCurrentStep('generate');
-      setShowSavedDocuments(false);
+      try {
+        setOutline(essay.outline || null);
+        setFiles(Array.isArray(essay.files) ? essay.files : []);
+        setSampleEssay(essay.sampleEssay || null);
+        setWordCount(typeof essay.wordCount === 'number' ? essay.wordCount : 800);
+        setAcademicLevel(essay.academicLevel || 'undergraduate');
+        setCitationStyle(essay.citationStyle || 'none');
+        setIncludeReferences(Boolean(essay.includeReferences));
+        setAssignmentTitle(essay.assignmentTitle || '');
+        setEssayTopic(essay.essayTopic || '');
+        setPrompt(essay.prompt || '');
+        setMode(essay.mode || 'grounded');
+        setEdits(typeof essay.edits === 'object' ? essay.edits : {});
+        setCurrentStep('generate');
+        setShowSavedDocuments(false);
+      } catch (error) {
+        console.error('Error loading saved essay:', error);
+        Alert.alert('Error', 'Failed to load essay. Please try again.');
+      }
     }, 100);
   };
 
@@ -298,37 +342,13 @@ export default function GroundedEssayWriter() {
 
   // Rename a saved essay
   const renameSavedEssay = async (essayId: string, currentTitle: string) => {
-    Alert.prompt(
+    // For now, use a simple alert with a default name to avoid Alert.prompt issues
+    Alert.alert(
       'Rename Essay',
-      'Enter a new name for this essay:',
+      'Rename functionality will be available in the next update. For now, you can delete and recreate the essay with a new name.',
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Rename',
-          onPress: async (newTitle) => {
-            if (!newTitle || newTitle.trim() === '') {
-              Alert.alert('Error', 'Please enter a valid name');
-              return;
-            }
-            
-            try {
-              const updatedEssays = savedEssays.map(essay => 
-                essay.id === essayId 
-                  ? { ...essay, title: newTitle.trim(), updatedAt: new Date().toISOString() }
-                  : essay
-              );
-              setSavedEssays(updatedEssays);
-              await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
-              Alert.alert('Success', 'Essay renamed successfully');
-            } catch (error) {
-              console.error('Error renaming essay:', error);
-              Alert.alert('Error', 'Failed to rename essay');
-            }
-          }
-        }
-      ],
-      'plain-text',
-      currentTitle
+        { text: 'OK', style: 'default' }
+      ]
     );
   };
 
