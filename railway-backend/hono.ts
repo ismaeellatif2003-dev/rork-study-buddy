@@ -694,12 +694,12 @@ app.post("/ai/essay/generate-outline", async (c) => {
     console.log('API Key length:', openRouterKey ? openRouterKey.length : 0);
     console.log('API Key prefix:', openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'None');
     
-    // For now, let's return a mock response to test the connection
-    console.log('=== RETURNING MOCK RESPONSE FOR TESTING ===');
-    return c.json({ 
-      success: true, 
-      outlineId: `outline_${Date.now()}`,
-      thesis: `This essay explores ${essayTopic.toLowerCase()}, examining the key factors and implications that shape this important topic.`,
+    if (!openRouterKey) {
+      console.log('=== NO API KEY - RETURNING MOCK RESPONSE ===');
+      return c.json({ 
+        success: true, 
+        outlineId: `outline_${Date.now()}`,
+        thesis: `This essay explores ${essayTopic.toLowerCase()}, examining the key factors and implications that shape this important topic.`,
         paragraphs: [
           {
             title: `Understanding ${essayTopic}`,
@@ -830,11 +830,11 @@ app.post("/ai/essay/expand-paragraph", async (c) => {
     console.log('API Key length:', openRouterKey ? openRouterKey.length : 0);
     console.log('API Key prefix:', openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'None');
     
-    // For now, let's return a mock response to test the connection
-    console.log('=== RETURNING MOCK RESPONSE FOR TESTING ===');
-    return c.json({ 
-      success: true, 
-      paragraphText: `This is a mock paragraph for "${paragraphTitle}". In a real implementation, this would be expanded with detailed content related to ${essayTopic || 'the essay topic'}. The paragraph would include proper citations, evidence, and analysis to support the main argument.`,
+    if (!openRouterKey) {
+      console.log('=== NO API KEY - RETURNING MOCK RESPONSE ===');
+      return c.json({ 
+        success: true, 
+        paragraphText: `This is a mock paragraph for "${paragraphTitle}". In a real implementation, this would be expanded with detailed content related to ${essayTopic || 'the essay topic'}. The paragraph would include proper citations, evidence, and analysis to support the main argument.`,
         usedChunks: [],
         citations: [],
         unsupportedFlags: [],

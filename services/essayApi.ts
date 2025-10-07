@@ -290,38 +290,12 @@ export const essayApi = {
       };
   } catch (error) {
     // Use console.warn instead of console.error to avoid triggering the custom error handler
-    console.warn('=== API CALL FAILED - USING FALLBACK ===');
+    console.warn('=== API CALL FAILED ===');
     console.warn('Error details:', error);
     console.warn('Request that failed:', JSON.stringify(request, null, 2));
     
-    // Fallback to mock data if API fails
-    return {
-        outlineId: `outline_${Date.now()}`,
-        thesis: `This essay explores ${request.essayTopic?.toLowerCase() || 'the topic'}, examining the key factors and implications that shape this important subject.`,
-        paragraphs: [
-          {
-            title: `Understanding ${request.essayTopic || 'The Topic'}`,
-            intendedChunks: [],
-            suggestedWordCount: Math.floor(request.wordCount * 0.25)
-          },
-          {
-            title: `Key Aspects of ${request.essayTopic || 'The Topic'}`,
-            intendedChunks: [],
-            suggestedWordCount: Math.floor(request.wordCount * 0.25)
-          },
-          {
-            title: "Analysis and Implications",
-            intendedChunks: [],
-            suggestedWordCount: Math.floor(request.wordCount * 0.25)
-          },
-          {
-            title: "Conclusion and Future Directions",
-            intendedChunks: [],
-            suggestedWordCount: Math.floor(request.wordCount * 0.25)
-          }
-        ],
-        metadata: { retrievedCount: 0 }
-      };
+    // Re-throw the error instead of returning mock data
+    throw error;
     }
   },
 
@@ -347,17 +321,12 @@ export const essayApi = {
       };
     } catch (error) {
       // Use console.warn instead of console.error to avoid triggering the custom error handler
-      console.warn('=== API CALL FAILED - USING FALLBACK ===');
+      console.warn('=== API CALL FAILED ===');
       console.warn('Error details:', error);
       console.warn('Request that failed:', JSON.stringify(request, null, 2));
       
-      // Fallback to mock data if API fails
-      return {
-        paragraphText: `This is a generated paragraph for "${request.paragraphTitle || 'the topic'}". The content explores key aspects and provides analysis based on the essay requirements.`,
-        usedChunks: [],
-        citations: [],
-        unsupportedFlags: []
-      };
+      // Re-throw the error instead of returning mock data
+      throw error;
     }
   },
 
