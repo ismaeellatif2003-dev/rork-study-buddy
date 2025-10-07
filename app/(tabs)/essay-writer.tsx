@@ -974,6 +974,12 @@ export default function GroundedEssayWriter() {
   // Safe essay generation with enhanced error handling
   const generateOutline = async () => {
     try {
+      // Prevent multiple simultaneous API calls
+      if (isGenerating) {
+        console.warn('Already generating outline, ignoring duplicate request');
+        return;
+      }
+
       if (!canGenerateEssay()) {
         handleEssayLimit();
         return;
@@ -1007,16 +1013,7 @@ export default function GroundedEssayWriter() {
         sampleEssayId: sampleEssay?.id || undefined
       };
 
-      // Debug logging
-      console.log('=== ESSAY WRITER REQUEST DEBUG ===');
-      console.log('Prompt:', request.prompt);
-      console.log('Essay Topic:', request.essayTopic);
-      console.log('Word Count:', request.wordCount);
-      console.log('Level:', request.level);
-      console.log('Citation Style:', request.citationStyle);
-      console.log('Mode:', request.mode);
-      console.log('File IDs:', request.fileIds);
-      console.log('Full request:', JSON.stringify(request, null, 2));
+      // Debug logging (removed to prevent performance issues)
 
       // Add timeout to prevent hanging requests
       const timeoutPromise = new Promise((_, reject) => {
@@ -1208,6 +1205,12 @@ export default function GroundedEssayWriter() {
   // Safe paragraph expansion with enhanced error handling
   const expandParagraph = async (index: number) => {
     try {
+      // Prevent multiple simultaneous API calls for the same paragraph
+      if (expandedParagraphs.has(index)) {
+        console.warn(`Paragraph ${index + 1} already expanded, ignoring duplicate request`);
+        return;
+      }
+
       if (!outline) return;
 
       const paragraph = outline.paragraphs[index];
@@ -1275,7 +1278,7 @@ export default function GroundedEssayWriter() {
         const expandedContent = SafeStringUtils.limitString(response.paragraphText, 10000);
         setEdits(prev => ({ ...prev, [index]: expandedContent }));
         
-        console.log(`✅ Paragraph ${index + 1} expanded successfully. Content length: ${expandedContent.length}`);
+        // Paragraph expanded successfully
       } else {
         Alert.alert('Error', 'Failed to expand paragraph');
       }
