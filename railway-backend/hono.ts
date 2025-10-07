@@ -728,45 +728,37 @@ app.post("/ai/essay/generate-outline", async (c) => {
       });
     }
 
-    const systemPrompt = `You are an expert academic essay writer. Generate a comprehensive essay outline based on the provided requirements.
+    const systemPrompt = `Generate an essay outline. Respond with ONLY valid JSON, no other text.
 
-CRITICAL JSON FORMATTING REQUIREMENTS:
-1. You MUST respond with ONLY valid JSON
-2. Do not include any text, explanations, or formatting before or after the JSON
-3. The JSON must be properly formatted and parseable
-4. Start your response immediately with the opening brace {
-5. End your response with the closing brace }
-6. Do not include markdown formatting, code blocks, or any other text
+Topic: ${essayTopic}
+Word Count: ${wordCount} words
+Academic Level: ${level}
+Citation Style: ${citationStyle}
 
-ESSAY REQUIREMENTS:
-- Topic: ${essayTopic}
-- Prompt: ${prompt}
-- Total Word Count: ${wordCount} words
-- Academic Level: ${level}
-- Citation Style: ${citationStyle}
-- Mode: ${mode}
-- Rubric: ${rubric || 'General Essay'}
+Create 4-5 paragraphs with word counts distributed evenly.
 
-OUTLINE REQUIREMENTS:
-1. Create a strong, clear thesis statement
-2. Generate 4-6 well-structured paragraphs
-3. Each paragraph should have a clear title and purpose
-4. DISTRIBUTE WORD COUNT EVENLY: Total word count is ${wordCount} words
-5. Calculate word count per paragraph: Divide total by number of paragraphs (aim for 4-5 paragraphs)
-6. Each paragraph should have a realistic word count target (minimum 150 words, maximum 400 words per paragraph)
-
-WORD COUNT DISTRIBUTION:
-- For ${wordCount} words total, create 4-5 paragraphs
-- Each paragraph should target approximately ${Math.floor(wordCount / 4)}-${Math.floor(wordCount / 5)} words
-- Ensure the sum of all paragraph word counts equals approximately ${wordCount} words
-
-RESPOND WITH ONLY THIS JSON FORMAT (no other text):
+JSON format:
 {
   "outlineId": "outline_${Date.now()}",
-  "thesis": "Clear, argumentative thesis statement",
+  "thesis": "Thesis statement about ${essayTopic}",
   "paragraphs": [
     {
-      "title": "Paragraph Title",
+      "title": "Introduction to ${essayTopic}",
+      "intendedChunks": [],
+      "suggestedWordCount": ${Math.floor(wordCount / 4)}
+    },
+    {
+      "title": "Key Aspects of ${essayTopic}",
+      "intendedChunks": [],
+      "suggestedWordCount": ${Math.floor(wordCount / 4)}
+    },
+    {
+      "title": "Analysis and Implications",
+      "intendedChunks": [],
+      "suggestedWordCount": ${Math.floor(wordCount / 4)}
+    },
+    {
+      "title": "Conclusion",
       "intendedChunks": [],
       "suggestedWordCount": ${Math.floor(wordCount / 4)}
     }
