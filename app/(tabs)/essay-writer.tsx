@@ -43,6 +43,7 @@ let Paragraph: any = null;
 let TextRun: any = null;
 let HeadingLevel: any = null;
 import { mockApi } from '../../services/mockApi';
+import { essayApi } from '../../services/essayApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
 import { useSubscription } from '../../hooks/subscription-store';
@@ -66,10 +67,8 @@ const COPY = {
   requestChanges: 'Request Changes',
   expandParagraph: 'Expand Paragraph',
   expandAll: 'Expand All',
-  copyToClipboard: 'Copy to Clipboard',
-  downloadDocx: 'Download as Word',
-  downloadPdf: 'Download as PDF',
-  copyWithCitations: 'Copy with Citations',
+  copyToClipboard: 'Save to Clipboard',
+  copyWithCitations: 'Save with Citations',
 };
 
 // Types
@@ -829,7 +828,7 @@ export default function GroundedEssayWriter() {
         }))
       };
 
-      const response = await mockApi.analyzeReferences(request);
+      const response = await essayApi.analyzeReferences(request);
       
       if (response.analysis && response.smartSelection) {
         setReferenceAnalysis(response.analysis);
@@ -898,7 +897,7 @@ export default function GroundedEssayWriter() {
         smartSelection: smartSelection
       };
 
-      const response = await mockApi.generateOutline(request);
+      const response = await essayApi.generateOutline(request);
       
       if (response.outlineId) {
         const outline: Outline = {
@@ -973,19 +972,17 @@ export default function GroundedEssayWriter() {
       const request = {
         outlineId: outline.outlineId,
         paragraphIndex: index,
-        paragraph: paragraph,
-        materials: files.map(f => ({
-          id: f.id,
-          name: SafeStringUtils.limitString(f.name, 200),
-          excerpt: SafeStringUtils.limitString(f.excerpt, 1000),
-          group: f.group,
-          priority: f.priority
-        })),
-        citationStyle,
-        mode
+        paragraphTitle: paragraph.title,
+        intendedChunks: paragraph.intendedChunks,
+        essayTopic: essayTopic,
+        prompt: prompt,
+        suggestedWordCount: paragraph.suggestedWordCount,
+        citationStyle: citationStyle,
+        academicLevel: academicLevel,
+        mode: mode
       };
 
-      const response = await mockApi.expandParagraph(request);
+      const response = await essayApi.expandParagraph(request);
       
       if (response.paragraphText) {
         const updatedOutline = {
@@ -1590,31 +1587,6 @@ export default function GroundedEssayWriter() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={Document && Packer ? downloadAsDocx : downloadAsText}
-            style={[styles.exportButton, styles.exportButtonSuccess]}
-          >
-            <Download size={20} color={colors.cardBackground} />
-            <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-              {Document && Packer ? COPY.downloadDocx : 'Download as Text'}
-            </Text>
-            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-              {Document && Packer ? 'Editable format' : 'Text document'}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={jsPDF ? downloadAsPdf : downloadAsText}
-            style={[styles.exportButton, styles.exportButtonError]}
-          >
-            <Download size={20} color={colors.cardBackground} />
-            <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-              {jsPDF ? COPY.downloadPdf : 'Download as Text'}
-            </Text>
-            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-              {jsPDF ? 'Print ready' : 'Text document'}
-            </Text>
-          </TouchableOpacity>
           
           {citationStyle !== 'none' && (
             <TouchableOpacity

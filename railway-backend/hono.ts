@@ -675,7 +675,13 @@ app.post("/ai/essay/generate-outline", async (c) => {
     }
 
     const openRouterKey = process.env.OPENROUTER_API_KEY;
+    console.log('=== API KEY CHECK ===');
+    console.log('API Key exists:', !!openRouterKey);
+    console.log('API Key length:', openRouterKey ? openRouterKey.length : 0);
+    console.log('API Key prefix:', openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'None');
+    
     if (!openRouterKey) {
+      console.log('=== NO API KEY - RETURNING MOCK RESPONSE ===');
       return c.json({ 
         success: true, 
         outlineId: `outline_${Date.now()}`,
@@ -714,18 +720,25 @@ CRITICAL REQUIREMENTS:
 1. Create a strong, clear thesis statement
 2. Generate 4-6 well-structured paragraphs
 3. Each paragraph should have a clear title and purpose
-4. Suggest appropriate word counts for each paragraph
-5. Consider the academic level and citation style
-6. Return ONLY valid JSON in the specified format
+4. DISTRIBUTE WORD COUNT EVENLY: Total word count is ${wordCount} words
+5. Calculate word count per paragraph: Divide total by number of paragraphs (aim for 4-5 paragraphs)
+6. Each paragraph should have a realistic word count target (minimum 150 words, maximum 400 words per paragraph)
+7. Consider the academic level and citation style
+8. Return ONLY valid JSON in the specified format
 
 ESSAY REQUIREMENTS:
 - Topic: ${essayTopic}
 - Prompt: ${prompt}
-- Word Count: ${wordCount}
+- Total Word Count: ${wordCount} words
 - Academic Level: ${level}
 - Citation Style: ${citationStyle}
 - Mode: ${mode}
 - Rubric: ${rubric || 'General Essay'}
+
+WORD COUNT DISTRIBUTION:
+- For ${wordCount} words total, create 4-5 paragraphs
+- Each paragraph should target approximately ${Math.floor(wordCount / 4)}-${Math.floor(wordCount / 5)} words
+- Ensure the sum of all paragraph word counts equals approximately ${wordCount} words
 
 Return JSON in this exact format:
 {
@@ -735,7 +748,7 @@ Return JSON in this exact format:
     {
       "title": "Paragraph Title",
       "intendedChunks": [],
-      "suggestedWordCount": 200
+      "suggestedWordCount": ${Math.floor(wordCount / 4)}
     }
   ],
   "metadata": {
@@ -773,10 +786,15 @@ Return JSON in this exact format:
     });
 
   } catch (error) {
-    console.error('Outline generation error:', error);
+    console.error('=== OUTLINE GENERATION ERROR ===');
+    console.error('Error type:', typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Full error object:', error);
+    
     return c.json({ 
       success: false, 
-      error: 'Failed to generate outline',
+      error: `Failed to generate outline: ${error instanceof Error ? error.message : String(error)}`,
       timestamp: new Date().toISOString()
     });
   }
@@ -785,14 +803,20 @@ Return JSON in this exact format:
 app.post("/ai/essay/expand-paragraph", async (c) => {
   try {
     const body = await c.req.json();
-    const { outlineId, paragraphIndex, paragraphTitle, intendedChunks, essayTopic, prompt } = body;
+    const { outlineId, paragraphIndex, paragraphTitle, intendedChunks, essayTopic, prompt, suggestedWordCount, citationStyle, academicLevel, mode } = body;
 
     if (!outlineId || paragraphIndex === undefined || !paragraphTitle) {
       return c.json({ error: 'Missing required fields' }, 400);
     }
 
     const openRouterKey = process.env.OPENROUTER_API_KEY;
+    console.log('=== API KEY CHECK (EXPAND PARAGRAPH) ===');
+    console.log('API Key exists:', !!openRouterKey);
+    console.log('API Key length:', openRouterKey ? openRouterKey.length : 0);
+    console.log('API Key prefix:', openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'None');
+    
     if (!openRouterKey) {
+      console.log('=== NO API KEY - RETURNING MOCK RESPONSE ===');
       return c.json({ 
         success: true, 
         paragraphText: `This is a mock paragraph for "${paragraphTitle}". In a real implementation, this would be expanded with detailed content related to ${essayTopic || 'the essay topic'}. The paragraph would include proper citations, evidence, and analysis to support the main argument.`,
@@ -807,18 +831,36 @@ app.post("/ai/essay/expand-paragraph", async (c) => {
     const systemPrompt = `You are an expert academic writer. Expand the provided paragraph outline into a full, well-written paragraph.
 
 CRITICAL REQUIREMENTS:
-1. Write a comprehensive, well-structured paragraph
-2. Include proper academic language and flow
-3. Integrate evidence and analysis
-4. Use appropriate citations (format: (Source:Page))
-5. Identify any unsupported claims
-6. Return ONLY valid JSON in the specified format
+1. Write a comprehensive, well-structured paragraph that meets the target word count
+2. TARGET WORD COUNT: ${suggestedWordCount || 200} words - this is MANDATORY
+3. Include proper academic language and flow appropriate for ${academicLevel || 'undergraduate'} level
+4. Integrate evidence and analysis with detailed explanations
+5. Use citations from trusted online sources when possible (format: (Source:Page))
+6. Prioritize citations from: academic journals, government websites (.gov), educational institutions (.edu), reputable news sources, peer-reviewed publications
+7. Identify any unsupported claims
+8. Return ONLY valid JSON in the specified format
+9. If you need additional credible sources, include citations from trusted online sources like:
+   - Academic databases (JSTOR, PubMed, Google Scholar)
+   - Government reports and statistics
+   - Educational institution research
+   - Peer-reviewed journals
+   - Reputable news organizations
 
 PARAGRAPH TO EXPAND:
 - Title: ${paragraphTitle}
 - Essay Topic: ${essayTopic || 'General Topic'}
 - Prompt: ${prompt || 'General Essay'}
+- Target Word Count: ${suggestedWordCount || 200} words (MUST MEET THIS TARGET)
+- Citation Style: ${citationStyle || 'APA'}
+- Academic Level: ${academicLevel || 'undergraduate'}
+- Mode: ${mode || 'grounded'}
 - Intended Content: ${intendedChunks ? intendedChunks.map((chunk: any) => chunk.excerpt).join(' ') : 'General content'}
+
+WORD COUNT INSTRUCTIONS:
+- Your paragraph MUST be approximately ${suggestedWordCount || 200} words
+- Count your words carefully and ensure you meet the target
+- If you're under the word count, add more detailed analysis, examples, or explanations
+- If you're over the word count, trim unnecessary words while maintaining quality
 
 Return JSON in this exact format:
 {
@@ -840,7 +882,7 @@ Return JSON in this exact format:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Expand this paragraph: ${paragraphTitle}` }
       ],
-      max_tokens: 1000,
+      max_tokens: 2000,
       temperature: 0.7
     });
 
@@ -864,10 +906,15 @@ Return JSON in this exact format:
     });
 
   } catch (error) {
-    console.error('Paragraph expansion error:', error);
+    console.error('=== PARAGRAPH EXPANSION ERROR ===');
+    console.error('Error type:', typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Full error object:', error);
+    
     return c.json({ 
       success: false, 
-      error: 'Failed to expand paragraph',
+      error: `Failed to expand paragraph: ${error instanceof Error ? error.message : String(error)}`,
       timestamp: new Date().toISOString()
     });
   }
