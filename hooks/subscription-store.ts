@@ -113,7 +113,32 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           AsyncStorage.getItem(STORAGE_KEYS.USAGE_STATS),
         ]);
 
-        if (subscriptionData) {
+        // DEVELOPMENT/TESTING: Auto-set pro plan for testing
+        const isDevelopment = __DEV__ || process.env.NODE_ENV === 'development';
+        if (isDevelopment && !subscriptionData) {
+          console.log('🚀 DEVELOPMENT MODE: Setting up Pro plan for testing');
+          const testProSubscription: UserSubscription = {
+            planId: 'pro_monthly',
+            status: 'active',
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            productId: PRODUCT_IDS.PRO_MONTHLY,
+            transactionId: 'test_transaction_' + Date.now(),
+            originalTransactionId: 'test_original_' + Date.now(),
+            isActive: true,
+            isTrial: false,
+            willRenew: true,
+            autoRenewStatus: true,
+            environment: 'sandbox',
+            receiptData: 'test_receipt_data',
+            latestReceiptInfo: null,
+            pendingRenewalInfo: null,
+          };
+          
+          await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(testProSubscription));
+          setSubscription(testProSubscription);
+          console.log('✅ Pro plan activated for testing');
+        } else if (subscriptionData) {
           try {
             const parsed = JSON.parse(subscriptionData);
             if (parsed && typeof parsed === 'object' && parsed.planId) {
@@ -525,6 +550,33 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     }
   }, []);
 
+  // DEVELOPMENT/TESTING: Manual pro plan activation
+  const activateTestProPlan = useCallback(async () => {
+    console.log('🚀 Manually activating Pro plan for testing');
+    const testProSubscription: UserSubscription = {
+      planId: 'pro_monthly',
+      status: 'active',
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      productId: PRODUCT_IDS.PRO_MONTHLY,
+      transactionId: 'test_transaction_' + Date.now(),
+      originalTransactionId: 'test_original_' + Date.now(),
+      isActive: true,
+      isTrial: false,
+      willRenew: true,
+      autoRenewStatus: true,
+      environment: 'sandbox',
+      receiptData: 'test_receipt_data',
+      latestReceiptInfo: null,
+      pendingRenewInfo: null,
+    };
+    
+    await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(testProSubscription));
+    setSubscription(testProSubscription);
+    console.log('✅ Pro plan manually activated for testing');
+    Alert.alert('Pro Plan Activated', 'Pro plan is now active for testing!');
+  }, []);
+
   // Payment service will be initialized lazily when needed (e.g., when user tries to subscribe)
 
   // Cleanup payment service on unmount
@@ -557,5 +609,6 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     cancelSubscription,
     restorePurchases,
     initializePayment,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment]);
+    activateTestProPlan,
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment, activateTestProPlan]);
 });

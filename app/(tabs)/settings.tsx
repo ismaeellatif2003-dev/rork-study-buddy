@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, GraduationCap, CheckCircle, Edit3 } from 'lucide-react-native';
 import { useUserProfile } from '@/hooks/user-profile-store';
+import { useSubscription } from '@/hooks/subscription-store';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/study';
 import colors from '@/constants/colors';
 
@@ -18,6 +19,7 @@ import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const { profile, updateProfile, isLoading, isOnboardingComplete } = useUserProfile();
+  const { subscription, getCurrentPlan, activateTestProPlan } = useSubscription();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAge, setEditAge] = useState(profile?.age?.toString() || '');
@@ -215,6 +217,24 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Development/Testing Section */}
+        {__DEV__ && (
+          <View style={styles.infoSection}>
+            <Text style={styles.infoTitle}>Development Tools</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoText}>
+                Current Plan: <Text style={styles.infoBold}>{getCurrentPlan().name}</Text>
+              </Text>
+              <TouchableOpacity 
+                style={styles.testButton}
+                onPress={activateTestProPlan}
+              >
+                <Text style={styles.testButtonText}>🚀 Activate Pro Plan for Testing</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -448,6 +468,19 @@ const styles = StyleSheet.create({
   primaryCtaText: {
     color: colors.cardBackground,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  testButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    color: colors.cardBackground,
+    fontSize: 14,
     fontWeight: '600',
   },
 });
