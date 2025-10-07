@@ -609,7 +609,10 @@ CRITICAL REQUIREMENTS:
 3. Identify key topics and themes in each reference
 4. Select the most relevant references for the essay
 5. Provide clear reasoning for your selections
-6. Return ONLY valid JSON in the specified format
+6. PRIORITIZE trusted web sources (academic journals, government sites, educational institutions, established news outlets)
+7. Give higher scores to references from .edu, .gov, .org domains and peer-reviewed sources
+8. Lower scores for personal blogs, social media, or unverified sources
+9. Return ONLY valid JSON in the specified format
 
 ESSAY TOPIC: ${essayTopic}
 ASSIGNMENT: ${assignmentTitle || 'Essay'}
@@ -625,15 +628,19 @@ Return JSON in this exact format:
       "relevanceScore": 85,
       "keyTopics": ["topic1", "topic2"],
       "summary": "Brief summary of relevance",
-      "confidence": 90
+      "confidence": 90,
+      "sourceCredibility": "high|medium|low",
+      "sourceType": "academic|government|news|organization|other",
+      "domain": "example.edu"
     }
   },
   "smartSelection": {
     "selectedReferences": ["ref_id1", "ref_id2"],
     "excludedReferences": ["ref_id3"],
-    "reasoning": "Explanation of selection criteria",
+    "reasoning": "Explanation of selection criteria with emphasis on source credibility",
     "totalReferences": ${references.length},
-    "selectedCount": 2
+    "selectedCount": 2,
+    "credibilityFilter": "Prioritized high-credibility sources"
   }
 }`;
 
@@ -745,6 +752,13 @@ Topic: ${essayTopic}
 Word Count: ${wordCount} words
 Academic Level: ${level}
 Citation Style: ${citationStyle}
+
+IMPORTANT: When generating content, prioritize information from trusted sources:
+- Academic journals and peer-reviewed research
+- Government websites (.gov domains)
+- Educational institutions (.edu domains)
+- Established news outlets and reputable organizations
+- Avoid personal blogs, social media, or unverified sources
 
 Create 4-5 paragraphs with word counts distributed evenly.
 

@@ -67,7 +67,7 @@ const COPY = {
   requestChanges: 'Request Changes',
   expandParagraph: 'Expand Paragraph',
   expandAll: 'Expand All',
-  copyToClipboard: 'Save to Clipboard',
+  saveToFile: 'Save to File',
   copyWithCitations: 'Save with Citations',
 };
 
@@ -111,25 +111,47 @@ type AcademicLevel = 'high-school' | 'undergraduate' | 'graduate' | 'professiona
 type CitationStyle = 'none' | 'apa' | 'mla' | 'harvard' | 'chicago';
 type Mode = 'grounded' | 'mixed' | 'teach';
 
-// Safe string utilities - NO .split() operations
+// Safe string utilities - NO .split() operations with enhanced memory management
 const SafeStringUtils = {
-  // Safe alternative to .split() - uses indexOf and substring
+  // Safe alternative to .split() - uses indexOf and substring with memory limits
   safeSplit: (text: string, delimiter: string): string[] => {
     try {
       if (!text || typeof text !== 'string') return [];
       if (!delimiter || typeof delimiter !== 'string') return [text];
       
+      // Memory protection: limit input size to prevent memory issues
+      const maxInputSize = 1000000; // 1MB limit
+      if (text.length > maxInputSize) {
+        console.warn('Text too large for safeSplit, truncating');
+        text = text.substring(0, maxInputSize);
+      }
+      
       const result: string[] = [];
       let start = 0;
       let index = text.indexOf(delimiter);
+      let iterationCount = 0;
+      const maxIterations = 1000; // Prevent infinite loops
       
-      while (index !== -1) {
+      while (index !== -1 && iterationCount < maxIterations) {
         result.push(text.substring(start, index));
         start = index + delimiter.length;
         index = text.indexOf(delimiter, start);
+        iterationCount++;
+      }
+      
+      if (iterationCount >= maxIterations) {
+        console.warn('SafeSplit hit iteration limit, stopping');
       }
       
       result.push(text.substring(start));
+      
+      // Limit result array size to prevent memory issues
+      const maxResults = 100;
+      if (result.length > maxResults) {
+        console.warn('SafeSplit result too large, truncating');
+        return result.slice(0, maxResults);
+      }
+      
       return result;
     } catch (error) {
       console.warn('Error in safeSplit:', error);
@@ -224,6 +246,9 @@ export default function GroundedEssayWriter() {
   React.useEffect(() => {
     try {
       const originalError = console.error;
+      const originalWarn = console.warn;
+      
+      // Enhanced error handling to prevent crashes
       console.error = (...args) => {
         try {
           // Log the error but don't let it crash the app
@@ -232,18 +257,35 @@ export default function GroundedEssayWriter() {
           // If it's a critical error, show a user-friendly message
           if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
             console.warn('Caught error in essay writer:', args[0]);
+            // Show user-friendly error message
+            Alert.alert('Error', 'An error occurred. Please try again or restart the app.');
           }
         } catch (error) {
           // If even the error handler fails, just log it silently
-          console.warn('Error in error handler:', error);
+          originalWarn('Error in error handler:', error);
         }
       };
+
+      // Global unhandled promise rejection handler
+      const handleUnhandledRejection = (event: any) => {
+        try {
+          console.warn('Unhandled promise rejection:', event.reason);
+          event.preventDefault(); // Prevent the default behavior (crash)
+          Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+        } catch (error) {
+          originalWarn('Error in unhandled rejection handler:', error);
+        }
+      };
+
+      // Add global error handlers (React Native doesn't have window)
+      // Note: React Native handles unhandled rejections differently
 
       return () => {
         try {
           console.error = originalError;
+          // React Native doesn't need to remove window event listeners
         } catch (error) {
-          console.warn('Error restoring console.error:', error);
+          originalWarn('Error restoring error handlers:', error);
         }
       };
     } catch (error) {
@@ -275,6 +317,7 @@ export default function GroundedEssayWriter() {
   const [smartSelection, setSmartSelection] = useState<any>(null);
   const [savedEssays, setSavedEssays] = useState<any[]>([]);
   const [showSavedDocuments, setShowSavedDocuments] = useState(false);
+  const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Refs
@@ -326,17 +369,72 @@ export default function GroundedEssayWriter() {
     }
   }, []);
 
+  // Memory monitoring function
+  const checkMemoryUsage = useCallback(() => {
+    try {
+      // Check if we're approaching memory limits
+      const totalTextLength = [
+        prompt,
+        essayTopic,
+        assignmentTitle,
+        ...files.map(f => f.excerpt),
+        ...Object.values(edits),
+        outline ? outline.thesis : '',
+        ...(outline?.paragraphs.map(p => p.expandedText || '') || [])
+      ].reduce((total, text) => total + (text?.length || 0), 0);
+
+      const maxTextLength = 2000000; // 2MB limit
+      if (totalTextLength > maxTextLength) {
+        console.warn('Memory usage high, performing cleanup');
+        Alert.alert(
+          'Memory Warning', 
+          'The essay is getting quite large. Consider saving your work and starting fresh to prevent crashes.'
+        );
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.warn('Error checking memory usage:', error);
+      return false;
+    }
+  }, [prompt, essayTopic, assignmentTitle, files, edits, outline]);
+
+  // Memory cleanup function
+  const cleanupMemory = useCallback(() => {
+    try {
+      // Clear large state objects to free memory
+      setFiles([]);
+      setOutline(null);
+      setEdits({});
+      setExpandedParagraphs(new Set());
+      setReferenceAnalysis({});
+      setSmartSelection(null);
+      setSavedEssays([]);
+      
+      // Force garbage collection if available
+      if (typeof global !== 'undefined' && global.gc) {
+        global.gc();
+      }
+    } catch (error) {
+      console.warn('Error during memory cleanup:', error);
+    }
+  }, []);
+
   // Cleanup effect to prevent memory leaks
   React.useEffect(() => {
     return () => {
       try {
         // Cleanup any pending timeouts or async operations
         setShowSavedDocuments(false);
+        setShowReferencesModal(false);
+        
+        // Perform memory cleanup
+        cleanupMemory();
       } catch (error) {
         console.error('Error during cleanup:', error);
       }
     };
-  }, []);
+  }, [cleanupMemory]);
 
   // Load saved essays from AsyncStorage
   const loadSavedEssays = async () => {
@@ -489,8 +587,8 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe copy to clipboard
-  const copyToClipboard = async () => {
+  // Save to file instead of clipboard
+  const saveToFile = async () => {
     try {
       if (!outline) return;
 
@@ -516,12 +614,26 @@ export default function GroundedEssayWriter() {
         }
       }
 
-      // Actually copy to clipboard
-      await Clipboard.setStringAsync(fullText);
-      Alert.alert('Success', 'Essay copied to clipboard!');
+      // Create filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      const fileName = `essay_${essayTopic.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp}.txt`;
+      
+      // Create a temporary file
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(fileUri, fullText, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      
+      // Share the file
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/plain',
+        dialogTitle: 'Save Essay',
+      });
+      
+      Alert.alert('Success', 'Essay saved to file!');
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
-      Alert.alert('Error', 'Failed to copy to clipboard');
+      console.error('Error saving to file:', error);
+      Alert.alert('Error', 'Failed to save essay to file');
     }
   };
 
@@ -858,7 +970,7 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe essay generation
+  // Safe essay generation with enhanced error handling
   const generateOutline = async () => {
     try {
       if (!canGenerateEssay()) {
@@ -871,50 +983,74 @@ export default function GroundedEssayWriter() {
         return;
       }
 
-      if (files.length === 0) {
-        Alert.alert('No Materials', 'Please upload at least one material before generating an outline.');
+      // Files are optional - can generate essay without materials
+
+      // Check memory usage before generating
+      if (checkMemoryUsage()) {
+        Alert.alert('Memory Warning', 'Please save your work and restart the app to prevent crashes.');
         return;
       }
 
       setIsGenerating(true);
 
+      // Memory-safe request preparation - match backend API exactly
       const request = {
         prompt: SafeStringUtils.limitString(prompt, 2000),
-        topic: SafeStringUtils.limitString(essayTopic, 500),
-        wordCount: wordCount,
+        essayTopic: SafeStringUtils.limitString(essayTopic, 500),
+        wordCount: Math.min(wordCount, 10000),
         level: academicLevel,
-        academicLevel,
         citationStyle,
         mode,
         fileIds: files.map(f => f.id),
-        materials: files.map(f => ({
-          id: f.id,
-          name: SafeStringUtils.limitString(f.name, 200),
-          excerpt: SafeStringUtils.limitString(f.excerpt, 1000),
-          group: f.group,
-          priority: f.priority
-        })),
-        smartSelection: smartSelection
+        rubric: assignmentTitle || '',
+        sampleEssayId: sampleEssay?.id || undefined
       };
 
-      const response = await essayApi.generateOutline(request);
+      // Debug logging
+      console.log('=== ESSAY WRITER REQUEST DEBUG ===');
+      console.log('Prompt:', request.prompt);
+      console.log('Essay Topic:', request.essayTopic);
+      console.log('Word Count:', request.wordCount);
+      console.log('Level:', request.level);
+      console.log('Citation Style:', request.citationStyle);
+      console.log('Mode:', request.mode);
+      console.log('File IDs:', request.fileIds);
+      console.log('Full request:', JSON.stringify(request, null, 2));
+
+      // Add timeout to prevent hanging requests
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 60000); // 60 second timeout
+      });
+
+      const response = await Promise.race([
+        essayApi.generateOutline(request),
+        timeoutPromise
+      ]) as any;
       
-      if (response.outlineId) {
+      if (response && response.outlineId) {
         const outline: Outline = {
           outlineId: response.outlineId,
-          thesis: response.thesis,
-          paragraphs: response.paragraphs,
-          metadata: response.metadata
+          thesis: SafeStringUtils.limitString(response.thesis, 1000),
+          paragraphs: (response.paragraphs || []).map((p: any) => ({
+            ...p,
+            title: SafeStringUtils.limitString(p.title, 200),
+            expandedText: p.expandedText ? SafeStringUtils.limitString(p.expandedText, 5000) : undefined
+          })),
+          metadata: response.metadata || { retrievedCount: 0 }
         };
         setOutline(outline);
         setCurrentStep('generate');
         trackEssayGeneration();
       } else {
-        Alert.alert('Error', 'Failed to generate outline');
+        Alert.alert('Error', 'Failed to generate outline. Please try again.');
       }
     } catch (error) {
       console.error('Error generating outline:', error);
-      Alert.alert('Error', 'Failed to generate outline. Please try again.');
+      if (error instanceof Error && error.message === 'Request timeout') {
+        Alert.alert('Timeout', 'The request took too long. Please try again with fewer materials.');
+      } else {
+        Alert.alert('Error', 'Failed to generate outline. Please try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -952,6 +1088,54 @@ export default function GroundedEssayWriter() {
     }
   };
 
+  // Add text material
+  const addTextMaterial = () => {
+    Alert.prompt(
+      'Add Text Material',
+      'Enter a title for your text material:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add Text',
+          onPress: (title) => {
+            if (title && title.trim()) {
+              Alert.prompt(
+                'Add Text Content',
+                'Paste your text content here:',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Add',
+                    onPress: (content) => {
+                      if (content && content.trim()) {
+                        const newFile: FileItem = {
+                          id: Date.now().toString(),
+                          group: 'notes',
+                          name: SafeStringUtils.limitString(title.trim(), 200),
+                          excerpt: SafeStringUtils.limitString(content.trim(), 1000),
+                          priority: false,
+                          order: getNextOrder('notes'),
+                          type: 'text'
+                        };
+                        setFiles(prev => [...prev, newFile]);
+                      }
+                    }
+                  }
+                ],
+                'plain-text',
+                '',
+                'default'
+              );
+            }
+          }
+        }
+      ],
+      'plain-text',
+      '',
+      'default'
+    );
+  };
+
   // Safe file removal
   const removeFile = (fileId: string) => {
     try {
@@ -961,7 +1145,29 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe paragraph expansion
+  // Toggle file priority
+  const toggleFilePriority = (fileId: string) => {
+    try {
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, priority: !f.priority } : f
+      ));
+    } catch (error) {
+      console.warn('Error toggling file priority:', error);
+    }
+  };
+
+  // Move file between groups
+  const moveFileToGroup = (fileId: string, newGroup: 'notes' | 'references') => {
+    try {
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, group: newGroup, order: getNextOrder(newGroup) } : f
+      ));
+    } catch (error) {
+      console.warn('Error moving file:', error);
+    }
+  };
+
+  // Safe paragraph expansion with enhanced error handling
   const expandParagraph = async (index: number) => {
     try {
       if (!outline) return;
@@ -969,31 +1175,58 @@ export default function GroundedEssayWriter() {
       const paragraph = outline.paragraphs[index];
       if (!paragraph) return;
 
+      // Check memory usage before expanding
+      if (checkMemoryUsage()) {
+        Alert.alert('Memory Warning', 'Please save your work and restart the app to prevent crashes.');
+        return;
+      }
+
+      // Memory-safe request preparation
       const request = {
         outlineId: outline.outlineId,
         paragraphIndex: index,
-        paragraphTitle: paragraph.title,
-        intendedChunks: paragraph.intendedChunks,
-        essayTopic: essayTopic,
-        prompt: prompt,
-        suggestedWordCount: paragraph.suggestedWordCount,
+        paragraphTitle: SafeStringUtils.limitString(paragraph.title, 200),
+        intendedChunks: (paragraph.intendedChunks || []).map(chunk => ({
+          ...chunk,
+          label: SafeStringUtils.limitString(chunk.label, 100),
+          excerpt: SafeStringUtils.limitString(chunk.excerpt, 1000)
+        })),
+        essayTopic: SafeStringUtils.limitString(essayTopic, 500),
+        prompt: SafeStringUtils.limitString(prompt, 2000),
+        suggestedWordCount: Math.min(paragraph.suggestedWordCount || 200, 1000),
         citationStyle: citationStyle,
         academicLevel: academicLevel,
         mode: mode
       };
 
-      const response = await essayApi.expandParagraph(request);
+      // Add timeout to prevent hanging requests
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 45000); // 45 second timeout
+      });
+
+      const response = await Promise.race([
+        essayApi.expandParagraph(request),
+        timeoutPromise
+      ]) as any;
       
-      if (response.paragraphText) {
+      if (response && response.paragraphText) {
         const updatedOutline = {
           ...outline,
           paragraphs: outline.paragraphs.map((p, i) => 
             i === index ? { 
               ...p, 
-              expandedText: response.paragraphText,
-              usedChunks: response.usedChunks,
-              citations: response.citations,
-              unsupportedFlags: response.unsupportedFlags
+              expandedText: SafeStringUtils.limitString(response.paragraphText, 10000),
+              usedChunks: (response.usedChunks || []),
+              citations: (response.citations || []).map((c: any) => ({
+                ...c,
+                text: SafeStringUtils.limitString(c.text, 500),
+                source: SafeStringUtils.limitString(c.source, 200)
+              })),
+              unsupportedFlags: (response.unsupportedFlags || []).map((f: any) => ({
+                ...f,
+                sentence: SafeStringUtils.limitString(f.sentence, 500),
+                reason: SafeStringUtils.limitString(f.reason, 200)
+              }))
             } : p
           )
         };
@@ -1004,7 +1237,11 @@ export default function GroundedEssayWriter() {
       }
     } catch (error) {
       console.error('Error expanding paragraph:', error);
-      Alert.alert('Error', 'Failed to expand paragraph');
+      if (error instanceof Error && error.message === 'Request timeout') {
+        Alert.alert('Timeout', 'The paragraph expansion took too long. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to expand paragraph');
+      }
     }
   };
 
@@ -1197,43 +1434,121 @@ export default function GroundedEssayWriter() {
         />
       </View>
 
-      {/* File Upload */}
+      {/* File Upload Section */}
       <View style={styles.uploadSection}>
-        <TouchableOpacity
-          style={styles.uploadButton}
-          onPress={uploadFile}
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Upload size={20} color={colors.primary} />
-          )}
-          <Text style={styles.uploadButtonText}>
-            {isUploading ? 'Uploading...' : 'Upload Materials'}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.uploadSectionTitle}>Upload Materials (Optional)</Text>
+        <Text style={styles.uploadSectionDescription}>
+          Upload your research materials, notes, or sample essays to help the AI write in your preferred style.
+        </Text>
+        
+        <View style={styles.uploadButtonsRow}>
+          <TouchableOpacity
+            style={[styles.uploadButton, styles.uploadButtonPrimary]}
+            onPress={uploadFile}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color={colors.cardBackground} />
+            ) : (
+              <Upload size={20} color={colors.cardBackground} />
+            )}
+            <Text style={[styles.uploadButtonText, styles.uploadButtonTextWhite]}>
+              {isUploading ? 'Uploading...' : 'Upload Files'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.uploadButton, styles.uploadButtonSecondary]}
+            onPress={addTextMaterial}
+          >
+            <FileText size={20} color={colors.primary} />
+            <Text style={[styles.uploadButtonText, styles.uploadButtonTextPrimary]}>
+              Add Text
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Files List */}
       {files.length > 0 && (
         <View style={styles.filesSection}>
           <Text style={styles.sectionTitle}>Uploaded Materials ({files.length})</Text>
-          {files.map((file) => (
-            <View key={file.id} style={styles.fileCard}>
-              <View style={styles.fileHeader}>
-                <FileText size={16} color={colors.primary} />
-                <Text style={styles.fileName}>{file.name}</Text>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeFile(file.id)}
-                >
-                  <Trash2 size={16} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.fileExcerpt}>{file.excerpt}</Text>
+          
+          {/* Notes Section */}
+          {files.filter(f => f.group === 'notes').length > 0 && (
+            <View style={styles.fileGroupSection}>
+              <Text style={styles.fileGroupTitle}>📝 Notes & Research Materials</Text>
+              {files.filter(f => f.group === 'notes').map((file) => (
+                <View key={file.id} style={styles.fileCard}>
+                  <View style={styles.fileHeader}>
+                    <FileText size={16} color={colors.primary} />
+                    <Text style={styles.fileName}>{file.name}</Text>
+                    <View style={styles.fileActions}>
+                      <TouchableOpacity
+                        style={styles.priorityButton}
+                        onPress={() => toggleFilePriority(file.id)}
+                      >
+                        <Star 
+                          size={16} 
+                          color={file.priority ? colors.warning : colors.textSecondary}
+                          fill={file.priority ? colors.warning : 'none'}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => removeFile(file.id)}
+                      >
+                        <Trash2 size={16} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <Text style={styles.fileExcerpt}>{file.excerpt}</Text>
+                  <View style={styles.fileMeta}>
+                    <Text style={styles.fileType}>{file.type === 'text' ? 'Text Input' : 'Uploaded File'}</Text>
+                    {file.priority && <Text style={styles.priorityLabel}>⭐ Priority</Text>}
+                  </View>
+                </View>
+              ))}
             </View>
-          ))}
+          )}
+
+          {/* References Section */}
+          {files.filter(f => f.group === 'references').length > 0 && (
+            <View style={styles.fileGroupSection}>
+              <Text style={styles.fileGroupTitle}>📚 References & Citations</Text>
+              {files.filter(f => f.group === 'references').map((file) => (
+                <View key={file.id} style={styles.fileCard}>
+                  <View style={styles.fileHeader}>
+                    <FileText size={16} color={colors.primary} />
+                    <Text style={styles.fileName}>{file.name}</Text>
+                    <View style={styles.fileActions}>
+                      <TouchableOpacity
+                        style={styles.priorityButton}
+                        onPress={() => toggleFilePriority(file.id)}
+                      >
+                        <Star 
+                          size={16} 
+                          color={file.priority ? colors.warning : colors.textSecondary}
+                          fill={file.priority ? colors.warning : 'none'}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => removeFile(file.id)}
+                      >
+                        <Trash2 size={16} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <Text style={styles.fileExcerpt}>{file.excerpt}</Text>
+                  <View style={styles.fileMeta}>
+                    <Text style={styles.fileType}>{file.type === 'text' ? 'Text Input' : 'Uploaded File'}</Text>
+                    {file.priority && <Text style={styles.priorityLabel}>⭐ Priority</Text>}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -1241,10 +1556,10 @@ export default function GroundedEssayWriter() {
       <TouchableOpacity
         style={[
           styles.nextButton,
-          (!essayTopic.trim() || !prompt.trim() || files.length === 0) && styles.nextButtonDisabled
+          (!essayTopic.trim() || !prompt.trim()) && styles.nextButtonDisabled
         ]}
         onPress={() => setCurrentStep('configure')}
-        disabled={!essayTopic.trim() || !prompt.trim() || files.length === 0}
+        disabled={!essayTopic.trim() || !prompt.trim()}
       >
         <Text style={styles.nextButtonText}>Configure Essay</Text>
         <ArrowRight size={20} color={colors.cardBackground} />
@@ -1477,12 +1792,22 @@ export default function GroundedEssayWriter() {
       {outline && expandedParagraphs.size < outline.paragraphs.length && (
         <TouchableOpacity
           style={styles.expandAllButton}
-          onPress={() => {
-            outline.paragraphs.forEach((_, index) => {
-              if (!expandedParagraphs.has(index)) {
-                expandParagraph(index);
+          onPress={async () => {
+            try {
+              // Expand paragraphs one by one to prevent memory issues
+              const unexpandedIndices = outline.paragraphs
+                .map((_, index) => index)
+                .filter(index => !expandedParagraphs.has(index));
+              
+              for (const index of unexpandedIndices) {
+                await expandParagraph(index);
+                // Small delay between expansions to prevent memory pressure
+                await new Promise(resolve => setTimeout(resolve, 1000));
               }
-            });
+            } catch (error) {
+              console.error('Error in expand all:', error);
+              Alert.alert('Error', 'Some paragraphs failed to expand. Please try expanding them individually.');
+            }
           }}
         >
           <Text style={styles.expandAllButtonText}>{COPY.expandAll}</Text>
@@ -1575,15 +1900,15 @@ export default function GroundedEssayWriter() {
         
         <View style={styles.exportGrid}>
           <TouchableOpacity
-            onPress={copyToClipboard}
+            onPress={saveToFile}
             style={[styles.exportButton, styles.exportButtonPrimary]}
           >
             <Copy size={20} color={colors.cardBackground} />
             <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-              {COPY.copyToClipboard}
+              {COPY.saveToFile}
             </Text>
             <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-              Quick copy
+              Save as text file
             </Text>
           </TouchableOpacity>
 
@@ -1602,6 +1927,19 @@ export default function GroundedEssayWriter() {
               </Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            onPress={() => setShowReferencesModal(true)}
+            style={[styles.exportButton, styles.exportButtonSecondary]}
+          >
+            <FileText size={20} color={colors.primary} />
+            <Text style={[styles.exportButtonText, styles.exportButtonTextPrimary]}>
+              View References
+            </Text>
+            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextPrimary]}>
+              See all citations
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
@@ -1748,6 +2086,79 @@ export default function GroundedEssayWriter() {
           </View>
         </View>
       )}
+
+      {/* References Modal */}
+      {showReferencesModal && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setShowReferencesModal(false)}
+            activeOpacity={1}
+          />
+          <View style={styles.referencesModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Essay References</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowReferencesModal(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.referencesModalScrollView}>
+              {outline ? (
+                <>
+                  <Text style={styles.referencesTitle}>All Citations and References</Text>
+                  <Text style={styles.referencesText}>
+                    {outline.paragraphs.map((paragraph, index) => {
+                      if (!paragraph.citations || paragraph.citations.length === 0) return null;
+                      
+                      return (
+                        <React.Fragment key={index}>
+                          <Text style={styles.paragraphTitle}>{paragraph.title}</Text>
+                          {paragraph.citations.map((citation, citationIndex) => (
+                            <Text key={citationIndex} style={styles.citationItem}>
+                              • {citation.text} (Source: {citation.source})
+                            </Text>
+                          ))}
+                          {'\n'}
+                        </React.Fragment>
+                      );
+                    })}
+                  </Text>
+                </>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No References Available</Text>
+                  <Text style={styles.emptyStateText}>
+                    Generate an essay outline and expand paragraphs to see references here.
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  const references = outline?.paragraphs
+                    .flatMap(p => p.citations || [])
+                    .map(c => `• ${c.text} (Source: ${c.source})`)
+                    .join('\n') || 'No references available';
+                  
+                  Share.share({
+                    message: `Essay References:\n\n${references}`,
+                    title: 'Essay References',
+                  });
+                }}
+              >
+                <Text style={styles.modalButtonText}>Share References</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1859,22 +2270,50 @@ const styles = StyleSheet.create({
   uploadSection: {
     marginBottom: 24,
   },
+  uploadSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  uploadSectionDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  uploadButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   uploadButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cardBackground,
     borderRadius: 12,
     padding: 16,
     borderWidth: 2,
-    borderColor: colors.primary,
     borderStyle: 'dashed',
+  },
+  uploadButtonPrimary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  uploadButtonSecondary: {
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.primary,
   },
   uploadButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.primary,
     marginLeft: 8,
+  },
+  uploadButtonTextWhite: {
+    color: colors.cardBackground,
+  },
+  uploadButtonTextPrimary: {
+    color: colors.primary,
   },
   filesSection: {
     marginBottom: 24,
@@ -1893,6 +2332,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  fileGroupSection: {
+    marginBottom: 16,
+  },
+  fileGroupTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+    marginTop: 8,
+  },
   fileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1905,6 +2354,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  fileActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  priorityButton: {
+    padding: 4,
+    marginRight: 8,
+  },
   removeButton: {
     padding: 4,
   },
@@ -1912,6 +2369,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  fileMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fileType: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  priorityLabel: {
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: '600',
   },
   wordCountRow: {
     flexDirection: 'row',
@@ -2276,6 +2749,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
     borderColor: colors.error,
   },
+  exportButtonSecondary: {
+    backgroundColor: colors.cardBackground,
+    borderColor: colors.primary,
+  },
   exportButtonText: {
     fontSize: 14,
     fontWeight: '600',
@@ -2286,6 +2763,9 @@ const styles = StyleSheet.create({
   exportButtonTextWhite: {
     color: colors.cardBackground,
   },
+  exportButtonTextPrimary: {
+    color: colors.primary,
+  },
   exportButtonSubtext: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -2294,6 +2774,9 @@ const styles = StyleSheet.create({
   },
   exportButtonSubtextWhite: {
     color: colors.cardBackground,
+  },
+  exportButtonSubtextPrimary: {
+    color: colors.textSecondary,
   },
   modalOverlay: {
     position: 'absolute',
@@ -2342,6 +2825,54 @@ const styles = StyleSheet.create({
   },
   modalScrollView: {
     maxHeight: 400,
+  },
+  referencesModalContent: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    width: width * 1.0,
+    maxHeight: '100%',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginHorizontal: 0,
+  },
+  referencesModalScrollView: {
+    maxHeight: 800,
+    padding: 20,
+  },
+  referencesTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  referencesText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  citationItem: {
+    fontSize: 14,
+    color: colors.text,
+    marginLeft: 16,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  modalActions: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: colors.cardBackground,
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyState: {
     padding: 40,
