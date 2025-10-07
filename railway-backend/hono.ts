@@ -652,14 +652,23 @@ Return JSON in this exact format:
       throw new Error('No response from AI');
     }
 
+    // Clean the response to remove markdown formatting
+    let cleanedResponse = aiResponse.trim();
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
     let result;
     try {
-      result = JSON.parse(aiResponse);
+      result = JSON.parse(cleanedResponse);
     } catch (e) {
       console.error('=== JSON PARSING ERROR ===');
-      console.error('AI Response:', aiResponse);
+      console.error('Original AI Response:', aiResponse);
+      console.error('Cleaned Response:', cleanedResponse);
       console.error('Parse Error:', e);
-      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
+      throw new Error(`Invalid JSON response from AI. Response: ${cleanedResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
@@ -728,7 +737,9 @@ app.post("/ai/essay/generate-outline", async (c) => {
       });
     }
 
-    const systemPrompt = `Generate an essay outline. Respond with ONLY valid JSON, no other text.
+    const systemPrompt = `You are an essay outline generator. You MUST respond with ONLY valid JSON. Do not use markdown, code blocks, or any other formatting.
+
+CRITICAL: Start your response with { and end with }. Do not include \`\`\`json or \`\`\` or any other text.
 
 Topic: ${essayTopic}
 Word Count: ${wordCount} words
@@ -737,7 +748,7 @@ Citation Style: ${citationStyle}
 
 Create 4-5 paragraphs with word counts distributed evenly.
 
-JSON format:
+Respond with this exact JSON structure:
 {
   "outlineId": "outline_${Date.now()}",
   "thesis": "Thesis statement about ${essayTopic}",
@@ -783,14 +794,23 @@ JSON format:
       throw new Error('No response from AI');
     }
 
+    // Clean the response to remove markdown formatting
+    let cleanedResponse = aiResponse.trim();
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
     let result;
     try {
-      result = JSON.parse(aiResponse);
+      result = JSON.parse(cleanedResponse);
     } catch (e) {
       console.error('=== JSON PARSING ERROR ===');
-      console.error('AI Response:', aiResponse);
+      console.error('Original AI Response:', aiResponse);
+      console.error('Cleaned Response:', cleanedResponse);
       console.error('Parse Error:', e);
-      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
+      throw new Error(`Invalid JSON response from AI. Response: ${cleanedResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
@@ -913,14 +933,23 @@ RESPOND WITH ONLY THIS JSON FORMAT (no other text):
       throw new Error('No response from AI');
     }
 
+    // Clean the response to remove markdown formatting
+    let cleanedResponse = aiResponse.trim();
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
     let result;
     try {
-      result = JSON.parse(aiResponse);
+      result = JSON.parse(cleanedResponse);
     } catch (e) {
       console.error('=== JSON PARSING ERROR ===');
-      console.error('AI Response:', aiResponse);
+      console.error('Original AI Response:', aiResponse);
+      console.error('Cleaned Response:', cleanedResponse);
       console.error('Parse Error:', e);
-      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
+      throw new Error(`Invalid JSON response from AI. Response: ${cleanedResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
