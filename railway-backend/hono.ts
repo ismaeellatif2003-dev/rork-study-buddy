@@ -562,6 +562,317 @@ app.post("/ai/ocr", async (c) => {
   }
 });
 
+// Essay-specific AI endpoints
+app.post("/ai/essay/analyze-references", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { prompt, essayTopic, assignmentTitle, references } = body;
+
+    if (!prompt || !essayTopic || !references) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return c.json({ 
+        success: true, 
+        analysis: {},
+        smartSelection: {
+          selectedReferences: [],
+          excludedReferences: [],
+          reasoning: "No API key configured - using mock response",
+          totalReferences: references.length,
+          selectedCount: 0
+        },
+        timestamp: new Date().toISOString(),
+        note: 'Using mock response (no OpenRouter API key configured)'
+      });
+    }
+
+    // Create analysis prompt
+    const systemPrompt = `You are an expert academic research assistant. Analyze the provided references for their relevance to the essay topic and select the most appropriate ones.
+
+CRITICAL REQUIREMENTS:
+1. Analyze each reference for relevance to the essay topic
+2. Provide relevance scores (0-100) for each reference
+3. Identify key topics and themes in each reference
+4. Select the most relevant references for the essay
+5. Provide clear reasoning for your selections
+6. Return ONLY valid JSON in the specified format
+
+ESSAY TOPIC: ${essayTopic}
+ASSIGNMENT: ${assignmentTitle || 'Essay'}
+PROMPT: ${prompt}
+
+REFERENCES TO ANALYZE:
+${references.map((ref: any, i: number) => `${i + 1}. ${ref.name}: ${ref.excerpt}`).join('\n')}
+
+Return JSON in this exact format:
+{
+  "analysis": {
+    "reference_id": {
+      "relevanceScore": 85,
+      "keyTopics": ["topic1", "topic2"],
+      "summary": "Brief summary of relevance",
+      "confidence": 90
+    }
+  },
+  "smartSelection": {
+    "selectedReferences": ["ref_id1", "ref_id2"],
+    "excludedReferences": ["ref_id3"],
+    "reasoning": "Explanation of selection criteria",
+    "totalReferences": ${references.length},
+    "selectedCount": 2
+  }
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'openai/gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Analyze these references for the essay topic: ${essayTopic}` }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('No response from AI');
+    }
+
+    let result;
+    try {
+      result = JSON.parse(aiResponse);
+    } catch (e) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    return c.json({ 
+      success: true, 
+      ...result,
+      timestamp: new Date().toISOString(),
+      source: 'OpenRouter SDK'
+    });
+
+  } catch (error) {
+    console.error('Reference analysis error:', error);
+    return c.json({ 
+      success: false, 
+      error: 'Failed to analyze references',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post("/ai/essay/generate-outline", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { prompt, wordCount, level, citationStyle, mode, fileIds, rubric, essayTopic, sampleEssayId } = body;
+
+    if (!prompt || !essayTopic) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return c.json({ 
+        success: true, 
+        outlineId: `outline_${Date.now()}`,
+        thesis: `This essay explores ${essayTopic.toLowerCase()}, examining the key factors and implications that shape this important topic.`,
+        paragraphs: [
+          {
+            title: `Understanding ${essayTopic}`,
+            intendedChunks: [],
+            suggestedWordCount: Math.floor(wordCount * 0.25)
+          },
+          {
+            title: `Key Aspects of ${essayTopic}`,
+            intendedChunks: [],
+            suggestedWordCount: Math.floor(wordCount * 0.25)
+          },
+          {
+            title: "Analysis and Implications",
+            intendedChunks: [],
+            suggestedWordCount: Math.floor(wordCount * 0.25)
+          },
+          {
+            title: "Conclusion and Future Directions",
+            intendedChunks: [],
+            suggestedWordCount: Math.floor(wordCount * 0.25)
+          }
+        ],
+        metadata: { retrievedCount: 0 },
+        timestamp: new Date().toISOString(),
+        note: 'Using mock response (no OpenRouter API key configured)'
+      });
+    }
+
+    const systemPrompt = `You are an expert academic essay writer. Generate a comprehensive essay outline based on the provided requirements.
+
+CRITICAL REQUIREMENTS:
+1. Create a strong, clear thesis statement
+2. Generate 4-6 well-structured paragraphs
+3. Each paragraph should have a clear title and purpose
+4. Suggest appropriate word counts for each paragraph
+5. Consider the academic level and citation style
+6. Return ONLY valid JSON in the specified format
+
+ESSAY REQUIREMENTS:
+- Topic: ${essayTopic}
+- Prompt: ${prompt}
+- Word Count: ${wordCount}
+- Academic Level: ${level}
+- Citation Style: ${citationStyle}
+- Mode: ${mode}
+- Rubric: ${rubric || 'General Essay'}
+
+Return JSON in this exact format:
+{
+  "outlineId": "outline_${Date.now()}",
+  "thesis": "Clear, argumentative thesis statement",
+  "paragraphs": [
+    {
+      "title": "Paragraph Title",
+      "intendedChunks": [],
+      "suggestedWordCount": 200
+    }
+  ],
+  "metadata": {
+    "retrievedCount": 0
+  }
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'openai/gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Generate an essay outline for: ${essayTopic}` }
+      ],
+      max_tokens: 2000,
+      temperature: 0.7
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('No response from AI');
+    }
+
+    let result;
+    try {
+      result = JSON.parse(aiResponse);
+    } catch (e) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    return c.json({ 
+      success: true, 
+      ...result,
+      timestamp: new Date().toISOString(),
+      source: 'OpenRouter SDK'
+    });
+
+  } catch (error) {
+    console.error('Outline generation error:', error);
+    return c.json({ 
+      success: false, 
+      error: 'Failed to generate outline',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post("/ai/essay/expand-paragraph", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { outlineId, paragraphIndex, paragraphTitle, intendedChunks, essayTopic, prompt } = body;
+
+    if (!outlineId || paragraphIndex === undefined || !paragraphTitle) {
+      return c.json({ error: 'Missing required fields' }, 400);
+    }
+
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return c.json({ 
+        success: true, 
+        paragraphText: `This is a mock paragraph for "${paragraphTitle}". In a real implementation, this would be expanded with detailed content related to ${essayTopic || 'the essay topic'}. The paragraph would include proper citations, evidence, and analysis to support the main argument.`,
+        usedChunks: [],
+        citations: [],
+        unsupportedFlags: [],
+        timestamp: new Date().toISOString(),
+        note: 'Using mock response (no OpenRouter API key configured)'
+      });
+    }
+
+    const systemPrompt = `You are an expert academic writer. Expand the provided paragraph outline into a full, well-written paragraph.
+
+CRITICAL REQUIREMENTS:
+1. Write a comprehensive, well-structured paragraph
+2. Include proper academic language and flow
+3. Integrate evidence and analysis
+4. Use appropriate citations (format: (Source:Page))
+5. Identify any unsupported claims
+6. Return ONLY valid JSON in the specified format
+
+PARAGRAPH TO EXPAND:
+- Title: ${paragraphTitle}
+- Essay Topic: ${essayTopic || 'General Topic'}
+- Prompt: ${prompt || 'General Essay'}
+- Intended Content: ${intendedChunks ? intendedChunks.map((chunk: any) => chunk.excerpt).join(' ') : 'General content'}
+
+Return JSON in this exact format:
+{
+  "paragraphText": "Full paragraph text with proper citations...",
+  "usedChunks": [
+    {"label": "Source1:p1", "page": 1}
+  ],
+  "citations": [
+    {"text": "cited text", "source": "Source1:p1"}
+  ],
+  "unsupportedFlags": [
+    {"sentence": "unsupported claim", "reason": "no evidence provided"}
+  ]
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'openai/gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Expand this paragraph: ${paragraphTitle}` }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content;
+    if (!aiResponse) {
+      throw new Error('No response from AI');
+    }
+
+    let result;
+    try {
+      result = JSON.parse(aiResponse);
+    } catch (e) {
+      throw new Error('Invalid JSON response from AI');
+    }
+
+    return c.json({ 
+      success: true, 
+      ...result,
+      timestamp: new Date().toISOString(),
+      source: 'OpenRouter SDK'
+    });
+
+  } catch (error) {
+    console.error('Paragraph expansion error:', error);
+    return c.json({ 
+      success: false, 
+      error: 'Failed to expand paragraph',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Helper function for mock responses
 function getMockResponse(type: string) {
   switch (type) {
@@ -615,7 +926,12 @@ app.get("/", (c) => {
       ai: {
         generate: "/ai/generate",
         flashcards: "/ai/flashcards",
-        ocr: "/ai/ocr"
+        ocr: "/ai/ocr",
+        essay: {
+          analyzeReferences: "/ai/essay/analyze-references",
+          generateOutline: "/ai/essay/generate-outline",
+          expandParagraph: "/ai/essay/expand-paragraph"
+        }
       }
     },
     ai: {
