@@ -656,7 +656,10 @@ Return JSON in this exact format:
     try {
       result = JSON.parse(aiResponse);
     } catch (e) {
-      throw new Error('Invalid JSON response from AI');
+      console.error('=== JSON PARSING ERROR ===');
+      console.error('AI Response:', aiResponse);
+      console.error('Parse Error:', e);
+      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
@@ -727,15 +730,13 @@ app.post("/ai/essay/generate-outline", async (c) => {
 
     const systemPrompt = `You are an expert academic essay writer. Generate a comprehensive essay outline based on the provided requirements.
 
-CRITICAL REQUIREMENTS:
-1. Create a strong, clear thesis statement
-2. Generate 4-6 well-structured paragraphs
-3. Each paragraph should have a clear title and purpose
-4. DISTRIBUTE WORD COUNT EVENLY: Total word count is ${wordCount} words
-5. Calculate word count per paragraph: Divide total by number of paragraphs (aim for 4-5 paragraphs)
-6. Each paragraph should have a realistic word count target (minimum 150 words, maximum 400 words per paragraph)
-7. Consider the academic level and citation style
-8. Return ONLY valid JSON in the specified format
+CRITICAL JSON FORMATTING REQUIREMENTS:
+1. You MUST respond with ONLY valid JSON
+2. Do not include any text, explanations, or formatting before or after the JSON
+3. The JSON must be properly formatted and parseable
+4. Start your response immediately with the opening brace {
+5. End your response with the closing brace }
+6. Do not include markdown formatting, code blocks, or any other text
 
 ESSAY REQUIREMENTS:
 - Topic: ${essayTopic}
@@ -746,12 +747,20 @@ ESSAY REQUIREMENTS:
 - Mode: ${mode}
 - Rubric: ${rubric || 'General Essay'}
 
+OUTLINE REQUIREMENTS:
+1. Create a strong, clear thesis statement
+2. Generate 4-6 well-structured paragraphs
+3. Each paragraph should have a clear title and purpose
+4. DISTRIBUTE WORD COUNT EVENLY: Total word count is ${wordCount} words
+5. Calculate word count per paragraph: Divide total by number of paragraphs (aim for 4-5 paragraphs)
+6. Each paragraph should have a realistic word count target (minimum 150 words, maximum 400 words per paragraph)
+
 WORD COUNT DISTRIBUTION:
 - For ${wordCount} words total, create 4-5 paragraphs
 - Each paragraph should target approximately ${Math.floor(wordCount / 4)}-${Math.floor(wordCount / 5)} words
 - Ensure the sum of all paragraph word counts equals approximately ${wordCount} words
 
-Return JSON in this exact format:
+RESPOND WITH ONLY THIS JSON FORMAT (no other text):
 {
   "outlineId": "outline_${Date.now()}",
   "thesis": "Clear, argumentative thesis statement",
@@ -786,7 +795,10 @@ Return JSON in this exact format:
     try {
       result = JSON.parse(aiResponse);
     } catch (e) {
-      throw new Error('Invalid JSON response from AI');
+      console.error('=== JSON PARSING ERROR ===');
+      console.error('AI Response:', aiResponse);
+      console.error('Parse Error:', e);
+      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
@@ -841,7 +853,15 @@ app.post("/ai/essay/expand-paragraph", async (c) => {
 
     const systemPrompt = `You are an expert academic writer. Expand the provided paragraph outline into a full, well-written paragraph.
 
-CRITICAL REQUIREMENTS:
+CRITICAL JSON FORMATTING REQUIREMENTS:
+1. You MUST respond with ONLY valid JSON
+2. Do not include any text, explanations, or formatting before or after the JSON
+3. The JSON must be properly formatted and parseable
+4. Start your response immediately with the opening brace {
+5. End your response with the closing brace }
+6. Do not include markdown formatting, code blocks, or any other text
+
+PARAGRAPH REQUIREMENTS:
 1. Write a comprehensive, well-structured paragraph that meets the target word count
 2. TARGET WORD COUNT: ${suggestedWordCount || 200} words - this is MANDATORY
 3. Include proper academic language and flow appropriate for ${academicLevel || 'undergraduate'} level
@@ -849,8 +869,7 @@ CRITICAL REQUIREMENTS:
 5. Use citations from trusted online sources when possible (format: (Source:Page))
 6. Prioritize citations from: academic journals, government websites (.gov), educational institutions (.edu), reputable news sources, peer-reviewed publications
 7. Identify any unsupported claims
-8. Return ONLY valid JSON in the specified format
-9. If you need additional credible sources, include citations from trusted online sources like:
+8. If you need additional credible sources, include citations from trusted online sources like:
    - Academic databases (JSTOR, PubMed, Google Scholar)
    - Government reports and statistics
    - Educational institution research
@@ -873,7 +892,7 @@ WORD COUNT INSTRUCTIONS:
 - If you're under the word count, add more detailed analysis, examples, or explanations
 - If you're over the word count, trim unnecessary words while maintaining quality
 
-Return JSON in this exact format:
+RESPOND WITH ONLY THIS JSON FORMAT (no other text):
 {
   "paragraphText": "Full paragraph text with proper citations...",
   "usedChunks": [
@@ -906,7 +925,10 @@ Return JSON in this exact format:
     try {
       result = JSON.parse(aiResponse);
     } catch (e) {
-      throw new Error('Invalid JSON response from AI');
+      console.error('=== JSON PARSING ERROR ===');
+      console.error('AI Response:', aiResponse);
+      console.error('Parse Error:', e);
+      throw new Error(`Invalid JSON response from AI. Response: ${aiResponse.substring(0, 200)}...`);
     }
 
     return c.json({ 
