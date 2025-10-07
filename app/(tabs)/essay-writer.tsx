@@ -81,6 +81,7 @@ interface FileItem {
   order: number;
   pages?: number;
   type: 'file' | 'text' | 'url';
+  uploadType: 'material' | 'sample_essay'; // Distinguish between materials and sample essays
   analysis?: {
     relevanceScore: number;
     keyTopics: string[];
@@ -1056,7 +1057,7 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe file upload
+  // Safe file upload for materials
   const uploadFile = async () => {
     try {
       setIsUploading(true);
@@ -1075,7 +1076,8 @@ export default function GroundedEssayWriter() {
           excerpt: SafeStringUtils.limitString(asset.name || 'File uploaded', 500),
           priority: false,
           order: getNextOrder('notes'),
-          type: 'file'
+          type: 'file',
+          uploadType: 'material'
         };
 
         setFiles(prev => [...prev, newFile]);
@@ -1083,6 +1085,41 @@ export default function GroundedEssayWriter() {
     } catch (error) {
       console.error('Error uploading file:', error);
       Alert.alert('Error', 'Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Upload sample essay
+  const uploadSampleEssay = async () => {
+    try {
+      setIsUploading(true);
+      
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const sampleEssayFile: FileItem = {
+          id: Date.now().toString(),
+          group: 'notes',
+          name: SafeStringUtils.limitString(asset.name || 'Sample Essay', 200),
+          excerpt: SafeStringUtils.limitString(asset.name || 'Sample essay uploaded', 500),
+          priority: true, // Sample essays are high priority
+          order: 0,
+          type: 'file',
+          uploadType: 'sample_essay'
+        };
+
+        // Replace any existing sample essay
+        setSampleEssay(sampleEssayFile);
+        Alert.alert('Success', 'Sample essay uploaded! The AI will use this to match your writing style.');
+      }
+    } catch (error) {
+      console.error('Error uploading sample essay:', error);
+      Alert.alert('Error', 'Failed to upload sample essay');
     } finally {
       setIsUploading(false);
     }
@@ -1115,7 +1152,8 @@ export default function GroundedEssayWriter() {
                           excerpt: SafeStringUtils.limitString(content.trim(), 1000),
                           priority: false,
                           order: getNextOrder('notes'),
-                          type: 'text'
+                          type: 'text',
+                          uploadType: 'material'
                         };
                         setFiles(prev => [...prev, newFile]);
                       }
@@ -1232,6 +1270,12 @@ export default function GroundedEssayWriter() {
         };
         setOutline(updatedOutline);
         setExpandedParagraphs(prev => new Set([...prev, index]));
+        
+        // Immediately save the expanded content to edits state for persistence
+        const expandedContent = SafeStringUtils.limitString(response.paragraphText, 10000);
+        setEdits(prev => ({ ...prev, [index]: expandedContent }));
+        
+        console.log(`✅ Paragraph ${index + 1} expanded successfully. Content length: ${expandedContent.length}`);
       } else {
         Alert.alert('Error', 'Failed to expand paragraph');
       }
@@ -1434,11 +1478,52 @@ export default function GroundedEssayWriter() {
         />
       </View>
 
-      {/* File Upload Section */}
+      {/* Sample Essay Upload Section */}
       <View style={styles.uploadSection}>
-        <Text style={styles.uploadSectionTitle}>Upload Materials (Optional)</Text>
+        <Text style={styles.uploadSectionTitle}>Sample Essay (Optional)</Text>
         <Text style={styles.uploadSectionDescription}>
-          Upload your research materials, notes, or sample essays to help the AI write in your preferred style.
+          Upload a sample essay to help the AI match your writing style and tone.
+        </Text>
+        
+        {sampleEssay ? (
+          <View style={styles.sampleEssayCard}>
+            <View style={styles.fileHeader}>
+              <FileText size={16} color={colors.primary} />
+              <Text style={styles.fileName}>{sampleEssay.name}</Text>
+              <View style={styles.fileActions}>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => setSampleEssay(null)}
+                >
+                  <Trash2 size={16} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <Text style={styles.sampleEssayLabel}>📝 Sample Essay - AI will use this for style matching</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.uploadButton, styles.uploadButtonPrimary]}
+            onPress={uploadSampleEssay}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color={colors.cardBackground} />
+            ) : (
+              <Upload size={20} color={colors.cardBackground} />
+            )}
+            <Text style={[styles.uploadButtonText, styles.uploadButtonTextWhite]}>
+              {isUploading ? 'Uploading...' : 'Upload Sample Essay'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Research Materials Upload Section */}
+      <View style={styles.uploadSection}>
+        <Text style={styles.uploadSectionTitle}>Research Materials (Optional)</Text>
+        <Text style={styles.uploadSectionDescription}>
+          Upload your research materials, notes, and references to ground your essay in evidence.
         </Text>
         
         <View style={styles.uploadButtonsRow}>
@@ -1472,7 +1557,7 @@ export default function GroundedEssayWriter() {
       {/* Files List */}
       {files.length > 0 && (
         <View style={styles.filesSection}>
-          <Text style={styles.sectionTitle}>Uploaded Materials ({files.length})</Text>
+          <Text style={styles.sectionTitle}>Research Materials ({files.length})</Text>
           
           {/* Notes Section */}
           {files.filter(f => f.group === 'notes').length > 0 && (
@@ -1823,15 +1908,21 @@ export default function GroundedEssayWriter() {
               <Text style={styles.paragraphTitle}>{paragraph.title}</Text>
               <Text style={styles.paragraphWordCount}>
                 {paragraph.suggestedWordCount} words
+                {expandedParagraphs.has(index) && ' • Expanded'}
               </Text>
             </View>
-            {!expandedParagraphs.has(index) && (
+            {!expandedParagraphs.has(index) ? (
               <TouchableOpacity
                 style={styles.expandButton}
                 onPress={() => expandParagraph(index)}
               >
                 <Text style={styles.expandButtonText}>{COPY.expandParagraph}</Text>
               </TouchableOpacity>
+            ) : (
+              <View style={styles.expandedIndicator}>
+                <CheckCircle size={16} color={colors.success} />
+                <Text style={styles.expandedText}>Expanded</Text>
+              </View>
             )}
           </View>
 
@@ -1845,7 +1936,7 @@ export default function GroundedEssayWriter() {
               </View>
               
               <TextInput
-                value={edits[index] || stripCitationsFromText(paragraph.expandedText || '')}
+                value={edits[index] || paragraph.expandedText || ''}
                 onChangeText={(text) => handleParagraphEdit(index, text)}
                 multiline
                 numberOfLines={8}
@@ -2371,6 +2462,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
+  sampleEssayCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  sampleEssayLabel: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   fileMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2618,6 +2725,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.cardBackground,
+  },
+  expandedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  expandedText: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   expandedContent: {
     marginTop: 12,
