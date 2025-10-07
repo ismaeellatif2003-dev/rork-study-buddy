@@ -18,6 +18,17 @@ const openai = new OpenAI({
 // app will be mounted at /api
 const app = new Hono();
 
+// Test endpoint to check API key status
+app.get("/test-api-key", async (c) => {
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  return c.json({
+    hasApiKey: !!openRouterKey,
+    keyLength: openRouterKey ? openRouterKey.length : 0,
+    keyPrefix: openRouterKey ? openRouterKey.substring(0, 10) + '...' : 'None',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Enable CORS for all routes
 app.use("*", cors());
 
