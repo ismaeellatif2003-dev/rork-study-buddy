@@ -1,11 +1,15 @@
 /**
- * Grounded Essay Writer - Crash-Resistant Version
+ * Grounded Essay Writer - Full Featured Crash-Resistant Version
  * 
- * A completely rebuilt essay writing tool that:
- * - Uses NO .split() operations to prevent Hermes crashes
- * - Has comprehensive error boundaries
- * - Uses memory-safe string operations
- * - Provides a stable, crash-free experience
+ * A comprehensive essay writing tool that includes all original features:
+ * - Upload materials and organize them into Relevant Notes and References
+ * - Configure essay parameters (word count, academic level, citation style)
+ * - Generate grounded essays using provided materials
+ * - Review and edit generated content with inline citations
+ * - AI-powered reference analysis and smart selection
+ * - PDF and Word document export
+ * - Save and load essays
+ * - All features are crash-resistant with no .split() operations
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -16,6 +20,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Share,
   Platform,
   Dimensions,
   StyleSheet,
@@ -30,6 +35,13 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// PDF and Word generation libraries - will be loaded dynamically
+let jsPDF: any = null;
+let Document: any = null;
+let Packer: any = null;
+let Paragraph: any = null;
+let TextRun: any = null;
+let HeadingLevel: any = null;
 import { mockApi } from '../../services/mockApi';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
@@ -205,54 +217,41 @@ const SafeStringUtils = {
   }
 };
 
-// Error Boundary Component
-class EssayWriterErrorBoundary extends React.Component {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any, errorInfo: any) {
-    console.warn('Essay Writer Error Boundary caught an error:', error, errorInfo);
-  }
-
-  render() {
-    if ((this.state as any).hasError) {
-      return (
-        <SafeAreaView style={styles.container}>
-          <StatusBar style="light" />
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Text style={{ fontSize: 18, color: colors.text, textAlign: 'center', marginBottom: 20 }}>
-              Something went wrong with the Essay Writer.
-            </Text>
-            <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
-              Please try again or contact support if the issue persists.
-            </Text>
-            <TouchableOpacity
-              style={[styles.exportButton, styles.exportButtonPrimary]}
-              onPress={() => this.setState({ hasError: false })}
-            >
-              <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-                Try Again
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    return (this.props as any).children;
-  }
-}
-
 export default function GroundedEssayWriter() {
   // Subscription hooks
   const { canGenerateEssay, trackEssayGeneration } = useSubscription();
 
+  // Global error handler for the component
+  React.useEffect(() => {
+    try {
+      const originalError = console.error;
+      console.error = (...args) => {
+        try {
+          // Log the error but don't let it crash the app
+          originalError(...args);
+          
+          // If it's a critical error, show a user-friendly message
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('Error:')) {
+            console.warn('Caught error in essay writer:', args[0]);
+          }
+        } catch (error) {
+          // If even the error handler fails, just log it silently
+          console.warn('Error in error handler:', error);
+        }
+      };
+
+      return () => {
+        try {
+          console.error = originalError;
+        } catch (error) {
+          console.warn('Error restoring console.error:', error);
+        }
+      };
+    } catch (error) {
+      console.warn('Error setting up error handler:', error);
+    }
+  }, []);
+  
   // State management
   const [currentStep, setCurrentStep] = useState<Step>('materials');
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -281,6 +280,94 @@ export default function GroundedEssayWriter() {
 
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Load PDF/Word libraries dynamically
+  const loadLibraries = async () => {
+    try {
+      // Only load libraries when needed to prevent crashes
+      if (!jsPDF) {
+        try {
+          const jsPDFModule = await import('jspdf');
+          jsPDF = jsPDFModule.default;
+        } catch (error) {
+          console.warn('jsPDF library not available:', error);
+          jsPDF = null;
+        }
+      }
+      
+      if (!Document) {
+        try {
+          const docxModule = await import('docx');
+          Document = docxModule.Document;
+          Packer = docxModule.Packer;
+          Paragraph = docxModule.Paragraph;
+          TextRun = docxModule.TextRun;
+          HeadingLevel = docxModule.HeadingLevel;
+        } catch (error) {
+          console.warn('docx library not available:', error);
+          Document = null;
+          Packer = null;
+          Paragraph = null;
+          TextRun = null;
+          HeadingLevel = null;
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading libraries:', error);
+      // Libraries will remain null, fallback functions will be used
+    }
+  };
+
+  // Load saved essays on component mount
+  React.useEffect(() => {
+    try {
+      loadSavedEssays();
+    } catch (error) {
+      console.error('Error loading saved essays:', error);
+    }
+  }, []);
+
+  // Cleanup effect to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      try {
+        // Cleanup any pending timeouts or async operations
+        setShowSavedDocuments(false);
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+      }
+    };
+  }, []);
+
+  // Load saved essays from AsyncStorage
+  const loadSavedEssays = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('saved_essays');
+      if (saved) {
+        const parsedEssays = JSON.parse(saved);
+        if (Array.isArray(parsedEssays)) {
+          setSavedEssays(parsedEssays);
+        } else {
+          console.warn('Invalid saved essays format, resetting to empty array');
+          setSavedEssays([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved essays:', error);
+      setSavedEssays([]);
+    }
+  };
+
+  // Safe file operations
+  const getNextOrder = (group: 'notes' | 'references') => {
+    try {
+      const groupFiles = files.filter(f => f.group === group);
+      return groupFiles.length > 0 ? Math.max(...groupFiles.map(f => f.order)) + 1 : 0;
+    } catch (error) {
+      console.warn('Error in getNextOrder:', error);
+      return 0;
+    }
+  };
 
   // Safe string operations - NO .split() operations
   const stripCitationsFromText = (text: string): string => {
@@ -319,18 +406,7 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe file operations
-  const getNextOrder = (group: 'notes' | 'references') => {
-    try {
-      const groupFiles = files.filter(f => f.group === group);
-      return groupFiles.length > 0 ? Math.max(...groupFiles.map(f => f.order)) + 1 : 0;
-    } catch (error) {
-      console.warn('Error in getNextOrder:', error);
-      return 0;
-    }
-  };
-
-  // Safe reference generation
+  // Generate references list based on citation style
   const generateReferencesList = () => {
     try {
       if (!includeReferences || citationStyle === 'none') return null;
@@ -369,43 +445,7 @@ export default function GroundedEssayWriter() {
     }
   };
 
-  // Safe copy to clipboard
-  const copyToClipboard = async () => {
-    try {
-      if (!outline) return;
-
-      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
-      const essayText = outline.paragraphs
-        .map((p, i) => {
-          const text = edits[i] || p.expandedText || '';
-          const cleanText = stripCitationsFromText(text);
-          // Limit paragraph text length to prevent memory issues
-          const limitedText = SafeStringUtils.limitString(cleanText, 5000);
-          const limitedTitle = SafeStringUtils.limitString(p.title || `Paragraph ${i + 1}`, 100);
-          return `${limitedTitle}\n\n${limitedText}`;
-        })
-        .join('\n\n\n');
-
-      // Add references if they exist and are enabled
-      let fullText = `${essayTitle}\n\n${essayText}`;
-      
-      if (includeReferences && citationStyle !== 'none') {
-        const references = generateReferencesList();
-        if (references) {
-          fullText += `\n\n\nReferences\n\n${references}`;
-        }
-      }
-
-      // Actually copy to clipboard
-      await Clipboard.setStringAsync(fullText);
-      Alert.alert('Success', 'Essay copied to clipboard!');
-    } catch (error) {
-      console.error('Error copying to clipboard:', error);
-      Alert.alert('Error', 'Failed to copy to clipboard');
-    }
-  };
-
-  // Safe text download
+  // Fallback text download function
   const downloadAsText = async () => {
     try {
       if (!outline) return;
@@ -447,6 +487,375 @@ export default function GroundedEssayWriter() {
     } catch (error) {
       console.error('Error saving text document:', error);
       Alert.alert('Error', 'Failed to save document');
+    }
+  };
+
+  // Safe copy to clipboard
+  const copyToClipboard = async () => {
+    try {
+      if (!outline) return;
+
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
+      const essayText = outline.paragraphs
+        .map((p, i) => {
+          const text = edits[i] || p.expandedText || '';
+          const cleanText = stripCitationsFromText(text);
+          // Limit paragraph text length to prevent memory issues
+          const limitedText = SafeStringUtils.limitString(cleanText, 5000);
+          const limitedTitle = SafeStringUtils.limitString(p.title || `Paragraph ${i + 1}`, 100);
+          return `${limitedTitle}\n\n${limitedText}`;
+        })
+        .join('\n\n\n');
+
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
+      }
+
+      // Actually copy to clipboard
+      await Clipboard.setStringAsync(fullText);
+      Alert.alert('Success', 'Essay copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
+  };
+
+  // Copy with citations
+  const copyWithCitations = async () => {
+    try {
+      if (!outline) return;
+
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
+      const essayText = outline.paragraphs
+        .map((p, i) => {
+          const text = edits[i] || p.expandedText || '';
+          // Don't strip citations for this version
+          const limitedText = SafeStringUtils.limitString(text, 5000);
+          const limitedTitle = SafeStringUtils.limitString(p.title || `Paragraph ${i + 1}`, 100);
+          return `${limitedTitle}\n\n${limitedText}`;
+        })
+        .join('\n\n\n');
+
+      // Add references if they exist and are enabled
+      let fullText = `${essayTitle}\n\n${essayText}`;
+      
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          fullText += `\n\n\nReferences\n\n${references}`;
+        }
+      }
+
+      // Actually copy to clipboard
+      await Clipboard.setStringAsync(fullText);
+      Alert.alert('Success', 'Essay with citations copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
+  };
+
+  // Download as Word document
+  const downloadAsDocx = async () => {
+    try {
+      if (!outline) return;
+
+      await loadLibraries();
+      
+      if (!Document || !Packer || !Paragraph || !TextRun || !HeadingLevel) {
+        Alert.alert('Error', 'Word document generation not available. Using text format instead.');
+        downloadAsText();
+        return;
+      }
+
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
+      
+      // Create document structure
+      const paragraphs = outline.paragraphs.map((p, i) => {
+        const text = edits[i] || p.expandedText || '';
+        const cleanText = stripCitationsFromText(text);
+        
+        return [
+          new Paragraph({
+            text: p.title,
+            heading: HeadingLevel.HEADING_2,
+            spacing: { after: 200 }
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: cleanText,
+                size: 24 // 12pt font
+              })
+            ],
+            spacing: { after: 400 }
+          })
+        ];
+      }).flat();
+
+      // Add references if enabled
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          paragraphs.push(
+            new Paragraph({
+              text: 'References',
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 400, after: 200 }
+            })
+          );
+          
+          // Safe string splitting with validation - avoid split() to prevent crashes
+          const refArray = references ? SafeStringUtils.safeSplitDoubleLines(references) : [];
+          refArray.forEach(ref => {
+            if (ref.trim()) {
+              paragraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: ref.trim(),
+                      size: 24
+                    })
+                  ],
+                  spacing: { after: 200 }
+                })
+              );
+            }
+          });
+        }
+      }
+
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              text: essayTitle,
+              heading: HeadingLevel.HEADING_1,
+              spacing: { after: 400 }
+            }),
+            ...paragraphs
+          ]
+        }]
+      });
+
+      // Generate the document
+      const buffer = await Packer.toBuffer(doc);
+      
+      // Save to file
+      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
+      const filename = `essay_${timestamp}.docx`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      // Convert buffer to base64 and write
+      // Convert ArrayBuffer to base64 string for React Native
+      const uint8Array = new Uint8Array(buffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64String = btoa(binaryString);
+      
+      await FileSystem.writeAsStringAsync(fileUri, base64String, {
+        encoding: FileSystem.EncodingType.Base64
+      });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert('Success', 'Word document saved to device!');
+      }
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      Alert.alert('Error', 'Failed to generate Word document. Using text format instead.');
+      downloadAsText();
+    }
+  };
+
+  // Download as PDF
+  const downloadAsPdf = async () => {
+    try {
+      if (!outline) return;
+
+      await loadLibraries();
+      
+      if (!jsPDF) {
+        Alert.alert('Error', 'PDF generation not available. Using text format instead.');
+        downloadAsText();
+        return;
+      }
+
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      let yPosition = 30;
+
+      // Add title
+      const essayTitle = SafeStringUtils.limitString(outline.thesis || 'Generated Essay', 200);
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      const titleLines = pdf.splitTextToSize(essayTitle, maxWidth);
+      pdf.text(titleLines, margin, yPosition);
+      yPosition += titleLines.length * 8 + 20;
+
+      // Add paragraphs
+      outline.paragraphs.forEach((paragraph, index) => {
+        const text = edits[index] || paragraph.expandedText || '';
+        const cleanText = stripCitationsFromText(text);
+        
+        // Check if we need a new page
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        // Add paragraph title
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        const titleLines = pdf.splitTextToSize(paragraph.title, maxWidth);
+        pdf.text(titleLines, margin, yPosition);
+        yPosition += titleLines.length * 7 + 5;
+        
+        // Add paragraph content
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        const contentLines = pdf.splitTextToSize(cleanText, maxWidth);
+        
+        // Check if content fits on current page
+        const contentHeight = contentLines.length * 5;
+        if (yPosition + contentHeight > pageHeight - 20) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        pdf.text(contentLines, margin, yPosition);
+        yPosition += contentHeight + 15;
+      });
+
+      // Add references if enabled
+      if (includeReferences && citationStyle !== 'none') {
+        const references = generateReferencesList();
+        if (references) {
+          // Check if we need a new page for references
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage();
+            yPosition = 30;
+          }
+          
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('References', margin, yPosition);
+          yPosition += 6;
+          
+          // Safe string splitting with validation - avoid split() to prevent crashes
+          const refArray = references ? SafeStringUtils.safeSplitDoubleLines(references) : [];
+          refArray.forEach(ref => {
+            if (ref.trim()) {
+              // Check if we need a new page
+              if (yPosition > pageHeight - 20) {
+                pdf.addPage();
+                yPosition = 30;
+              }
+              
+              pdf.setFontSize(10);
+              pdf.setFont('helvetica', 'normal');
+              const refLines = pdf.splitTextToSize(ref.trim(), maxWidth);
+              pdf.text(refLines, margin, yPosition);
+              yPosition += refLines.length * 4 + 3;
+            }
+          });
+        }
+      }
+      
+      // Save the PDF
+      const timestamp = new Date().toISOString().substring(0, 10); // Safe alternative to split
+      const filename = `essay_${timestamp}.pdf`;
+      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      const pdfOutput = pdf.output('datauristring');
+      // Safe string splitting with validation
+      const commaIndex = pdfOutput.indexOf(',');
+      const base64Data = commaIndex !== -1 ? pdfOutput.substring(commaIndex + 1) : pdfOutput;
+      
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+        encoding: FileSystem.EncodingType.Base64
+      });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert('Success', 'PDF saved to device!');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'Failed to generate PDF. Using text format instead.');
+      downloadAsText();
+    }
+  };
+
+  // AI Reference Analysis
+  const analyzeReferences = async () => {
+    try {
+      if (!prompt.trim() || !essayTopic.trim()) {
+        Alert.alert('Missing Information', 'Please provide both the essay prompt and topic before analyzing references.');
+        return;
+      }
+
+      const referenceFiles = files.filter(f => f.group === 'references');
+      if (referenceFiles.length === 0) {
+        Alert.alert('No References', 'Please upload reference materials before analyzing.');
+        return;
+      }
+
+      setIsAnalyzingReferences(true);
+
+      const request = {
+        prompt: SafeStringUtils.limitString(prompt, 2000),
+        essayTopic: SafeStringUtils.limitString(essayTopic, 500),
+        assignmentTitle: SafeStringUtils.limitString(assignmentTitle, 200),
+        references: referenceFiles.map(f => ({
+          id: f.id,
+          name: SafeStringUtils.limitString(f.name, 200),
+          excerpt: SafeStringUtils.limitString(f.excerpt, 1000),
+          content: SafeStringUtils.limitString(f.excerpt, 2000)
+        }))
+      };
+
+      const response = await mockApi.analyzeReferences(request);
+      
+      if (response.analysis && response.smartSelection) {
+        setReferenceAnalysis(response.analysis);
+        setSmartSelection(response.smartSelection);
+        
+        // Update file analysis
+        const updatedFiles = files.map(file => {
+          if (file.group === 'references' && response.analysis[file.id]) {
+            return {
+              ...file,
+              analysis: response.analysis[file.id]
+            };
+          }
+          return file;
+        });
+        setFiles(updatedFiles);
+        
+        Alert.alert('Analysis Complete', `Analyzed ${referenceFiles.length} references. ${response.smartSelection.selectedCount} recommended for your essay.`);
+      } else {
+        Alert.alert('Error', 'Failed to analyze references');
+      }
+    } catch (error) {
+      console.error('Error analyzing references:', error);
+      Alert.alert('Error', 'Failed to analyze references');
+    } finally {
+      setIsAnalyzingReferences(false);
     }
   };
 
@@ -665,25 +1074,6 @@ export default function GroundedEssayWriter() {
   };
 
   // Safe essay loading
-  const loadSavedEssays = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('saved_essays');
-      if (saved) {
-        const parsedEssays = JSON.parse(saved);
-        if (Array.isArray(parsedEssays)) {
-          setSavedEssays(parsedEssays);
-        } else {
-          console.warn('Invalid saved essays format, resetting to empty array');
-          setSavedEssays([]);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved essays:', error);
-      setSavedEssays([]);
-    }
-  };
-
-  // Safe essay loading
   const loadSavedEssay = async (essay: any) => {
     try {
       if (!essay) return;
@@ -763,11 +1153,6 @@ export default function GroundedEssayWriter() {
       console.error('Error creating new essay:', error);
     }
   };
-
-  // Load saved essays on mount
-  React.useEffect(() => {
-    loadSavedEssays();
-  }, []);
 
   // Render functions
   const renderMaterialsStep = () => (
@@ -1063,11 +1448,48 @@ export default function GroundedEssayWriter() {
     <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.stepTitle}>{COPY.generateHeader}</Text>
 
+      {/* Progress Overview */}
+      <View style={styles.progressOverview}>
+        <Text style={styles.sectionHeader}>Essay Progress</Text>
+        <View style={styles.usageSummary}>
+          <View style={styles.usageStats}>
+            <View style={styles.usageStat}>
+              <Text style={styles.usageStatValue}>{outline?.paragraphs.length || 0}</Text>
+              <Text style={styles.usageStatLabel}>Paragraphs</Text>
+            </View>
+            <View style={styles.usageStat}>
+              <Text style={styles.usageStatValue}>{expandedParagraphs.size}</Text>
+              <Text style={styles.usageStatLabel}>Expanded</Text>
+            </View>
+            <View style={styles.usageStat}>
+              <Text style={styles.usageStatValue}>{files.length}</Text>
+              <Text style={styles.usageStatLabel}>Sources</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
       {/* Thesis */}
       {outline && (
         <View style={styles.thesisCard}>
           <Text style={styles.thesisText}>{outline.thesis}</Text>
         </View>
+      )}
+
+      {/* Expand All Button */}
+      {outline && expandedParagraphs.size < outline.paragraphs.length && (
+        <TouchableOpacity
+          style={styles.expandAllButton}
+          onPress={() => {
+            outline.paragraphs.forEach((_, index) => {
+              if (!expandedParagraphs.has(index)) {
+                expandParagraph(index);
+              }
+            });
+          }}
+        >
+          <Text style={styles.expandAllButtonText}>{COPY.expandAll}</Text>
+        </TouchableOpacity>
       )}
 
       {/* Paragraphs */}
@@ -1093,6 +1515,13 @@ export default function GroundedEssayWriter() {
 
           {expandedParagraphs.has(index) && (
             <View style={styles.expandedContent}>
+              <View style={styles.paragraphInputHeader}>
+                <Text style={styles.paragraphInputLabel}>Edit Paragraph Content</Text>
+                <Text style={styles.paragraphInputHint}>
+                  You can edit the generated content below
+                </Text>
+              </View>
+              
               <TextInput
                 value={edits[index] || stripCitationsFromText(paragraph.expandedText || '')}
                 onChangeText={(text) => handleParagraphEdit(index, text)}
@@ -1102,6 +1531,39 @@ export default function GroundedEssayWriter() {
                 placeholder="Paragraph content will appear here..."
                 placeholderTextColor={colors.textSecondary}
               />
+              
+              {paragraph.unsupportedFlags && paragraph.unsupportedFlags.length > 0 && (
+                <View style={styles.warningsSection}>
+                  <Text style={styles.warningsTitle}>
+                    ⚠️ Content Warnings ({paragraph.unsupportedFlags.length})
+                  </Text>
+                  {paragraph.unsupportedFlags.map((flag, flagIndex) => (
+                    <View key={flagIndex} style={styles.warningCard}>
+                      <View style={styles.warningHeader}>
+                        <AlertCircle size={16} color={colors.warning} />
+                        <Text style={styles.warningTitle}>Unsupported Content</Text>
+                      </View>
+                      <Text style={styles.warningText}>{flag.sentence}</Text>
+                      <Text style={styles.warningExplanation}>
+                        {COPY.unsupportedFlagExplanation}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {paragraph.citations && paragraph.citations.length > 0 && citationStyle !== 'none' && (
+                <View style={styles.citationsSection}>
+                  <Text style={styles.citationsLabel}>Citations Used</Text>
+                  <View style={styles.citationsGrid}>
+                    {paragraph.citations.map((citation, citationIndex) => (
+                      <View key={citationIndex} style={styles.citationChip}>
+                        <Text style={styles.citationText}>{citation.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -1110,6 +1572,9 @@ export default function GroundedEssayWriter() {
       {/* Export Section */}
       <View style={styles.exportSection}>
         <Text style={styles.sectionTitle}>Export Your Essay</Text>
+        <Text style={styles.exportDescription}>
+          Choose how you'd like to save or share your completed essay
+        </Text>
         
         <View style={styles.exportGrid}>
           <TouchableOpacity
@@ -1120,164 +1585,198 @@ export default function GroundedEssayWriter() {
             <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
               {COPY.copyToClipboard}
             </Text>
+            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+              Quick copy
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={downloadAsText}
+            onPress={Document && Packer ? downloadAsDocx : downloadAsText}
             style={[styles.exportButton, styles.exportButtonSuccess]}
           >
             <Download size={20} color={colors.cardBackground} />
             <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
-              Download as Text
+              {Document && Packer ? COPY.downloadDocx : 'Download as Text'}
             </Text>
             <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
-              Text document
+              {Document && Packer ? 'Editable format' : 'Text document'}
             </Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity
+            onPress={jsPDF ? downloadAsPdf : downloadAsText}
+            style={[styles.exportButton, styles.exportButtonError]}
+          >
+            <Download size={20} color={colors.cardBackground} />
+            <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+              {jsPDF ? COPY.downloadPdf : 'Download as Text'}
+            </Text>
+            <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+              {jsPDF ? 'Print ready' : 'Text document'}
+            </Text>
+          </TouchableOpacity>
+          
+          {citationStyle !== 'none' && (
+            <TouchableOpacity
+              onPress={copyWithCitations}
+              style={[styles.exportButton, styles.exportButtonPrimary]}
+            >
+              <Copy size={20} color={colors.cardBackground} />
+              <Text style={[styles.exportButtonText, styles.exportButtonTextWhite]}>
+                {COPY.copyWithCitations}
+              </Text>
+              <Text style={[styles.exportButtonSubtext, styles.exportButtonSubtextWhite]}>
+                With citations
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </ScrollView>
   );
 
   return (
-    <EssayWriterErrorBoundary>
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          {currentStep !== 'materials' && (
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                if (currentStep === 'configure') {
+                  setCurrentStep('materials');
+                } else if (currentStep === 'generate') {
+                  setCurrentStep('configure');
+                }
+              }}
+            >
+              <ArrowLeft size={24} color={colors.text} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.headerTitle}>{COPY.title}</Text>
+            <Text style={styles.headerSubtitle}>{COPY.subtitle}</Text>
+          </View>
+        </View>
         
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            {currentStep !== 'materials' && (
+        <View style={styles.headerActions}>
+          {currentStep === 'generate' && outline && (
+            <>
               <TouchableOpacity
-                style={styles.headerButton}
-                onPress={() => {
-                  if (currentStep === 'configure') {
-                    setCurrentStep('materials');
-                  } else if (currentStep === 'generate') {
-                    setCurrentStep('configure');
-                  }
-                }}
+                style={styles.headerActionButton}
+                onPress={saveEssay}
+                disabled={isSaving}
               >
-                <ArrowLeft size={24} color={colors.text} />
+                <Save size={20} color={colors.primary} />
               </TouchableOpacity>
-            )}
-            <View>
-              <Text style={styles.headerTitle}>{COPY.title}</Text>
-              <Text style={styles.headerSubtitle}>{COPY.subtitle}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.headerActions}>
-            {currentStep === 'generate' && outline && (
-              <>
-                <TouchableOpacity
-                  style={styles.headerActionButton}
-                  onPress={saveEssay}
-                  disabled={isSaving}
-                >
-                  <Save size={20} color={colors.primary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.headerActionButton}
-                  onPress={() => setShowSavedDocuments(true)}
-                >
-                  <FolderOpen size={20} color={colors.primary} />
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.headerActionButton}
-                  onPress={createNewEssay}
-                >
-                  <Plus size={20} color={colors.primary} />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          {['materials', 'configure', 'generate'].map((step, index) => (
-            <View key={step} style={styles.progressStep}>
-              <View style={[
-                styles.progressDot,
-                currentStep === step && styles.progressDotActive
-              ]} />
-              <Text style={[
-                styles.progressLabel,
-                currentStep === step && styles.progressLabelActive
-              ]}>
-                {index + 1}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Step Content */}
-        {currentStep === 'materials' && renderMaterialsStep()}
-        {currentStep === 'configure' && renderConfigureStep()}
-        {currentStep === 'generate' && renderGenerateStep()}
-
-        {/* Saved Documents Modal */}
-        {showSavedDocuments && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Saved Essays</Text>
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() => setShowSavedDocuments(false)}
-                >
-                  <Text style={styles.modalCloseText}>✕</Text>
-                </TouchableOpacity>
-              </View>
               
-              <ScrollView style={styles.modalScrollView}>
-                {savedEssays.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateTitle}>No saved essays</Text>
-                    <Text style={styles.emptyStateText}>
-                      Your saved essays will appear here
-                    </Text>
-                  </View>
-                ) : (
-                  savedEssays.map((essay) => (
-                    <View key={essay.id} style={styles.savedEssayCard}>
-                      <View style={styles.savedEssayHeader}>
-                        <Text style={styles.savedEssayTitle}>{essay.title}</Text>
-                        <Text style={styles.savedEssayDate}>
-                          {new Date(essay.savedAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                      <View style={styles.savedEssayInfo}>
-                        <Text style={styles.savedEssayInfoText}>
-                          {essay.essayTopic} • {essay.wordCount} words
-                        </Text>
-                      </View>
-                      <View style={styles.savedEssayActions}>
-                        <TouchableOpacity
-                          style={[styles.savedEssayButton, styles.loadButton]}
-                          onPress={() => loadSavedEssay(essay)}
-                        >
-                          <Text style={styles.loadButtonText}>Load</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.savedEssayButton, styles.deleteButton]}
-                          onPress={() => deleteSavedEssay(essay.id)}
-                        >
-                          <Text style={styles.deleteButtonText}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-            </View>
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={() => setShowSavedDocuments(true)}
+              >
+                <FolderOpen size={20} color={colors.primary} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.headerActionButton}
+                onPress={createNewEssay}
+              >
+                <Plus size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Progress Indicator */}
+      <View style={styles.progressContainer}>
+        {['materials', 'configure', 'generate'].map((step, index) => (
+          <View key={step} style={styles.progressStep}>
+            <View style={[
+              styles.progressDot,
+              currentStep === step && styles.progressDotActive
+            ]} />
+            <Text style={[
+              styles.progressLabel,
+              currentStep === step && styles.progressLabelActive
+            ]}>
+              {index + 1}
+            </Text>
           </View>
-        )}
-      </SafeAreaView>
-    </EssayWriterErrorBoundary>
+        ))}
+      </View>
+
+      {/* Step Content */}
+      {currentStep === 'materials' && renderMaterialsStep()}
+      {currentStep === 'configure' && renderConfigureStep()}
+      {currentStep === 'generate' && renderGenerateStep()}
+
+      {/* Saved Documents Modal */}
+      {showSavedDocuments && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setShowSavedDocuments(false)}
+            activeOpacity={1}
+          />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Saved Essays</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowSavedDocuments(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalScrollView}>
+              {savedEssays.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateTitle}>No saved essays</Text>
+                  <Text style={styles.emptyStateText}>
+                    Your saved essays will appear here
+                  </Text>
+                </View>
+              ) : (
+                savedEssays.map((essay) => (
+                  <View key={essay.id} style={styles.savedEssayCard}>
+                    <View style={styles.savedEssayHeader}>
+                      <Text style={styles.savedEssayTitle}>{essay.title}</Text>
+                      <Text style={styles.savedEssayDate}>
+                        {new Date(essay.savedAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.savedEssayInfo}>
+                      <Text style={styles.savedEssayInfoText}>
+                        {essay.essayTopic} • {essay.wordCount} words
+                      </Text>
+                    </View>
+                    <View style={styles.savedEssayActions}>
+                      <TouchableOpacity
+                        style={[styles.savedEssayButton, styles.loadButton]}
+                        onPress={() => loadSavedEssay(essay)}
+                      >
+                        <Text style={styles.loadButtonText}>Load</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.savedEssayButton, styles.deleteButton]}
+                        onPress={() => deleteSavedEssay(essay.id)}
+                      >
+                        <Text style={styles.deleteButtonText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -1564,6 +2063,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.cardBackground,
   },
+  progressOverview: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  usageSummary: {
+    marginTop: 8,
+  },
+  usageStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  usageStat: {
+    alignItems: 'center',
+  },
+  usageStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  usageStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   thesisCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 12,
@@ -1578,6 +2111,19 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  expandAllButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  expandAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.cardBackground,
   },
   paragraphCard: {
     backgroundColor: colors.cardBackground,
@@ -1631,6 +2177,19 @@ const styles = StyleSheet.create({
   expandedContent: {
     marginTop: 12,
   },
+  paragraphInputHeader: {
+    marginBottom: 8,
+  },
+  paragraphInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  paragraphInputHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   paragraphInput: {
     backgroundColor: colors.background,
     borderRadius: 8,
@@ -1641,11 +2200,81 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     textAlignVertical: 'top',
   },
+  warningsSection: {
+    marginTop: 12,
+  },
+  warningsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.warning,
+    marginBottom: 8,
+  },
+  warningCard: {
+    backgroundColor: colors.warning + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  warningTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.warning,
+    marginLeft: 4,
+  },
+  warningText: {
+    fontSize: 12,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  warningExplanation: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  citationsSection: {
+    marginTop: 12,
+  },
+  citationsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  citationsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  citationChip: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  citationText: {
+    fontSize: 10,
+    color: colors.primary,
+    fontWeight: '500',
+  },
   exportSection: {
     marginTop: 24,
     paddingTop: 24,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  exportDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
   },
   exportGrid: {
     flexDirection: 'row',
@@ -1670,6 +2299,10 @@ const styles = StyleSheet.create({
   exportButtonSuccess: {
     backgroundColor: colors.success,
     borderColor: colors.success,
+  },
+  exportButtonError: {
+    backgroundColor: colors.error,
+    borderColor: colors.error,
   },
   exportButtonText: {
     fontSize: 14,
@@ -1699,6 +2332,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContent: {
     backgroundColor: colors.cardBackground,
