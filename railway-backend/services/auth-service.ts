@@ -37,8 +37,6 @@ export class AuthService {
           email: email!,
           name: name!,
           picture,
-          platform,
-          deviceInfo: deviceInfo ? JSON.stringify(deviceInfo) : null,
         });
       } else {
         // Update last login
@@ -69,14 +67,7 @@ export class AuthService {
 
   async linkMobileSubscription(userId: string, mobileSubscription: any) {
     try {
-      await this.databaseService.createSubscription({
-        userId,
-        planId: mobileSubscription.planId,
-        isActive: true,
-        expiresAt: mobileSubscription.expiresAt,
-        platform: 'mobile',
-        subscriptionData: JSON.stringify(mobileSubscription),
-      });
+      await this.databaseService.createSubscription(parseInt(userId), mobileSubscription.planId);
 
       return { success: true };
     } catch (error) {
@@ -133,10 +124,15 @@ export class AuthService {
       await this.databaseService.updateUsageStats(userId, type, increment);
       
       // Create sync event
-      await this.databaseService.createSyncEvent(userId, 'usage_update', {
-        type,
-        increment,
-        timestamp: new Date().toISOString(),
+      await this.databaseService.createSyncEvent({
+        userId,
+        eventType: 'usage_update',
+        data: {
+          type,
+          increment,
+          timestamp: new Date().toISOString(),
+        },
+        platform: 'web',
       });
 
       return { success: true };

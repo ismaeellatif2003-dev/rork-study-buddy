@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 
 export class JWTService {
   private secret: string;
@@ -7,8 +7,8 @@ export class JWTService {
     this.secret = process.env.JWT_SECRET || 'fallback-secret-key';
   }
 
-  generateToken(payload: any, expiresIn: string = '7d'): string {
-    return jwt.sign(payload, this.secret, { expiresIn });
+  generateToken(payload: any, expiresIn: string | number = '7d'): string {
+    return jwt.sign(payload, this.secret, { expiresIn } as SignOptions);
   }
 
   verifyToken(token: string): any {

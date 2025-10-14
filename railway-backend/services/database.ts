@@ -371,7 +371,7 @@ export class DatabaseService {
   async deleteNote(noteId: number, userId: number): Promise<boolean> {
     const query = 'DELETE FROM notes WHERE id = $1 AND user_id = $2';
     const result = await this.pool.query(query, [noteId, userId]);
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // Flashcards management
