@@ -7,7 +7,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch hono.ts"
+    "dev": "tsx watch hono.ts",
+    "db:migrate": "tsx database/migrate.ts migrate",
+    "db:reset": "tsx database/migrate.ts reset",
+    "db:seed": "tsx database/migrate.ts seed",
+    "db:reset-and-migrate": "tsx database/migrate.ts reset-and-migrate",
+    "db:full-setup": "tsx database/migrate.ts full-setup",
+    "db:test": "tsx database/test-connection.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.8.0",
@@ -16,10 +22,18 @@
     "hono": "^4.0.0",
     "openai": "^4.0.0",
     "superjson": "^1.13.1",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "google-auth-library": "^9.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "pg": "^8.11.0",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "@types/node": "^18.19.123",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/bcryptjs": "^2.4.0",
+    "@types/pg": "^8.10.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },

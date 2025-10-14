@@ -4,6 +4,10 @@ import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import OpenAI from 'openai';
+import { OAuth2Client } from 'google-auth-library';
+import { DatabaseService } from './services/database';
+import { JWTService } from './services/jwt';
+import { AuthService } from './services/auth-service';
 
 // Initialize OpenRouter client
 const openai = new OpenAI({
@@ -14,6 +18,12 @@ const openai = new OpenAI({
     'X-Title': 'Study Buddy App',
   },
 });
+
+// Initialize authentication services
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const databaseService = new DatabaseService();
+const jwtService = new JWTService();
+const authService = new AuthService(googleClient, databaseService, jwtService);
 
 // app will be mounted at /api
 const app = new Hono();
@@ -1029,6 +1039,89 @@ Date: ${new Date().toISOString().split('T')[0]}
 Note: This is a test response. Real OCR will extract actual text from your images when OpenRouter is configured.`;
 }
 
+// Authentication endpoints
+app.post("/auth/google", async (c) => {
+  try {
+    const { idToken, platform, deviceInfo } = await c.req.json();
+    
+    if (!idToken) {
+      return c.json({ error: "ID token is required" }, 400);
+    }
+
+    const result = await authService.authenticateUser(idToken, platform, deviceInfo);
+    return c.json(result);
+  } catch (error) {
+    console.error("Google auth error:", error);
+    return c.json({ error: "Authentication failed" }, 500);
+  }
+});
+
+app.post("/auth/link-mobile", async (c) => {
+  try {
+    const { userId, mobileSubscription } = await c.req.json();
+    
+    if (!userId || !mobileSubscription) {
+      return c.json({ error: "User ID and mobile subscription are required" }, 400);
+    }
+
+    const result = await authService.linkMobileSubscription(userId, mobileSubscription);
+    return c.json(result);
+  } catch (error) {
+    console.error("Mobile link error:", error);
+    return c.json({ error: "Failed to link mobile subscription" }, 500);
+  }
+});
+
+app.get("/auth/subscription-status", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const result = await authService.getSubscriptionStatus(token);
+    return c.json(result);
+  } catch (error) {
+    console.error("Subscription status error:", error);
+    return c.json({ error: "Failed to get subscription status" }, 500);
+  }
+});
+
+app.get("/auth/sync", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const result = await authService.syncUserData(token);
+    return c.json(result);
+  } catch (error) {
+    console.error("Sync error:", error);
+    return c.json({ error: "Failed to sync user data" }, 500);
+  }
+});
+
+app.post("/usage/update", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const { type, increment } = await c.req.json();
+    
+    const result = await authService.updateUsage(token, type, increment);
+    return c.json(result);
+  } catch (error) {
+    console.error("Usage update error:", error);
+    return c.json({ error: "Failed to update usage" }, 500);
+  }
+});
+
 // Root endpoint
 app.get("/", (c) => {
   return c.json({ 
@@ -1038,6 +1131,15 @@ app.get("/", (c) => {
       health: "/health",
       metrics: "/metrics",
       trpc: "/trpc",
+      auth: {
+        google: "/auth/google",
+        linkMobile: "/auth/link-mobile",
+        subscriptionStatus: "/auth/subscription-status",
+        sync: "/auth/sync"
+      },
+      usage: {
+        update: "/usage/update"
+      },
       ai: {
         generate: "/ai/generate",
         flashcards: "/ai/flashcards",
