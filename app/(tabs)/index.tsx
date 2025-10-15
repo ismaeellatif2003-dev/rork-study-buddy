@@ -98,8 +98,9 @@ export default function NotesScreen() {
     const generatingKey = useAIEnhancement ? `enhanced_flashcards_${note.id}` : `flashcards_${note.id}`;
     setIsGenerating(generatingKey);
     try {
-      const userContext = getEducationContext();
-      const flashcardsData = await AIService.generateFlashcards(note.content, useAIEnhancement, userContext);
+      // Always request minimum 5 cards for AI-enhanced flashcards, 5 for regular
+      const cardCount = useAIEnhancement ? 5 : 5;
+      const flashcardsData = await AIService.generateFlashcards(note.content, cardCount);
       const flashcards = flashcardsData.map(card => ({
         noteId: note.id,
         question: card.question,

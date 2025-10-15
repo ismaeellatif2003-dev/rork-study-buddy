@@ -18,14 +18,15 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
 
 export default function FlashcardsScreen() {
-  const { notes, getFlashcardsForNote } = useStudy();
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const { notes, getFlashcardsForNote, getFlashcardSets } = useStudy();
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const flipAnimation = useRef(new Animated.Value(0)).current;
 
-  const selectedNote = notes.find(note => note.id === selectedNoteId);
-  const flashcards = selectedNoteId ? getFlashcardsForNote(selectedNoteId) : [];
+  const flashcardSets = getFlashcardSets();
+  const selectedSet = flashcardSets.find(set => set.id === selectedSetId);
+  const flashcards = selectedSetId ? (selectedSet?.flashcards || []) : [];
 
   const flipCard = () => {
     if (isFlipped) {
@@ -76,7 +77,7 @@ export default function FlashcardsScreen() {
     outputRange: ['180deg', '360deg'],
   });
 
-  if (!selectedNoteId) {
+  if (!selectedSetId) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -84,44 +85,44 @@ export default function FlashcardsScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {notes.length === 0 ? (
+          {flashcardSets.length === 0 ? (
             <View style={styles.emptyState}>
               <BookOpen color={colors.textSecondary} size={64} />
-              <Text style={styles.emptyTitle}>No notes yet</Text>
+              <Text style={styles.emptyTitle}>No flashcards yet</Text>
               <Text style={styles.emptyDescription}>
-                Create some notes first, then generate flashcards from them
+                Create notes and generate flashcards from them, or create flashcards on the website
               </Text>
             </View>
           ) : (
-            notes.map((note) => {
-              const noteFlashcards = getFlashcardsForNote(note.id);
-              return (
-                <TouchableOpacity
-                  key={note.id}
-                  style={styles.noteCard}
-                  onPress={() => {
-                    if (noteFlashcards.length === 0) {
-                      Alert.alert(
-                        'No flashcards',
-                        'Generate flashcards for this note first from the Notes tab'
-                      );
-                      return;
-                    }
-                    setSelectedNoteId(note.id);
-                  }}
-                >
-                  <Text style={styles.noteTitle}>{note.title}</Text>
-                  <Text style={styles.flashcardCount}>
-                    {noteFlashcards.length} flashcard{noteFlashcards.length !== 1 ? 's' : ''}
+            flashcardSets.map((set) => (
+              <TouchableOpacity
+                key={set.id}
+                style={styles.noteCard}
+                onPress={() => {
+                  if (set.flashcards.length === 0) {
+                    Alert.alert(
+                      'No flashcards',
+                      'This set has no flashcards'
+                    );
+                    return;
+                  }
+                  setSelectedSetId(set.id);
+                }}
+              >
+                <Text style={styles.noteTitle}>{set.name}</Text>
+                <Text style={styles.flashcardCount}>
+                  {set.flashcards.length} flashcard{set.flashcards.length !== 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.setSource}>
+                  {set.source === 'note' ? 'From Note' : 'Flashcard Set'}
+                </Text>
+                {set.flashcards.length === 0 && (
+                  <Text style={styles.noCardsText}>
+                    No flashcards in this set
                   </Text>
-                  {noteFlashcards.length === 0 && (
-                    <Text style={styles.noCardsText}>
-                      Generate flashcards from the Notes tab
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              );
-            })
+                )}
+              </TouchableOpacity>
+            ))
           )}
         </ScrollView>
       </SafeAreaView>
@@ -132,7 +133,7 @@ export default function FlashcardsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setSelectedNoteId(null)}>
+          <TouchableOpacity onPress={() => setSelectedSetId(null)}>
             <ChevronLeft color={colors.primary} size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>No Flashcards</Text>
@@ -141,7 +142,7 @@ export default function FlashcardsScreen() {
         
         <View style={styles.emptyState}>
           <Text style={styles.emptyDescription}>
-            Generate flashcards for this note from the Notes tab
+            This flashcard set is empty
           </Text>
         </View>
       </SafeAreaView>
@@ -153,10 +154,10 @@ export default function FlashcardsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setSelectedNoteId(null)}>
+        <TouchableOpacity onPress={() => setSelectedSetId(null)}>
           <ChevronLeft color={colors.primary} size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{selectedNote?.title}</Text>
+        <Text style={styles.headerTitle}>{selectedSet?.name}</Text>
         <TouchableOpacity onPress={resetCards}>
           <RotateCcw color={colors.primary} size={24} />
         </TouchableOpacity>
@@ -295,6 +296,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.primary,
     fontWeight: '700',
+  },
+  setSource: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   noCardsText: {
     fontSize: 13,

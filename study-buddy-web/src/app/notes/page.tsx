@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input, Textarea } from '@/components/ui/Input';
 import { mockNotes } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
-import { addFlashcardSet } from '@/utils/flashcardSets';
+import { addFlashcardSet, generateUniqueId } from '@/utils/flashcardSets';
 import { canUseFeature, updateUsage, getRemainingUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
 import { notesApi, flashcardsApi } from '@/services/dataService';
@@ -46,13 +46,13 @@ export default function NotesPage() {
         const response = await notesApi.getAll();
         if (response.success && response.notes) {
           // Convert database notes to frontend format
-          const formattedNotes = response.notes.map((note: any) => ({
-            id: note.id.toString(),
-            title: note.title,
-            content: note.content,
-            summary: note.summary,
-            createdAt: note.created_at,
-            updatedAt: note.updated_at,
+          const formattedNotes = response.notes.map((note: Record<string, unknown>) => ({
+            id: (note.id as number).toString(),
+            title: note.title as string,
+            content: note.content as string,
+            summary: note.summary as string,
+            createdAt: note.created_at as string,
+            updatedAt: note.updated_at as string,
           }));
           setNotes(formattedNotes);
         }
@@ -224,23 +224,33 @@ export default function NotesPage() {
         ],
         type: 'flashcards',
         model: 'openai/gpt-4o',
-        count: 10
+        count: 5
       });
 
       if (!aiResponse.success || !aiResponse.flashcards) {
         throw new Error(aiResponse.error || 'Failed to generate flashcards');
       }
 
-      // Create a new flashcard set
+      // Transform flashcards to match expected format (front/back instead of question/answer)
+      const transformedFlashcards = aiResponse.flashcards.map((card: Record<string, unknown>, index: number) => ({
+        id: `card-${Date.now()}-${index}`,
+        front: (card.question as string) || (card.front as string),
+        back: (card.answer as string) || (card.back as string),
+        category: 'Generated',
+        difficulty: 'Medium',
+        createdAt: new Date().toISOString()
+      }));
+
+      // Create a new flashcard set with unique ID
       const flashcardSet = {
-        id: `set-${Date.now()}`,
+        id: generateUniqueId('flashcard-set'),
         name: `Flashcards from "${note.title}"`,
         description: `AI-generated flashcards from your note: ${note.title}`,
-        cardCount: aiResponse.flashcards.length,
+        cardCount: transformedFlashcards.length,
         createdAt: new Date().toISOString(),
         sourceNoteId: note.id,
         sourceNoteTitle: note.title,
-        flashcards: aiResponse.flashcards,
+        flashcards: transformedFlashcards,
       };
       
       // Add the flashcard set to local storage
@@ -249,16 +259,16 @@ export default function NotesPage() {
       // Also save to backend if authenticated
       if (isAuthenticated) {
         try {
-          const flashcardsForBackend = aiResponse.flashcards.map((card: any) => ({
+          const flashcardsForBackend = transformedFlashcards.map((card: Record<string, unknown>) => ({
             set_id: flashcardSet.id,
             set_name: flashcardSet.name,
             set_description: flashcardSet.description,
-            front: card.question,
-            back: card.answer,
-            difficulty: card.difficulty || 'medium',
+            front: card.front as string,
+            back: card.back as string,
+            difficulty: 'medium',
           }));
           
-          await flashcardsApi.create({ flashcards: flashcardsForBackend });
+          await flashcardsApi.sync('web', flashcardsForBackend);
         } catch (backendError) {
           console.error('Failed to sync flashcards to backend:', backendError);
           // Don't fail the whole operation if backend sync fails

@@ -235,15 +235,18 @@ app.post("/ai/flashcards", async (c) => {
       return c.json({ error: 'Content is too short. Please provide more detailed content for better flashcards.' }, 400);
     }
 
-    // Ensure count is reasonable
-    if (count < 1 || count > 20) {
-      count = Math.min(Math.max(count, 1), 20);
+    // Ensure count is reasonable and minimum 5 for quality
+    if (count < 5) {
+      count = 5; // Always generate minimum 5 cards for better learning
+    }
+    if (count > 20) {
+      count = 20; // Cap at 20 for performance
     }
 
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     if (!openRouterKey) {
-      // Fallback to mock responses
-      const mockFlashcards = Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+      // Fallback to mock responses - always return at least 5 cards
+      const mockFlashcards = Array.from({ length: Math.max(count, 5) }, (_, i) => ({
         question: `Mock Question ${i + 1} about the content`,
         answer: `Mock Answer ${i + 1} explaining the concept`
       }));
@@ -330,8 +333,8 @@ IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.`
     } catch (e) {
       console.error('Flashcard parsing error:', e);
       console.error('AI Response:', aiResponse);
-      // Fallback to mock flashcards if parsing fails
-      flashcards = Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+      // Fallback to mock flashcards if parsing fails - always return at least 5 cards
+      flashcards = Array.from({ length: Math.max(count, 5) }, (_, i) => ({
         question: `Question ${i + 1} about the content`,
         answer: `Answer ${i + 1} explaining the concept`
       }));
@@ -348,8 +351,8 @@ IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.`
   } catch (error) {
     console.error('Flashcard generation error:', error);
     
-    // Fallback to mock flashcards
-    const mockFlashcards = Array.from({ length: Math.min(count, 10) }, (_, i) => ({
+    // Fallback to mock flashcards - always return at least 5 cards
+    const mockFlashcards = Array.from({ length: Math.max(count, 5) }, (_, i) => ({
       question: `Mock Question ${i + 1}`,
       answer: `Mock Answer ${i + 1}`
     }));

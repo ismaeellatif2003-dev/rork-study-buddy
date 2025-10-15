@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { mockFlashcards } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
-import { getFlashcardSets } from '@/utils/flashcardSets';
+import { getFlashcardSets, normalizeFlashcardSet } from '@/utils/flashcardSets';
 import { flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
 import type { Flashcard } from '@/types/study';
@@ -25,32 +25,32 @@ const mockFlashcardSets = [
     flashcards: [
       {
         id: 'bio-1',
-        question: 'What is photosynthesis?',
-        answer: 'The process by which plants convert sunlight, carbon dioxide, and water into glucose and oxygen.',
+        front: 'What is photosynthesis?',
+        back: 'The process by which plants convert sunlight, carbon dioxide, and water into glucose and oxygen.',
         category: 'Biology',
         difficulty: 'Easy',
         createdAt: '2024-01-15',
       },
       {
         id: 'bio-2',
-        question: 'What is the powerhouse of the cell?',
-        answer: 'The mitochondria, which produces ATP (adenosine triphosphate) for cellular energy.',
+        front: 'What is the powerhouse of the cell?',
+        back: 'The mitochondria, which produces ATP (adenosine triphosphate) for cellular energy.',
         category: 'Biology',
         difficulty: 'Easy',
         createdAt: '2024-01-15',
       },
       {
         id: 'bio-3',
-        question: 'What is DNA?',
-        answer: 'Deoxyribonucleic acid - the molecule that carries genetic instructions for development and function.',
+        front: 'What is DNA?',
+        back: 'Deoxyribonucleic acid - the molecule that carries genetic instructions for development and function.',
         category: 'Biology',
         difficulty: 'Medium',
         createdAt: '2024-01-15',
       },
       {
         id: 'bio-4',
-        question: 'What is the difference between mitosis and meiosis?',
-        answer: 'Mitosis produces identical diploid cells for growth and repair, while meiosis produces haploid gametes for reproduction.',
+        front: 'What is the difference between mitosis and meiosis?',
+        back: 'Mitosis produces identical diploid cells for growth and repair, while meiosis produces haploid gametes for reproduction.',
         category: 'Biology',
         difficulty: 'Hard',
         createdAt: '2024-01-15',
@@ -66,48 +66,48 @@ const mockFlashcardSets = [
     flashcards: [
       {
         id: 'react-1',
-        question: 'What is JSX?',
-        answer: 'JSX is a syntax extension for JavaScript that allows you to write HTML-like code in React components.',
+        front: 'What is JSX?',
+        back: 'JSX is a syntax extension for JavaScript that allows you to write HTML-like code in React components.',
         category: 'React',
         difficulty: 'Easy',
         createdAt: '2024-01-20',
       },
       {
         id: 'react-2',
-        question: 'What is the useState hook?',
-        answer: 'useState is a React hook that allows you to add state to functional components.',
+        front: 'What is the useState hook?',
+        back: 'useState is a React hook that allows you to add state to functional components.',
         category: 'React',
         difficulty: 'Easy',
         createdAt: '2024-01-20',
       },
       {
         id: 'react-3',
-        question: 'What is the useEffect hook?',
-        answer: 'useEffect is a React hook that allows you to perform side effects in functional components, like data fetching or subscriptions.',
+        front: 'What is the useEffect hook?',
+        back: 'useEffect is a React hook that allows you to perform side effects in functional components, like data fetching or subscriptions.',
         category: 'React',
         difficulty: 'Medium',
         createdAt: '2024-01-20',
       },
       {
         id: 'react-4',
-        question: 'What is the difference between props and state?',
-        answer: 'Props are data passed down from parent components (immutable), while state is internal component data that can change.',
+        front: 'What is the difference between props and state?',
+        back: 'Props are data passed down from parent components (immutable), while state is internal component data that can change.',
         category: 'React',
         difficulty: 'Medium',
         createdAt: '2024-01-20',
       },
       {
         id: 'react-5',
-        question: 'What is a React component?',
-        answer: 'A React component is a reusable piece of UI that can accept props and return JSX elements.',
+        front: 'What is a React component?',
+        back: 'A React component is a reusable piece of UI that can accept props and return JSX elements.',
         category: 'React',
         difficulty: 'Easy',
         createdAt: '2024-01-20',
       },
       {
         id: 'react-6',
-        question: 'What is the virtual DOM?',
-        answer: 'The virtual DOM is a JavaScript representation of the real DOM that React uses to optimize updates and rendering.',
+        front: 'What is the virtual DOM?',
+        back: 'The virtual DOM is a JavaScript representation of the real DOM that React uses to optimize updates and rendering.',
         category: 'React',
         difficulty: 'Hard',
         createdAt: '2024-01-20',
@@ -123,40 +123,40 @@ const mockFlashcardSets = [
     flashcards: [
       {
         id: 'hist-1',
-        question: 'When did World War II end?',
-        answer: 'World War II ended on September 2, 1945, with the formal surrender of Japan.',
+        front: 'When did World War II end?',
+        back: 'World War II ended on September 2, 1945, with the formal surrender of Japan.',
         category: 'History',
         difficulty: 'Easy',
         createdAt: '2024-01-25',
       },
       {
         id: 'hist-2',
-        question: 'When was the Declaration of Independence signed?',
-        answer: 'The Declaration of Independence was signed on July 4, 1776.',
+        front: 'When was the Declaration of Independence signed?',
+        back: 'The Declaration of Independence was signed on July 4, 1776.',
         category: 'History',
         difficulty: 'Easy',
         createdAt: '2024-01-25',
       },
       {
         id: 'hist-3',
-        question: 'When did the Berlin Wall fall?',
-        answer: 'The Berlin Wall fell on November 9, 1989, marking the beginning of German reunification.',
+        front: 'When did the Berlin Wall fall?',
+        back: 'The Berlin Wall fell on November 9, 1989, marking the beginning of German reunification.',
         category: 'History',
         difficulty: 'Medium',
         createdAt: '2024-01-25',
       },
       {
         id: 'hist-4',
-        question: 'When did the Renaissance begin?',
-        answer: 'The Renaissance began in the 14th century in Italy, marking a period of cultural and intellectual rebirth.',
+        front: 'When did the Renaissance begin?',
+        back: 'The Renaissance began in the 14th century in Italy, marking a period of cultural and intellectual rebirth.',
         category: 'History',
         difficulty: 'Medium',
         createdAt: '2024-01-25',
       },
       {
         id: 'hist-5',
-        question: 'When did the Industrial Revolution start?',
-        answer: 'The Industrial Revolution began in the late 18th century in Britain, around 1760-1840.',
+        front: 'When did the Industrial Revolution start?',
+        back: 'The Industrial Revolution began in the late 18th century in Britain, around 1760-1840.',
         category: 'History',
         difficulty: 'Hard',
         createdAt: '2024-01-25',
@@ -194,31 +194,50 @@ export default function FlashcardsPage() {
           const response = await flashcardsApi.getAll();
           if (response.success && response.flashcards) {
             // Group backend flashcards by set
-            const setMap = new Map<string, any>();
+            interface FlashcardSetData {
+              id: string;
+              name: string;
+              description: string;
+              cardCount: number;
+              createdAt: string;
+              source: string;
+              flashcards: Array<{
+                id: string;
+                front: string;
+                back: string;
+                category: string;
+                difficulty: string;
+                createdAt: string;
+              }>;
+            }
+            const setMap = new Map<string, FlashcardSetData>();
             
-            response.flashcards.forEach((card: any) => {
-              if (!setMap.has(card.set_id)) {
-                setMap.set(card.set_id, {
-                  id: card.set_id,
-                  name: card.set_name,
-                  description: card.set_description || '',
+            response.flashcards.forEach((card: Record<string, unknown>) => {
+              const setId = card.set_id as string;
+              if (!setMap.has(setId)) {
+                setMap.set(setId, {
+                  id: setId,
+                  name: card.set_name as string,
+                  description: (card.set_description as string) || '',
                   cardCount: 0,
-                  createdAt: card.created_at,
+                  createdAt: card.created_at as string,
                   source: 'backend',
                   flashcards: [],
                 });
               }
               
-              const set = setMap.get(card.set_id);
+              const set = setMap.get(setId);
+              if (set) {
               set.flashcards.push({
-                id: card.id.toString(),
-                question: card.front,
-                answer: card.back,
-                category: card.set_name,
-                difficulty: card.difficulty || 'Medium',
-                createdAt: card.created_at,
+                id: (card.id as number).toString(),
+                front: card.front as string,
+                back: card.back as string,
+                category: card.set_name as string,
+                difficulty: (card.difficulty as string) || 'Medium',
+                createdAt: card.created_at as string,
               });
-              set.cardCount++;
+                set.cardCount++;
+              }
             });
             
             backendSets = Array.from(setMap.values());
@@ -228,8 +247,13 @@ export default function FlashcardsPage() {
         }
       }
       
-      const allSets = [...backendSets, ...userSets, ...mockFlashcardSets];
-      setUserFlashcardSets(userSets);
+      // Normalize all sets to ensure consistent format
+      const normalizedBackendSets = backendSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'backend'));
+      const normalizedUserSets = userSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'user'));
+      const normalizedMockSets = mockFlashcardSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'mock'));
+      
+      const allSets = [...normalizedBackendSets, ...normalizedUserSets, ...normalizedMockSets];
+      setUserFlashcardSets(normalizedUserSets);
       setAllFlashcardSets(allSets);
     };
 
@@ -237,9 +261,11 @@ export default function FlashcardsPage() {
 
     // Listen for flashcard set updates
     const handleFlashcardSetsUpdate = (e: CustomEvent) => {
-      const userSets = e.detail;
-      const allSets = [...userSets, ...mockFlashcardSets];
-      setUserFlashcardSets(userSets);
+      const userSets = e.detail as Record<string, unknown>[];
+      const normalizedUserSets = userSets.map((set: Record<string, unknown>) => normalizeFlashcardSet(set, 'user'));
+      const normalizedMockSets = mockFlashcardSets.map(set => normalizeFlashcardSet(set, 'mock'));
+      const allSets = [...normalizedUserSets, ...normalizedMockSets];
+      setUserFlashcardSets(normalizedUserSets);
       setAllFlashcardSets(allSets);
     };
 
@@ -521,7 +547,7 @@ export default function FlashcardsPage() {
                   {showAnswer ? 'Answer' : 'Question'}
                 </h2>
                 <p className="text-lg text-gray-700 leading-relaxed">
-                  {showAnswer ? currentCard.answer : currentCard.question}
+                  {showAnswer ? currentCard.back : currentCard.front}
                 </p>
               </div>
               
@@ -730,10 +756,10 @@ export default function FlashcardsPage() {
                           Card {index + 1}
                         </div>
                         <div className="text-sm text-gray-700 mb-2">
-                          <strong>Q:</strong> {card.question}
+                          <strong>Q:</strong> {card.front}
                         </div>
                         <div className="text-sm text-gray-600">
-                          <strong>A:</strong> {card.answer}
+                          <strong>A:</strong> {card.back}
                         </div>
                       </div>
                     </div>

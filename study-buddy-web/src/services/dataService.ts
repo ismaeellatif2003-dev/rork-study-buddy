@@ -89,6 +89,13 @@ export const flashcardsApi = {
       body: JSON.stringify(flashcardsData),
     });
   },
+
+  async sync(platform: 'mobile' | 'web', flashcards: Record<string, unknown>[]) {
+    return authFetch('/flashcards/sync', {
+      method: 'POST',
+      body: JSON.stringify({ platform, flashcards }),
+    });
+  },
 };
 
 // ==================== ESSAYS API ====================
@@ -98,7 +105,7 @@ export const essaysApi = {
     return authFetch('/essays');
   },
 
-  async create(essayData: any) {
+  async create(essayData: Record<string, unknown>) {
     return authFetch('/essays', {
       method: 'POST',
       body: JSON.stringify(essayData),

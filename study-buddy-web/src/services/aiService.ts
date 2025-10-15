@@ -99,7 +99,24 @@ class AIService {
 
   // Flashcard generation
   async generateFlashcards(request: AIRequest): Promise<AIResponse> {
-    return this.makeRequest('/ai/flashcards', request);
+    // Transform the request to match backend expectations
+    let transformedRequest: AIRequest;
+    
+    if (request.messages && request.messages.length > 0) {
+      // Extract content from messages array
+      const userMessage = request.messages.find(msg => msg.role === 'user');
+      const content = userMessage?.content as string || '';
+      transformedRequest = {
+        content,
+        count: request.count || 5,
+        model: request.model || 'openai/gpt-3.5-turbo'
+      };
+    } else {
+      // Use the request as-is if it already has content
+      transformedRequest = request;
+    }
+    
+    return this.makeRequest('/ai/flashcards', transformedRequest);
   }
 
   // OCR text extraction
