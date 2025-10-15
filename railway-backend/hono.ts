@@ -1271,6 +1271,71 @@ app.post("/flashcards", async (c) => {
   }
 });
 
+// Cross-platform flashcard sync endpoint
+app.post("/flashcards/sync", async (c) => {
+  try {
+    console.log("🔄 Flashcard sync request received");
+    
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("❌ Missing or invalid authorization header");
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    console.log("🔐 Token received:", token.substring(0, 20) + "...");
+    
+    let decoded;
+    try {
+      decoded = jwtService.verifyToken(token);
+      console.log("✅ JWT verification successful for user:", decoded.userId);
+    } catch (jwtError) {
+      console.error("❌ JWT verification failed:", jwtError);
+      return c.json({ error: "Invalid or expired token" }, 401);
+    }
+    
+    const { platform, flashcards } = await c.req.json();
+    console.log("📱 Platform:", platform, "Flashcards count:", flashcards?.length);
+    
+    // Validate platform
+    if (!['mobile', 'web'].includes(platform)) {
+      return c.json({ error: "Invalid platform. Must be 'mobile' or 'web'" }, 400);
+    }
+    
+    // Normalize flashcards for backend storage
+    const normalizedFlashcards = flashcards.map((card: any) => ({
+      set_id: card.set_id || `${platform}-${Date.now()}`,
+      set_name: card.set_name || `Flashcards from ${platform}`,
+      set_description: card.set_description || `Generated on ${platform}`,
+      front: card.front || card.question || '',
+      back: card.back || card.answer || '',
+      difficulty: card.difficulty || 'medium',
+    }));
+    
+    const created = await databaseService.createFlashcards(decoded.userId, normalizedFlashcards);
+    
+    // Update usage stats
+    await databaseService.updateUsageStats(decoded.userId, 'flashcards', flashcards.length);
+    
+    // Log sync event
+    await databaseService.createSyncEvent(decoded.userId, 'flashcard_sync', {
+      platform,
+      count: flashcards.length,
+      set_ids: [...new Set(normalizedFlashcards.map(f => f.set_id))]
+    }, platform);
+    
+    return c.json({ 
+      success: true, 
+      flashcards: created,
+      synced_count: flashcards.length,
+      platform 
+    });
+  } catch (error: any) {
+    console.error("Flashcard sync error:", error);
+    return c.json({ error: "Failed to sync flashcards" }, 500);
+  }
+});
+
 // ==================== ESSAYS ENDPOINTS ====================
 
 app.get("/essays", async (c) => {
