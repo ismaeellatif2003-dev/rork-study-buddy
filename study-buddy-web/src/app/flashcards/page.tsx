@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, RotateCcw, Shuffle, CheckCircle, XCircle, Zap, BookOpen, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -182,7 +182,7 @@ export default function FlashcardsPage() {
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
 
   // Load user-generated flashcard sets and backend flashcards
-  const loadFlashcardSets = async () => {
+  const loadFlashcardSets = useCallback(async () => {
       // Load local flashcard sets
       const userSets = getFlashcardSets();
       let backendSets: FlashcardSet[] = [];
@@ -257,12 +257,12 @@ export default function FlashcardsPage() {
       const allSets = [...normalizedBackendSets, ...normalizedUserSets, ...normalizedMockSets];
       setUserFlashcardSets(normalizedUserSets);
       setAllFlashcardSets(allSets);
-    };
+    }, [isAuthenticated]);
 
   // Load flashcards on component mount and when authentication changes
   useEffect(() => {
     loadFlashcardSets();
-  }, [isAuthenticated]);
+  }, [loadFlashcardSets]);
 
   // Refresh flashcards when page becomes visible (user switches back from mobile app)
   useEffect(() => {
@@ -275,7 +275,7 @@ export default function FlashcardsPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadFlashcardSets]);
 
   // Listen for flashcard set updates
   useEffect(() => {
