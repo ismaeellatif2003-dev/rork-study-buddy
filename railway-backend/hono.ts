@@ -1318,11 +1318,16 @@ app.post("/flashcards/sync", async (c) => {
     await databaseService.updateUsageStats(decoded.userId, 'flashcards', flashcards.length);
     
     // Log sync event
-    await databaseService.createSyncEvent(decoded.userId, 'flashcard_sync', {
-      platform,
-      count: flashcards.length,
-      set_ids: [...new Set(normalizedFlashcards.map(f => f.set_id))]
-    }, platform);
+    await databaseService.createSyncEvent({
+      userId: decoded.userId,
+      eventType: 'flashcard_sync',
+      data: {
+        platform,
+        count: flashcards.length,
+        set_ids: [...new Set(normalizedFlashcards.map((f: any) => f.set_id))]
+      },
+      platform
+    });
     
     return c.json({ 
       success: true, 
