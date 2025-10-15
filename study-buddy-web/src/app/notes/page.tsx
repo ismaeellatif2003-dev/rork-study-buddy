@@ -10,10 +10,15 @@ import { mockNotes } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { addFlashcardSet } from '@/utils/flashcardSets';
 import { canUseFeature, updateUsage, getRemainingUsage, getCurrentSubscription } from '@/utils/subscription';
+import { aiService } from '@/services/aiService';
+import { notesApi } from '@/services/dataService';
+import { useAuth } from '@/hooks/useAuth';
 import type { Note } from '@/types/study';
 
 export default function NotesPage() {
-  const [notes, setNotes] = useState<Note[]>(mockNotes);
+  const { isAuthenticated } = useAuth();
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showAddNote, setShowAddNote] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({ title: '', content: '' });
@@ -25,6 +30,40 @@ export default function NotesPage() {
   const [subscription, setSubscription] = useState(getCurrentSubscription());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load notes from backend on mount
+  useEffect(() => {
+    const loadNotes = async () => {
+      if (!isAuthenticated) {
+        setNotes(mockNotes); // Use mock data when not authenticated
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await notesApi.getAll();
+        if (response.success && response.notes) {
+          // Convert database notes to frontend format
+          const formattedNotes = response.notes.map((note: any) => ({
+            id: note.id.toString(),
+            title: note.title,
+            content: note.content,
+            summary: note.summary,
+            createdAt: note.created_at,
+            updatedAt: note.updated_at,
+          }));
+          setNotes(formattedNotes);
+        }
+      } catch (error) {
+        console.error('Failed to load notes:', error);
+        setNotes(mockNotes); // Fallback to mock data on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadNotes();
+  }, [isAuthenticated]);
+
   // Listen for subscription updates
   useEffect(() => {
     const handleSubscriptionUpdate = () => {
@@ -35,7 +74,7 @@ export default function NotesPage() {
     return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
   }, []);
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;
 
     // Check if user can create a new note (not editing existing)
@@ -44,31 +83,72 @@ export default function NotesPage() {
       return;
     }
 
-    if (editingNote) {
-      // Update existing note
-      setNotes(prev => prev.map(note => 
-        note.id === editingNote.id 
-          ? { ...note, title: newNote.title, content: newNote.content, updatedAt: new Date().toISOString() }
-          : note
-      ));
-    } else {
-      // Create new note
-      const note: Note = {
-        id: Date.now().toString(),
-        title: newNote.title,
-        content: newNote.content,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setNotes(prev => [note, ...prev]);
-      // Update user stats for new note creation
-      updateUserStats('notes', 1);
-      updateUsage('notes', 1);
-    }
+    try {
+      if (editingNote) {
+        // Update existing note
+        if (isAuthenticated) {
+          const response = await notesApi.update(parseInt(editingNote.id), {
+            title: newNote.title,
+            content: newNote.content,
+          });
+          
+          if (response.success) {
+            setNotes(prev => prev.map(note => 
+              note.id === editingNote.id 
+                ? { ...note, title: newNote.title, content: newNote.content, updatedAt: new Date().toISOString() }
+                : note
+            ));
+          }
+        } else {
+          // Local update for non-authenticated users
+          setNotes(prev => prev.map(note => 
+            note.id === editingNote.id 
+              ? { ...note, title: newNote.title, content: newNote.content, updatedAt: new Date().toISOString() }
+              : note
+          ));
+        }
+      } else {
+        // Create new note
+        if (isAuthenticated) {
+          const response = await notesApi.create({
+            title: newNote.title,
+            content: newNote.content,
+          });
+          
+          if (response.success && response.note) {
+            const note: Note = {
+              id: response.note.id.toString(),
+              title: response.note.title,
+              content: response.note.content,
+              createdAt: response.note.created_at,
+              updatedAt: response.note.updated_at,
+            };
+            setNotes(prev => [note, ...prev]);
+          }
+        } else {
+          // Local creation for non-authenticated users
+          const note: Note = {
+            id: Date.now().toString(),
+            title: newNote.title,
+            content: newNote.content,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setNotes(prev => [note, ...prev]);
+        }
+        
+        // Update user stats for new note creation
+        updateUserStats('notes', 1);
+        updateUsage('notes', 1);
+      }
 
-    setNewNote({ title: '', content: '' });
-    setEditingNote(null);
-    setShowAddNote(false);
+      setNewNote({ title: '', content: '' });
+      setEditingNote(null);
+      setShowAddNote(false);
+    } catch (error) {
+      console.error('Failed to save note:', error);
+      alert('Failed to save note. Please try again.');
+    }
   };
 
   const handleEditNote = (note: Note) => {
@@ -77,9 +157,22 @@ export default function NotesPage() {
     setShowAddNote(true);
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = async (noteId: string) => {
     if (confirm('Are you sure you want to delete this note?')) {
-      setNotes(prev => prev.filter(note => note.id !== noteId));
+      try {
+        if (isAuthenticated) {
+          const response = await notesApi.delete(parseInt(noteId));
+          if (response.success) {
+            setNotes(prev => prev.filter(note => note.id !== noteId));
+          }
+        } else {
+          // Local delete for non-authenticated users
+          setNotes(prev => prev.filter(note => note.id !== noteId));
+        }
+      } catch (error) {
+        console.error('Failed to delete note:', error);
+        alert('Failed to delete note. Please try again.');
+      }
     }
   };
 
@@ -115,33 +208,54 @@ export default function NotesPage() {
     
     setIsGenerating(note.id);
     
-    // Simulate AI generation
-    setTimeout(() => {
-      // Generate flashcards based on note content
-      const generatedFlashcards = generateFlashcardsFromNote(note);
-      
+    try {
+      // Generate flashcards using AI service
+      const aiResponse = await aiService.generateFlashcards({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert educator. Create educational flashcards from the given note content. Each flashcard should have a clear question on the front and a detailed answer on the back. Focus on key concepts, definitions, and important information.'
+          },
+          {
+            role: 'user',
+            content: `Create flashcards from this note:\n\nTitle: ${note.title}\n\nContent: ${note.content}`
+          }
+        ],
+        type: 'flashcards',
+        model: 'openai/gpt-4o',
+        count: 10
+      });
+
+      if (!aiResponse.success || !aiResponse.flashcards) {
+        throw new Error(aiResponse.error || 'Failed to generate flashcards');
+      }
+
       // Create a new flashcard set
       const flashcardSet = {
         id: `set-${Date.now()}`,
         name: `Flashcards from "${note.title}"`,
         description: `AI-generated flashcards from your note: ${note.title}`,
-        cardCount: generatedFlashcards.length,
+        cardCount: aiResponse.flashcards.length,
         createdAt: new Date().toISOString(),
         sourceNoteId: note.id,
         sourceNoteTitle: note.title,
-        flashcards: generatedFlashcards,
+        flashcards: aiResponse.flashcards,
       };
       
       // Add the flashcard set to storage
       addFlashcardSet(flashcardSet);
       
       // Update user stats for flashcard generation
-      updateUserStats('flashcards', generatedFlashcards.length);
-      updateUsage('flashcards', generatedFlashcards.length);
+      updateUserStats('flashcards', aiResponse.flashcards.length);
+      updateUsage('flashcards', aiResponse.flashcards.length);
       
-      alert(`Successfully generated ${generatedFlashcards.length} flashcards from "${note.title}"! Check the Flashcards tab to study them.`);
+      alert(`Successfully generated ${aiResponse.flashcards.length} flashcards from "${note.title}"! Check the Flashcards tab to study them.`);
+    } catch (error) {
+      console.error('Flashcard generation error:', error);
+      alert('Failed to generate flashcards. Please try again.');
+    } finally {
       setIsGenerating(null);
-    }, 2000);
+    }
   };
 
   const generateFlashcardsFromNote = (note: Note) => {
@@ -242,40 +356,31 @@ export default function NotesPage() {
     
     setIsProcessingOCR(true);
     
-    // Simulate OCR processing
-    setTimeout(() => {
-      // Mock OCR result - in a real app, this would call an OCR API
-      const mockOCRText = `Study Notes from Image
-
-Chapter 1: Introduction to Biology
-- Biology is the study of living organisms
-- Key concepts include cells, genetics, and evolution
-- Important for understanding life processes
-
-Chapter 2: Cell Structure
-- Cells are the basic unit of life
-- Two main types: prokaryotic and eukaryotic
-- Organelles have specific functions
-
-Key Terms:
-- Mitochondria: Powerhouse of the cell
-- Nucleus: Contains genetic material
-- Ribosomes: Protein synthesis
-- Cell membrane: Controls what enters/exits
-
-Important Formulas:
-- Photosynthesis: 6CO2 + 6H2O + light → C6H12O6 + 6O2
-- Cellular respiration: C6H12O6 + 6O2 → 6CO2 + 6H2O + ATP
-
-Study Tips:
-- Review diagrams regularly
-- Practice with flashcards
-- Understand processes, don't just memorize`;
+    try {
+      // Convert image to base64 for API
+      const base64Image = uploadedImage.split(',')[1]; // Remove data:image/...;base64, prefix
       
-      setOcrResult(mockOCRText);
-      setIsProcessingOCR(false);
+      // Call OCR API
+      const aiResponse = await aiService.extractTextFromImage({
+        imageBase64: base64Image,
+        type: 'text',
+        model: 'openai/gpt-4o'
+      });
+
+      if (!aiResponse.success || !aiResponse.response) {
+        throw new Error(aiResponse.error || 'Failed to extract text from image');
+      }
+
+      setOcrResult(aiResponse.response);
+      
+      // Update usage
       updateUsage('ocrScans', 1);
-    }, 3000);
+    } catch (error) {
+      console.error('OCR Error:', error);
+      alert('Failed to extract text from image. Please try again.');
+    } finally {
+      setIsProcessingOCR(false);
+    }
   };
 
   const handleCreateNoteFromOCR = () => {
