@@ -13,12 +13,25 @@ export class AuthService {
     this.jwtService = jwtService;
   }
 
+  private getClientIdForPlatform(platform: string): string {
+    // Return the appropriate client ID based on platform
+    if (platform === 'mobile' || platform === 'ios') {
+      return process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+    } else {
+      // Default to web client ID for web platform
+      return process.env.GOOGLE_WEB_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '';
+    }
+  }
+
   async authenticateUser(idToken: string, platform: string, deviceInfo?: any) {
     try {
+      // Get the appropriate client ID based on platform
+      const clientId = this.getClientIdForPlatform(platform);
+      
       // Verify Google ID token
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: clientId,
       });
 
       const payload = ticket.getPayload();
