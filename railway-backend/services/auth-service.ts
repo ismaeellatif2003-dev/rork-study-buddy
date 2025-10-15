@@ -39,9 +39,18 @@ export class AuthService {
       }
       
       // Verify Google ID token
+      // Accept both iOS and Web client IDs as valid audiences
+      const validAudiences = [
+        process.env.GOOGLE_IOS_CLIENT_ID,
+        process.env.GOOGLE_WEB_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_ID
+      ].filter(Boolean) as string[];
+      
+      console.log('🔍 Verifying token with audiences:', validAudiences.map(a => a.substring(0, 20) + '...'));
+      
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
-        audience: clientId,
+        audience: validAudiences,
       });
 
       const payload = ticket.getPayload();
