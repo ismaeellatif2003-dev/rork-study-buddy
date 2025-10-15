@@ -277,7 +277,8 @@ export default function FlashcardsPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isAuthenticated]);
 
-    // Listen for flashcard set updates
+  // Listen for flashcard set updates
+  useEffect(() => {
     const handleFlashcardSetsUpdate = (e: CustomEvent) => {
       const userSets = e.detail as Record<string, unknown>[];
       const normalizedUserSets = userSets.map((set: Record<string, unknown>) => normalizeFlashcardSet(set, 'user'));
