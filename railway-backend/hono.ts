@@ -1144,6 +1144,220 @@ app.post("/usage/update", async (c) => {
   }
 });
 
+// ==================== NOTES ENDPOINTS ====================
+
+app.get("/notes", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const notes = await databaseService.getUserNotes(decoded.userId);
+    
+    return c.json({ success: true, notes });
+  } catch (error: any) {
+    console.error("Get notes error:", error);
+    return c.json({ error: "Failed to get notes" }, 500);
+  }
+});
+
+app.post("/notes", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { title, content, summary } = await c.req.json();
+    
+    const note = await databaseService.createNote(decoded.userId, { title, content, summary });
+    
+    // Update usage stats
+    await databaseService.updateUsageStats(decoded.userId, 'notes', 1);
+    
+    return c.json({ success: true, note });
+  } catch (error: any) {
+    console.error("Create note error:", error);
+    return c.json({ error: "Failed to create note" }, 500);
+  }
+});
+
+app.put("/notes/:id", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const noteId = parseInt(c.req.param("id"));
+    const { title, content, summary } = await c.req.json();
+    
+    const note = await databaseService.updateNote(noteId, decoded.userId, { title, content, summary });
+    
+    return c.json({ success: true, note });
+  } catch (error: any) {
+    console.error("Update note error:", error);
+    return c.json({ error: "Failed to update note" }, 500);
+  }
+});
+
+app.delete("/notes/:id", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const noteId = parseInt(c.req.param("id"));
+    
+    const success = await databaseService.deleteNote(noteId, decoded.userId);
+    
+    return c.json({ success });
+  } catch (error: any) {
+    console.error("Delete note error:", error);
+    return c.json({ error: "Failed to delete note" }, 500);
+  }
+});
+
+// ==================== FLASHCARDS ENDPOINTS ====================
+
+app.get("/flashcards", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const flashcards = await databaseService.getUserFlashcards(decoded.userId);
+    
+    return c.json({ success: true, flashcards });
+  } catch (error: any) {
+    console.error("Get flashcards error:", error);
+    return c.json({ error: "Failed to get flashcards" }, 500);
+  }
+});
+
+app.post("/flashcards", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { flashcards } = await c.req.json();
+    
+    const created = await databaseService.createFlashcards(decoded.userId, flashcards);
+    
+    // Update usage stats
+    await databaseService.updateUsageStats(decoded.userId, 'flashcards', flashcards.length);
+    
+    return c.json({ success: true, flashcards: created });
+  } catch (error: any) {
+    console.error("Create flashcards error:", error);
+    return c.json({ error: "Failed to create flashcards" }, 500);
+  }
+});
+
+// ==================== ESSAYS ENDPOINTS ====================
+
+app.get("/essays", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    
+    // Get essays from database (for now, return empty array until we implement essay storage)
+    return c.json({ success: true, essays: [] });
+  } catch (error: any) {
+    console.error("Get essays error:", error);
+    return c.json({ error: "Failed to get essays" }, 500);
+  }
+});
+
+app.post("/essays", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const essayData = await c.req.json();
+    
+    // Store essay in database (simplified for now)
+    // In a real implementation, you'd save to the essays table
+    
+    // Update usage stats
+    await databaseService.updateUsageStats(decoded.userId, 'essays', 1);
+    
+    return c.json({ success: true, essay: essayData });
+  } catch (error: any) {
+    console.error("Create essay error:", error);
+    return c.json({ error: "Failed to create essay" }, 500);
+  }
+});
+
+// ==================== CHAT HISTORY ENDPOINTS ====================
+
+app.get("/chat/history", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    
+    // Get chat history from database (for now, return empty array)
+    return c.json({ success: true, messages: [] });
+  } catch (error: any) {
+    console.error("Get chat history error:", error);
+    return c.json({ error: "Failed to get chat history" }, 500);
+  }
+});
+
+app.post("/chat/message", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { message } = await c.req.json();
+    
+    // Store message in database (simplified for now)
+    
+    // Update usage stats
+    await databaseService.updateUsageStats(decoded.userId, 'messages', 1);
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("Save chat message error:", error);
+    return c.json({ error: "Failed to save message" }, 500);
+  }
+});
+
 // Root endpoint
 app.get("/", (c) => {
   return c.json({ 
@@ -1161,6 +1375,24 @@ app.get("/", (c) => {
       },
       usage: {
         update: "/usage/update"
+      },
+      notes: {
+        getAll: "GET /notes",
+        create: "POST /notes",
+        update: "PUT /notes/:id",
+        delete: "DELETE /notes/:id"
+      },
+      flashcards: {
+        getAll: "GET /flashcards",
+        create: "POST /flashcards"
+      },
+      essays: {
+        getAll: "GET /essays",
+        create: "POST /essays"
+      },
+      chat: {
+        getHistory: "GET /chat/history",
+        saveMessage: "POST /chat/message"
       },
       ai: {
         generate: "/ai/generate",
