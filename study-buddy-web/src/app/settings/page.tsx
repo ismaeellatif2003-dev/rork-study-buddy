@@ -94,8 +94,8 @@ export default function SettingsPage() {
   const handleEditProfile = () => {
     setIsEditingProfile(true);
     setEditForm({
-      name: userProfile.name,
-      email: userProfile.email,
+      name: user?.name || userProfile.name,
+      email: user?.email || userProfile.email,
       age: userProfile.age?.toString() || '',
       educationLevel: userProfile.educationLevel,
     });
@@ -117,8 +117,8 @@ export default function SettingsPage() {
   const handleCancelEdit = () => {
     setIsEditingProfile(false);
     setEditForm({
-      name: userProfile.name,
-      email: userProfile.email,
+      name: user?.name || userProfile.name,
+      email: user?.email || userProfile.email,
       age: userProfile.age?.toString() || '',
       educationLevel: userProfile.educationLevel,
     });
@@ -156,9 +156,17 @@ export default function SettingsPage() {
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <User className="text-blue-600" size={20} />
-              </div>
+              {user?.picture ? (
+                <img 
+                  src={user.picture} 
+                  alt="Profile" 
+                  className="w-10 h-10 rounded-lg"
+                />
+              ) : (
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <User className="text-blue-600 dark:text-blue-400" size={20} />
+                </div>
+              )}
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Manage your account information</p>
@@ -170,8 +178,8 @@ export default function SettingsPage() {
               <>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900">{userProfile.name}</div>
-                    <div className="text-sm text-gray-600">{userProfile.email}</div>
+                    <div className="font-medium text-gray-900 dark:text-white">{user?.name || userProfile.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{user?.email || userProfile.email}</div>
                   </div>
                   <Button size="sm" onClick={handleEditProfile} className="bg-gray-600 text-white hover:bg-gray-700">
                     <Edit3 size={16} className="mr-1" />
@@ -210,7 +218,7 @@ export default function SettingsPage() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
                   <Input
                     value={editForm.name}
                     onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
@@ -219,17 +227,19 @@ export default function SettingsPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
                   <Input
                     type="email"
                     value={editForm.email}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    disabled
                     placeholder="Enter your email"
+                    className="bg-gray-100 dark:bg-gray-600 cursor-not-allowed"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed (managed by Google)</p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Age</label>
                   <Input
                     type="number"
                     value={editForm.age}
@@ -241,7 +251,7 @@ export default function SettingsPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Education Level</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Education Level</label>
                   <select
                     value={editForm.educationLevel}
                     onChange={(e) => setEditForm(prev => ({ ...prev, educationLevel: e.target.value }))}

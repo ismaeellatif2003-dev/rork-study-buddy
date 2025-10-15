@@ -9,6 +9,7 @@ import { Input, Textarea } from '@/components/ui/Input';
 import { mockEssays } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
+import { aiService } from '@/services/aiService';
 import type { Essay } from '@/types/study';
 
 export default function EssayWriterPage() {
@@ -82,16 +83,37 @@ export default function EssayWriterPage() {
 
     setIsGenerating(true);
     
-    // Simulate AI essay generation
-    setTimeout(() => {
-      const generatedContent = generateEssayWithCitations();
+    try {
+      // Generate essay using AI service
+      const aiResponse = await aiService.generateText({
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert academic writer. Write a comprehensive essay based on the given title and prompt. 
+            ${newEssay.includeCitations ? 'Include proper citations and references.' : ''}
+            ${newEssay.useSampleWork && sampleWork ? `Match the writing style of this sample work: ${sampleWork}` : ''}
+            Target word count: ${newEssay.wordCount} words.
+            Citation style: ${newEssay.citationStyle || 'APA'}.`
+          },
+          {
+            role: 'user',
+            content: `Title: ${newEssay.title}\n\nPrompt: ${newEssay.prompt}`
+          }
+        ],
+        type: 'text',
+        model: 'openai/gpt-4o'
+      });
+
+      if (!aiResponse.success || !aiResponse.response) {
+        throw new Error(aiResponse.error || 'Failed to generate essay');
+      }
 
       const essay: Essay = {
         id: Date.now().toString(),
         title: newEssay.title,
         prompt: newEssay.prompt,
-        content: generatedContent,
-        wordCount: generatedContent.split(' ').length,
+        content: aiResponse.response,
+        wordCount: aiResponse.response.split(' ').length,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -108,12 +130,16 @@ export default function EssayWriterPage() {
       });
       setEditingEssay(null);
       setShowNewEssay(false);
-      setIsGenerating(false);
       
       // Update user stats for essay generation
       updateUserStats('essays', 1);
       updateUsage('essays', 1);
-    }, 3000);
+    } catch (error) {
+      console.error('Error creating essay:', error);
+      alert('Failed to create essay. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleEditEssay = (essay: Essay) => {

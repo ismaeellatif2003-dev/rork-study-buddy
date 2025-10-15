@@ -1,14 +1,30 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://rork-study-buddy-production-eeeb.up.railway.app';
 
 // Helper to get auth token from session
-const getAuthToken = (): string | null => {
+const getAuthToken = async (): Promise<string | null> => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('authToken');
+  
+  // Try to get token from NextAuth session
+  try {
+    const response = await fetch('/api/auth/session');
+    const session = await response.json();
+    
+    // NextAuth stores the backend token in the session
+    if (session?.backendToken) {
+      return session.backendToken;
+    }
+    
+    // Fallback to localStorage for compatibility
+    return localStorage.getItem('authToken');
+  } catch (error) {
+    console.error('Failed to get auth token:', error);
+    return localStorage.getItem('authToken');
+  }
 };
 
 // Helper for authenticated requests
 const authFetch = async (endpoint: string, options: RequestInit = {}) => {
-  const token = getAuthToken();
+  const token = await getAuthToken();
   if (!token) {
     throw new Error('Not authenticated');
   }

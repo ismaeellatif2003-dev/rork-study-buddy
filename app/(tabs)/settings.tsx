@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,16 +14,20 @@ import { useUserProfile } from '@/hooks/user-profile-store';
 import { useSubscription } from '@/hooks/subscription-store';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/study';
 import colors from '@/constants/colors';
+import { GoogleSignInButton, GoogleSignOutButton } from '@/components/GoogleSignInButton';
+import { googleAuthService } from '@/utils/google-auth';
 
 import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const { profile, updateProfile, isLoading, isOnboardingComplete } = useUserProfile();
-  const { subscription, getCurrentPlan, activateTestProPlan } = useSubscription();
+  const { subscription, getCurrentPlan, activateTestProPlan, syncWithBackend } = useSubscription();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editAge, setEditAge] = useState(profile?.age?.toString() || '');
   const [editEducationLevel, setEditEducationLevel] = useState<EducationLevel | null>(profile?.educationLevel || null);
+  const [isGoogleSignedIn, setIsGoogleSignedIn] = useState(false);
+  const [googleUser, setGoogleUser] = useState<any>(null);
 
   const handleSaveChanges = async () => {
     const ageNumber = parseInt(editAge);
@@ -60,6 +64,33 @@ export default function SettingsScreen() {
   const getCurrentEducationLevel = () => {
     return EDUCATION_LEVELS.find(level => level.value === profile?.educationLevel);
   };
+
+  // Google authentication functions
+  const checkGoogleSignInStatus = async () => {
+    try {
+      const isSignedIn = await googleAuthService.isSignedIn();
+      const user = await googleAuthService.getCurrentUser();
+      console.log('🔍 Google Sign-In Status:', { isSignedIn, user });
+      setIsGoogleSignedIn(isSignedIn);
+      setGoogleUser(user);
+    } catch (error) {
+      console.error('Error checking Google sign-in status:', error);
+    }
+  };
+
+  const handleGoogleSignInSuccess = async () => {
+    await checkGoogleSignInStatus();
+    await syncWithBackend();
+  };
+
+  const handleGoogleSignOutSuccess = async () => {
+    await checkGoogleSignInStatus();
+  };
+
+  // Check Google sign-in status on component mount
+  useEffect(() => {
+    checkGoogleSignInStatus();
+  }, []);
 
   // Show loading only for a brief moment, then show empty state
   if (isLoading) {
@@ -215,6 +246,64 @@ export default function SettingsScreen() {
             <Text style={styles.infoText}>
               • <Text style={styles.infoBold}>Optimized difficulty:</Text> Questions are neither too easy nor too hard for you
             </Text>
+          </View>
+        </View>
+
+        {/* Google Sign-In Section */}
+        <View style={styles.infoSection}>
+          <Text style={styles.infoTitle}>Account Sync</Text>
+          <View style={styles.infoCard}>
+            {/* Debug: Show current state */}
+            <Text style={{fontSize: 10, color: 'gray', marginBottom: 8}}>
+              Debug: isSignedIn={isGoogleSignedIn ? 'YES' : 'NO'}, hasUser={googleUser ? 'YES' : 'NO'}
+            </Text>
+            {isGoogleSignedIn ? (
+              <View>
+                {/* Signed In Status */}
+                <View style={styles.signedInHeader}>
+                  <CheckCircle color="#22c55e" size={24} />
+                  <Text style={styles.signedInText}>Signed in as</Text>
+                </View>
+                <View style={styles.userCredentials}>
+                  <Text style={styles.userName}>{googleUser?.name || 'User'}</Text>
+                  <Text style={styles.userEmail}>{googleUser?.email || 'email@example.com'}</Text>
+                </View>
+                <Text style={styles.syncDescription}>
+                  ✅ Your data syncs across the mobile app and website
+                </Text>
+                
+                {/* Sign Out Button */}
+                <View style={styles.googleSignInContainer}>
+                  <GoogleSignOutButton 
+                    onSuccess={handleGoogleSignOutSuccess}
+                    style={styles.signOutButton}
+                    text="Sign Out from Google"
+                  />
+                </View>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.infoText}>
+                  Sign in with Google to sync your data across the mobile app and website
+                </Text>
+                <Text style={styles.infoText}>
+                  • Access your notes and flashcards on both platforms
+                </Text>
+                <Text style={styles.infoText}>
+                  • Share subscription status between app and website
+                </Text>
+                <Text style={styles.infoText}>
+                  • Keep your progress synchronized
+                </Text>
+                <View style={styles.googleSignInContainer}>
+                  <GoogleSignInButton 
+                    onSuccess={handleGoogleSignInSuccess}
+                    style={styles.googleButton}
+                    text="Continue with Google"
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -482,5 +571,53 @@ const styles = StyleSheet.create({
     color: colors.cardBackground,
     fontSize: 14,
     fontWeight: '600',
+  },
+  googleSignInContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  googleButton: {
+    width: '100%',
+    maxWidth: 280,
+  },
+  signedInHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  signedInText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  userCredentials: {
+    backgroundColor: colors.background,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  syncDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  signOutButton: {
+    width: '100%',
+    maxWidth: 280,
+    backgroundColor: '#dc3545',
   },
 });

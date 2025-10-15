@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Note, Flashcard, ChatMessage, StudySession } from '@/types/study';
+import { notesApi, flashcardsApi } from '@/services/dataService';
 
 
 const STORAGE_KEYS = {
@@ -22,6 +23,69 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     
     const loadData = async () => {
       try {
+        // Try to load from backend first if authenticated
+        const authToken = await AsyncStorage.getItem('authToken');
+        
+        if (authToken) {
+          // User is authenticated - load from backend
+          try {
+            const [notesResponse, flashcardsResponse] = await Promise.all([
+              notesApi.getAll().catch(() => ({ success: false, notes: [] })),
+              flashcardsApi.getAll().catch(() => ({ success: false, flashcards: [] })),
+            ]);
+
+            if (!isMounted) return;
+
+            if (notesResponse.success && notesResponse.notes) {
+              const backendNotes = notesResponse.notes.map((note: any) => ({
+                id: note.id.toString(),
+                title: note.title,
+                content: note.content,
+                summary: note.summary,
+                createdAt: new Date(note.created_at),
+                updatedAt: new Date(note.updated_at),
+              }));
+              setNotes(backendNotes);
+              // Also save to local storage as cache
+              await AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(backendNotes));
+            }
+
+            if (flashcardsResponse.success && flashcardsResponse.flashcards) {
+              // Process flashcards from backend
+              const backendFlashcards = flashcardsResponse.flashcards.map((card: any) => ({
+                id: card.id.toString(),
+                question: card.front,
+                answer: card.back,
+                set: card.set_name,
+                difficulty: card.difficulty || 'medium',
+                createdAt: new Date(card.created_at),
+                updatedAt: new Date(card.updated_at),
+              }));
+              setFlashcards(backendFlashcards);
+              await AsyncStorage.setItem(STORAGE_KEYS.FLASHCARDS, JSON.stringify(backendFlashcards));
+            }
+            
+            // Load sessions from local storage (not synced to backend yet)
+            const sessionsData = await AsyncStorage.getItem(STORAGE_KEYS.SESSIONS);
+            if (sessionsData && isMounted) {
+              try {
+                const parsed = JSON.parse(sessionsData);
+                if (Array.isArray(parsed)) {
+                  setSessions(parsed);
+                }
+              } catch (e) {
+                console.error('Error parsing sessions:', e);
+              }
+            }
+            
+            if (isMounted) setIsLoading(false);
+            return; // Exit early if backend loading succeeded
+          } catch (backendError) {
+            console.log('Backend loading failed, falling back to local storage:', backendError);
+          }
+        }
+
+        // Fallback: Load from local storage
         const [notesData, flashcardsData, sessionsData] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.NOTES),
           AsyncStorage.getItem(STORAGE_KEYS.FLASHCARDS),
@@ -140,16 +204,59 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
 
   // Add or update note
   const saveNote = useCallback(async (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newNote: Note = {
-      ...note,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    const updatedNotes = [...notes, newNote];
-    await saveNotes(updatedNotes);
-    return newNote;
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      
+      if (authToken) {
+        // Save to backend
+        const response = await notesApi.create({
+          title: note.title,
+          content: note.content,
+          summary: note.summary,
+        });
+        
+        if (response.success && response.note) {
+          const backendNote: Note = {
+            id: response.note.id.toString(),
+            title: response.note.title,
+            content: response.note.content,
+            summary: response.note.summary,
+            createdAt: new Date(response.note.created_at),
+            updatedAt: new Date(response.note.updated_at),
+          };
+          
+          const updatedNotes = [...notes, backendNote];
+          setNotes(updatedNotes);
+          await AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updatedNotes));
+          return backendNote;
+        }
+      }
+      
+      // Fallback: Save to local storage only
+      const newNote: Note = {
+        ...note,
+        id: Date.now().toString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const updatedNotes = [...notes, newNote];
+      await saveNotes(updatedNotes);
+      return newNote;
+    } catch (error) {
+      console.error('Error saving note:', error);
+      // Fallback to local storage on error
+      const newNote: Note = {
+        ...note,
+        id: Date.now().toString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const updatedNotes = [...notes, newNote];
+      await saveNotes(updatedNotes);
+      return newNote;
+    }
   }, [notes, saveNotes]);
 
   // Update existing note

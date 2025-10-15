@@ -7,6 +7,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { StudyProvider } from "@/hooks/study-store";
 import { SubscriptionProvider } from "@/hooks/subscription-store";
 import { UserProfileProvider } from "@/hooks/user-profile-store";
+import { googleAuthService } from "@/utils/google-auth";
 import colors from "@/constants/colors";
 
 SplashScreen.preventAutoHideAsync();
@@ -124,6 +125,10 @@ export default function RootLayout() {
     
     const initializeApp = async () => {
       try {
+        // Initialize Google Sign-In
+        await googleAuthService.initialize();
+        console.log('✅ Google Sign-In initialized');
+        
         // Simple initialization
         await new Promise(resolve => setTimeout(resolve, 100));
         

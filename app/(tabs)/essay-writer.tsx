@@ -44,6 +44,7 @@ let TextRun: any = null;
 let HeadingLevel: any = null;
 import { mockApi } from '../../services/mockApi';
 import { essayApi } from '../../services/essayApi';
+import { essaysApi } from '../../services/dataService';
 import { promptTemplates } from '../../utils/promptTemplates';
 import colors from '../../constants/colors';
 import { useSubscription } from '../../hooks/subscription-store';
@@ -437,9 +438,23 @@ export default function GroundedEssayWriter() {
     };
   }, [cleanupMemory]);
 
-  // Load saved essays from AsyncStorage
+  // Load saved essays from backend or AsyncStorage
   const loadSavedEssays = async () => {
     try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      
+      if (authToken) {
+        // Load from backend
+        const response = await essaysApi.getAll();
+        if (response.success && response.essays) {
+          setSavedEssays(response.essays);
+          // Cache to local storage
+          await AsyncStorage.setItem('saved_essays', JSON.stringify(response.essays));
+          return;
+        }
+      }
+      
+      // Fallback to local storage
       const saved = await AsyncStorage.getItem('saved_essays');
       if (saved) {
         const parsedEssays = JSON.parse(saved);
@@ -1333,18 +1348,32 @@ export default function GroundedEssayWriter() {
         includeReferences
       };
 
-      const saved = await AsyncStorage.getItem('saved_essays');
-      const savedEssays = saved ? JSON.parse(saved) : [];
+      const authToken = await AsyncStorage.getItem('authToken');
       
-      if (Array.isArray(savedEssays)) {
-        const updatedEssays = [...savedEssays, essayData];
+      if (authToken) {
+        // Save to backend
+        const response = await essaysApi.create(essayData);
+        if (response.success) {
+          // Reload saved essays from backend
+          await loadSavedEssays();
+          Alert.alert('Success', 'Essay saved successfully and synced!');
+          return;
+        }
+      }
+      
+      // Fallback: Save to local storage
+      const saved = await AsyncStorage.getItem('saved_essays');
+      const savedEssaysLocal = saved ? JSON.parse(saved) : [];
+      
+      if (Array.isArray(savedEssaysLocal)) {
+        const updatedEssays = [...savedEssaysLocal, essayData];
         await AsyncStorage.setItem('saved_essays', JSON.stringify(updatedEssays));
         setSavedEssays(updatedEssays);
-        Alert.alert('Success', 'Essay saved successfully!');
+        Alert.alert('Success', 'Essay saved locally!');
       } else {
         await AsyncStorage.setItem('saved_essays', JSON.stringify([essayData]));
         setSavedEssays([essayData]);
-        Alert.alert('Success', 'Essay saved successfully!');
+        Alert.alert('Success', 'Essay saved locally!');
       }
     } catch (error) {
       console.error('Error saving essay:', error);
@@ -2067,6 +2096,15 @@ export default function GroundedEssayWriter() {
         </View>
         
         <View style={styles.headerActions}>
+          {/* Saved Essays Button - Always Visible */}
+          <TouchableOpacity
+            style={styles.headerActionButton}
+            onPress={() => setShowSavedDocuments(true)}
+          >
+            <FolderOpen size={20} color={colors.primary} />
+          </TouchableOpacity>
+          
+          {/* Other actions - Only show when on generate step with outline */}
           {currentStep === 'generate' && outline && (
             <>
               <TouchableOpacity
@@ -2075,13 +2113,6 @@ export default function GroundedEssayWriter() {
                 disabled={isSaving}
               >
                 <Save size={20} color={colors.primary} />
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.headerActionButton}
-                onPress={() => setShowSavedDocuments(true)}
-              >
-                <FolderOpen size={20} color={colors.primary} />
               </TouchableOpacity>
               
               <TouchableOpacity

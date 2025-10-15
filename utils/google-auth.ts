@@ -221,9 +221,11 @@ export class GoogleAuthService {
 
   async isSignedIn() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
+      // Check if we have both the auth token and user data
+      // Don't rely on GoogleSignin.isSignedIn() as it can be unreliable
       const token = await AsyncStorage.getItem('authToken');
-      return isSignedIn && !!token;
+      const user = await AsyncStorage.getItem('user');
+      return !!token && !!user;
     } catch (error) {
       return false;
     }

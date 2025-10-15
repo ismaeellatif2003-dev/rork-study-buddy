@@ -11,7 +11,7 @@ import { updateUserStats } from '@/utils/userStats';
 import { addFlashcardSet } from '@/utils/flashcardSets';
 import { canUseFeature, updateUsage, getRemainingUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
-import { notesApi } from '@/services/dataService';
+import { notesApi, flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
 import type { Note } from '@/types/study';
 
@@ -33,9 +33,12 @@ export default function NotesPage() {
   // Load notes from backend on mount
   useEffect(() => {
     const loadNotes = async () => {
+      // Always set loading to false initially with mock data
+      setNotes(mockNotes);
+      setIsLoading(false);
+      
+      // Only try to load from backend if authenticated
       if (!isAuthenticated) {
-        setNotes(mockNotes); // Use mock data when not authenticated
-        setIsLoading(false);
         return;
       }
 
@@ -55,9 +58,7 @@ export default function NotesPage() {
         }
       } catch (error) {
         console.error('Failed to load notes:', error);
-        setNotes(mockNotes); // Fallback to mock data on error
-      } finally {
-        setIsLoading(false);
+        // Keep mock data on error
       }
     };
 
@@ -242,8 +243,27 @@ export default function NotesPage() {
         flashcards: aiResponse.flashcards,
       };
       
-      // Add the flashcard set to storage
+      // Add the flashcard set to local storage
       addFlashcardSet(flashcardSet);
+      
+      // Also save to backend if authenticated
+      if (isAuthenticated) {
+        try {
+          const flashcardsForBackend = aiResponse.flashcards.map((card: any) => ({
+            set_id: flashcardSet.id,
+            set_name: flashcardSet.name,
+            set_description: flashcardSet.description,
+            front: card.question,
+            back: card.answer,
+            difficulty: card.difficulty || 'medium',
+          }));
+          
+          await flashcardsApi.create({ flashcards: flashcardsForBackend });
+        } catch (backendError) {
+          console.error('Failed to sync flashcards to backend:', backendError);
+          // Don't fail the whole operation if backend sync fails
+        }
+      }
       
       // Update user stats for flashcard generation
       updateUserStats('flashcards', aiResponse.flashcards.length);

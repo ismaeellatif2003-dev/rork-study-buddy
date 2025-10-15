@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import type { SubscriptionPlan, UserSubscription, UsageStats } from '@/types/study';
 import paymentService from '@/utils/payment-service';
+import { googleAuthService } from '@/utils/google-auth';
 
 const STORAGE_KEYS = {
   SUBSCRIPTION: 'study_buddy_subscription',
@@ -577,6 +578,71 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     Alert.alert('Pro Plan Activated', 'Pro plan is now active for testing!');
   }, []);
 
+  // Backend sync functionality
+  const syncWithBackend = useCallback(async () => {
+    try {
+      const isSignedIn = await googleAuthService.isSignedIn();
+      if (!isSignedIn) {
+        console.log('User not signed in, skipping backend sync');
+        return;
+      }
+
+      console.log('🔄 Syncing subscription data with backend...');
+      const syncData = await googleAuthService.syncData();
+      
+      if (syncData) {
+        // Update subscription if backend has different data
+        if (syncData.subscription) {
+          const backendSubscription = syncData.subscription;
+          const currentSubscription = subscription;
+          
+          // If backend subscription is different, update local
+          if (!currentSubscription || 
+              currentSubscription.planId !== backendSubscription.planId ||
+              currentSubscription.status !== backendSubscription.status) {
+            console.log('📱 Updating subscription from backend:', backendSubscription);
+            setSubscription(backendSubscription);
+            await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(backendSubscription));
+          }
+        }
+
+        // Update usage stats if backend has different data
+        if (syncData.usage) {
+          const backendUsage = syncData.usage;
+          const currentUsage = usageStats;
+          
+          // If backend usage is different, update local
+          if (JSON.stringify(currentUsage) !== JSON.stringify(backendUsage)) {
+            console.log('📱 Updating usage stats from backend:', backendUsage);
+            setUsageStats(backendUsage);
+            await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(backendUsage));
+          }
+        }
+        
+        console.log('✅ Backend sync completed');
+      }
+    } catch (error) {
+      console.error('❌ Backend sync failed:', error);
+    }
+  }, [subscription, usageStats]);
+
+  const updateUsageWithSync = useCallback(async (type: keyof UsageStats, increment: number = 1) => {
+    // Update local usage first
+    const newUsageStats = {
+      ...usageStats,
+      [type]: usageStats[type] + increment,
+    };
+    setUsageStats(newUsageStats);
+    await AsyncStorage.setItem(STORAGE_KEYS.USAGE_STATS, JSON.stringify(newUsageStats));
+
+    // Sync with backend
+    try {
+      await googleAuthService.updateUsage(type, increment);
+    } catch (error) {
+      console.error('Failed to sync usage with backend:', error);
+    }
+  }, [usageStats]);
+
   // Payment service will be initialized lazily when needed (e.g., when user tries to subscribe)
 
   // Cleanup payment service on unmount
@@ -610,5 +676,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     restorePurchases,
     initializePayment,
     activateTestProPlan,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment, activateTestProPlan]);
+    syncWithBackend,
+    updateUsageWithSync,
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment, activateTestProPlan, syncWithBackend, updateUsageWithSync]);
 });

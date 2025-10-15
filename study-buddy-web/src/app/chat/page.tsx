@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { mockChatMessages } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
+import { aiService } from '@/services/aiService';
 import type { ChatMessage } from '@/types/study';
 
 const mockResponses = [
@@ -72,21 +73,59 @@ export default function ChatPage() {
     updateUserStats('messages', 1);
     updateUsage('messages', 1);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-      const randomDetailedResponse = mockDetailedResponses[Math.floor(Math.random() * mockDetailedResponses.length)];
-      
+    try {
+      // Prepare conversation history for context
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Add the current user message to the conversation
+      conversationHistory.push({
+        role: 'user',
+        content: inputMessage.trim()
+      });
+
+      // Call AI service
+      const aiResponse = await aiService.generateText({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful AI tutor and study assistant. Provide clear, educational responses to help students learn and understand concepts. Be encouraging and supportive in your explanations.'
+          },
+          ...conversationHistory
+        ],
+        type: 'text',
+        model: 'openai/gpt-4o'
+      });
+
+      if (!aiResponse.success || !aiResponse.response) {
+        throw new Error(aiResponse.error || 'Failed to get AI response');
+      }
+
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `${randomResponse}\n\n${randomDetailedResponse}\n\nIs there anything specific about this topic you'd like me to clarify further?`,
+        content: aiResponse.response,
         timestamp: new Date().toISOString(),
       };
 
       setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      
+      // Fallback to a simple error message
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

@@ -22,10 +22,10 @@ export const authOptions: NextAuthOptions = {
               idToken: account.id_token,
               platform: 'web',
               deviceInfo: {
-                sessionId: crypto.randomUUID(),
+                sessionId: 'web-session-' + Date.now(),
                 platform: 'web',
-                userAgent: navigator.userAgent,
-                screenResolution: `${screen.width}x${screen.height}`,
+                userAgent: 'web-client',
+                screenResolution: 'unknown',
               },
             }),
           });

@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { mockFlashcards } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { getFlashcardSets } from '@/utils/flashcardSets';
+import { flashcardsApi } from '@/services/dataService';
+import { useAuth } from '@/hooks/useAuth';
 import type { Flashcard } from '@/types/study';
 import type { FlashcardSet } from '@/utils/flashcardSets';
 
@@ -164,6 +166,7 @@ const mockFlashcardSets = [
 ];
 
 export default function FlashcardsPage() {
+  const { isAuthenticated } = useAuth();
   const [flashcards] = useState<Flashcard[]>(mockFlashcards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -178,11 +181,54 @@ export default function FlashcardsPage() {
   const [userFlashcardSets, setUserFlashcardSets] = useState<FlashcardSet[]>([]);
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
 
-  // Load user-generated flashcard sets
+  // Load user-generated flashcard sets and backend flashcards
   useEffect(() => {
-    const loadFlashcardSets = () => {
+    const loadFlashcardSets = async () => {
+      // Load local flashcard sets
       const userSets = getFlashcardSets();
-      const allSets = [...userSets, ...mockFlashcardSets];
+      let backendSets: FlashcardSet[] = [];
+      
+      // Load from backend if authenticated
+      if (isAuthenticated) {
+        try {
+          const response = await flashcardsApi.getAll();
+          if (response.success && response.flashcards) {
+            // Group backend flashcards by set
+            const setMap = new Map<string, any>();
+            
+            response.flashcards.forEach((card: any) => {
+              if (!setMap.has(card.set_id)) {
+                setMap.set(card.set_id, {
+                  id: card.set_id,
+                  name: card.set_name,
+                  description: card.set_description || '',
+                  cardCount: 0,
+                  createdAt: card.created_at,
+                  source: 'backend',
+                  flashcards: [],
+                });
+              }
+              
+              const set = setMap.get(card.set_id);
+              set.flashcards.push({
+                id: card.id.toString(),
+                question: card.front,
+                answer: card.back,
+                category: card.set_name,
+                difficulty: card.difficulty || 'Medium',
+                createdAt: card.created_at,
+              });
+              set.cardCount++;
+            });
+            
+            backendSets = Array.from(setMap.values());
+          }
+        } catch (error) {
+          console.error('Failed to load flashcards from backend:', error);
+        }
+      }
+      
+      const allSets = [...backendSets, ...userSets, ...mockFlashcardSets];
       setUserFlashcardSets(userSets);
       setAllFlashcardSets(allSets);
     };
