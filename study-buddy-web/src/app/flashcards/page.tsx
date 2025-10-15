@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, RotateCcw, Shuffle, CheckCircle, XCircle, Zap, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw, Shuffle, CheckCircle, XCircle, Zap, BookOpen, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { mockFlashcards } from '@/data/mockData';
@@ -182,8 +182,7 @@ export default function FlashcardsPage() {
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
 
   // Load user-generated flashcard sets and backend flashcards
-  useEffect(() => {
-    const loadFlashcardSets = async () => {
+  const loadFlashcardSets = async () => {
       // Load local flashcard sets
       const userSets = getFlashcardSets();
       let backendSets: FlashcardSet[] = [];
@@ -191,8 +190,11 @@ export default function FlashcardsPage() {
       // Load from backend if authenticated
       if (isAuthenticated) {
         try {
+          console.log('🔄 Loading flashcards from backend...');
           const response = await flashcardsApi.getAll();
+          console.log('📄 Backend response:', response);
           if (response.success && response.flashcards) {
+            console.log('✅ Backend flashcards loaded:', response.flashcards.length);
             // Group backend flashcards by set
             interface FlashcardSetData {
               id: string;
@@ -257,7 +259,23 @@ export default function FlashcardsPage() {
       setAllFlashcardSets(allSets);
     };
 
+  // Load flashcards on component mount and when authentication changes
+  useEffect(() => {
     loadFlashcardSets();
+  }, [isAuthenticated]);
+
+  // Refresh flashcards when page becomes visible (user switches back from mobile app)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated) {
+        console.log('🔄 Page became visible, refreshing flashcards...');
+        loadFlashcardSets();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated]);
 
     // Listen for flashcard set updates
     const handleFlashcardSetsUpdate = (e: CustomEvent) => {
@@ -485,6 +503,18 @@ export default function FlashcardsPage() {
           <p className="text-gray-600 mt-1">Study your flashcards and test your knowledge</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              loadFlashcardSets();
+            }} 
+            variant="outline"
+            className="flex items-center gap-2"
+            title="Refresh flashcards from backend"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </Button>
           <Button 
             onClick={() => setShowSetSelector(true)} 
             className="flex items-center gap-2 bg-purple-600 text-white hover:bg-purple-700"

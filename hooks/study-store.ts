@@ -301,7 +301,9 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
           toBackendFormat(card, setInfo)
         );
         
-        await flashcardsApi.sync('mobile', flashcardsForBackend);
+        console.log('🔄 Syncing flashcards to backend:', flashcardsForBackend.length, 'cards');
+        const syncResponse = await flashcardsApi.sync('mobile', flashcardsForBackend);
+        console.log('✅ Backend sync successful:', syncResponse);
       }
     } catch (backendError) {
       console.error('Failed to sync flashcards to backend:', backendError?.message || backendError || 'Unknown error');
