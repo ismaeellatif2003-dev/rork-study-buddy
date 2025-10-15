@@ -278,7 +278,7 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
   // Subscription limits will be checked at the component level
 
   // Add flashcards for a note
-  const addFlashcards = useCallback(async (noteId: string, newFlashcards: Omit<Flashcard, 'id'>[]) => {
+  const addFlashcards = useCallback(async (noteId: string, newFlashcards: Omit<Flashcard, 'id'>[], noteTitle?: string) => {
     const flashcardsWithIds = newFlashcards.map(card => ({
       ...card,
       id: `${noteId}_${Date.now()}_${Math.random()}`,
@@ -293,8 +293,8 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
       if (authToken) {
         const setInfo = {
           set_id: `mobile-${noteId}`,
-          set_name: `Flashcards from Note ${noteId}`,
-          set_description: `Mobile-generated flashcards`,
+          set_name: noteTitle ? `Flashcards from "${noteTitle}"` : `Flashcards from Note ${noteId}`,
+          set_description: noteTitle ? `AI-generated flashcards from your note: ${noteTitle}` : `Mobile-generated flashcards`,
         };
         
         const flashcardsForBackend = newFlashcards.map(card => 

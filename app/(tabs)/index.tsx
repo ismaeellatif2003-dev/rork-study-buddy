@@ -112,7 +112,7 @@ export default function NotesScreen() {
         return;
       }
       
-      await addFlashcards(note.id, flashcards);
+      await addFlashcards(note.id, flashcards, note.title);
       await trackFlashcardGeneration(flashcards.length);
       
       const enhancementText = useAIEnhancement ? ' AI-enhanced' : '';

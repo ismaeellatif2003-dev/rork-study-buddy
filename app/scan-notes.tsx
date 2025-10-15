@@ -263,7 +263,7 @@ Date: ${new Date().toLocaleDateString()}
           }},
           { 
             text: 'Generate Cards', 
-            onPress: () => generateFlashcardsFromNote(savedNote.id, contentToSave)
+            onPress: () => generateFlashcardsFromNote(savedNote.id, contentToSave, savedNote.title)
           },
         ]
       );
@@ -273,7 +273,7 @@ Date: ${new Date().toLocaleDateString()}
     }
   };
 
-  const generateFlashcardsFromNote = async (noteId: string, content: string) => {
+  const generateFlashcardsFromNote = async (noteId: string, content: string, noteTitle: string) => {
     try {
       // Always generate minimum 5 flashcards
       const flashcardsData = await AIService.generateFlashcards(content, 5);
@@ -288,7 +288,7 @@ Date: ${new Date().toLocaleDateString()}
         return;
       }
       
-      await addFlashcards(noteId, flashcards);
+      await addFlashcards(noteId, flashcards, noteTitle);
       await trackFlashcardGeneration(flashcards.length);
       
       Alert.alert('Success', `Generated ${flashcards.length} AI-enhanced flashcards!`, [
