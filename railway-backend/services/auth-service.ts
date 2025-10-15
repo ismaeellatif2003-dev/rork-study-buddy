@@ -28,6 +28,16 @@ export class AuthService {
       // Get the appropriate client ID based on platform
       const clientId = this.getClientIdForPlatform(platform);
       
+      console.log('🔐 Authenticating user:', {
+        platform,
+        clientId: clientId ? clientId.substring(0, 20) + '...' : 'MISSING',
+        hasIdToken: !!idToken
+      });
+      
+      if (!clientId) {
+        throw new Error(`No client ID configured for platform: ${platform}. Please set GOOGLE_IOS_CLIENT_ID or GOOGLE_WEB_CLIENT_ID in environment variables.`);
+      }
+      
       // Verify Google ID token
       const ticket = await this.googleClient.verifyIdToken({
         idToken,
@@ -40,6 +50,8 @@ export class AuthService {
       }
 
       const { sub: googleId, email, name, picture } = payload;
+      
+      console.log('✅ Token verified for user:', email);
 
       // Get or create user
       let user = await this.databaseService.getUserByGoogleId(googleId);

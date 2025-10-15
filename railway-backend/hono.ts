@@ -1044,15 +1044,37 @@ app.post("/auth/google", async (c) => {
   try {
     const { idToken, platform, deviceInfo } = await c.req.json();
     
+    console.log('🔐 Auth request received:', { 
+      platform, 
+      hasIdToken: !!idToken,
+      deviceInfo: deviceInfo ? 'present' : 'missing'
+    });
+    
     if (!idToken) {
+      console.error('❌ Missing ID token');
       return c.json({ error: "ID token is required" }, 400);
     }
 
+    // Log environment variable status
+    console.log('🔧 Environment check:', {
+      hasWebClientId: !!process.env.GOOGLE_WEB_CLIENT_ID,
+      hasIosClientId: !!process.env.GOOGLE_IOS_CLIENT_ID,
+      platform
+    });
+
     const result = await authService.authenticateUser(idToken, platform, deviceInfo);
+    console.log('✅ Authentication successful for user:', result.user.email);
     return c.json(result);
-  } catch (error) {
-    console.error("Google auth error:", error);
-    return c.json({ error: "Authentication failed" }, 500);
+  } catch (error: any) {
+    console.error("❌ Google auth error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return c.json({ 
+      error: "Authentication failed",
+      details: error.message 
+    }, 500);
   }
 });
 
