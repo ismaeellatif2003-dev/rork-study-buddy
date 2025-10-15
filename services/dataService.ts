@@ -20,14 +20,42 @@ const authFetch = async (endpoint: string, options: RequestInit = {}) => {
     ...options.headers,
   };
 
+  console.log('🔐 Making authenticated request:', {
+    endpoint,
+    hasToken: !!token,
+    tokenPrefix: token.substring(0, 20) + '...',
+    url: `${API_BASE}${endpoint}`
+  });
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Request failed');
+    console.log('❌ Request failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url
+    });
+    
+    let errorMessage = 'Request failed';
+    try {
+      const error = await response.json();
+      errorMessage = error.error || errorMessage;
+      console.log('📄 JSON error response:', error);
+    } catch (parseError) {
+      // If response is not JSON, try to get text
+      try {
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+        console.log('📄 Text error response:', errorText);
+      } catch (textError) {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        console.log('📄 Could not parse error response:', textError);
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -72,6 +100,13 @@ export const flashcardsApi = {
     return authFetch('/flashcards', {
       method: 'POST',
       body: JSON.stringify(flashcardsData),
+    });
+  },
+
+  async sync(platform: 'mobile' | 'web', flashcards: any[]) {
+    return authFetch('/flashcards/sync', {
+      method: 'POST',
+      body: JSON.stringify({ platform, flashcards }),
     });
   },
 };

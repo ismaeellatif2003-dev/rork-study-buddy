@@ -3,6 +3,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Note, Flashcard, ChatMessage, StudySession } from '@/types/study';
 import { notesApi, flashcardsApi } from '@/services/dataService';
+import { toBackendFormat, toMobileFormat } from '@/utils/flashcard-sync';
 
 
 const STORAGE_KEYS = {
@@ -51,16 +52,8 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
             }
 
             if (flashcardsResponse.success && flashcardsResponse.flashcards) {
-              // Process flashcards from backend
-              const backendFlashcards = flashcardsResponse.flashcards.map((card: any) => ({
-                id: card.id.toString(),
-                question: card.front,
-                answer: card.back,
-                set: card.set_name,
-                difficulty: card.difficulty || 'medium',
-                createdAt: new Date(card.created_at),
-                updatedAt: new Date(card.updated_at),
-              }));
+              // Process flashcards from backend using normalization
+              const backendFlashcards = flashcardsResponse.flashcards.map(toMobileFormat);
               setFlashcards(backendFlashcards);
               await AsyncStorage.setItem(STORAGE_KEYS.FLASHCARDS, JSON.stringify(backendFlashcards));
             }
@@ -293,12 +286,57 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     
     const updatedFlashcards = [...flashcards, ...flashcardsWithIds];
     await saveFlashcards(updatedFlashcards);
+
+    // Sync to backend if authenticated
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (authToken) {
+        const setInfo = {
+          set_id: `mobile-${noteId}`,
+          set_name: `Flashcards from Note ${noteId}`,
+          set_description: `Mobile-generated flashcards`,
+        };
+        
+        const flashcardsForBackend = newFlashcards.map(card => 
+          toBackendFormat(card, setInfo)
+        );
+        
+        await flashcardsApi.sync('mobile', flashcardsForBackend);
+      }
+    } catch (backendError) {
+      console.error('Failed to sync flashcards to backend:', backendError?.message || backendError || 'Unknown error');
+      // Don't fail the whole operation if backend sync fails
+    }
   }, [flashcards, saveFlashcards]);
 
   // Get flashcards for a specific note
   const getFlashcardsForNote = useCallback((noteId: string) => {
     return flashcards.filter(card => card.noteId === noteId);
   }, [flashcards]);
+
+  // Get all flashcard sets (grouped by set_id or noteId)
+  const getFlashcardSets = useCallback(() => {
+    const setMap = new Map<string, any>();
+    
+    flashcards.forEach(card => {
+      const setId = card.set || card.noteId || 'default';
+      const setName = card.set || `Note: ${notes.find(n => n.id === card.noteId)?.title || 'Unknown'}`;
+      
+      if (!setMap.has(setId)) {
+        setMap.set(setId, {
+          id: setId,
+          name: setName,
+          flashcards: [],
+          source: card.noteId ? 'note' : 'set',
+          noteId: card.noteId,
+        });
+      }
+      
+      setMap.get(setId).flashcards.push(card);
+    });
+    
+    return Array.from(setMap.values());
+  }, [flashcards, notes]);
 
   // Subscription limits will be checked at the component level
 
@@ -345,7 +383,8 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
     deleteNote,
     addFlashcards,
     getFlashcardsForNote,
+    getFlashcardSets,
     addMessageToSession,
     getSessionForNote,
-  }), [notes, flashcards, sessions, isLoading, saveNote, updateNote, deleteNote, addFlashcards, getFlashcardsForNote, addMessageToSession, getSessionForNote]);
+  }), [notes, flashcards, sessions, isLoading, saveNote, updateNote, deleteNote, addFlashcards, getFlashcardsForNote, getFlashcardSets, addMessageToSession, getSessionForNote]);
 });
