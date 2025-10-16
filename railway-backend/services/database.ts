@@ -22,6 +22,9 @@ export interface User {
   picture?: string;
   mobile_device_id?: string;
   web_session_id?: string;
+  age?: number;
+  education_level?: string;
+  is_onboarding_complete: boolean;
   created_at: Date;
   updated_at: Date;
   last_login_at: Date;
@@ -191,6 +194,72 @@ export class DatabaseService {
   async updateUserWebSession(userId: number, sessionId: string): Promise<void> {
     const query = 'UPDATE users SET web_session_id = $1, updated_at = NOW() WHERE id = $2';
     await this.pool.query(query, [sessionId, userId]);
+  }
+
+  // User profile management
+  async updateUserProfile(userId: number, profileData: {
+    age?: number;
+    educationLevel?: string;
+    isOnboardingComplete?: boolean;
+  }): Promise<User> {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
+
+    if (profileData.age !== undefined) {
+      updates.push(`age = $${paramCount}`);
+      values.push(profileData.age);
+      paramCount++;
+    }
+
+    if (profileData.educationLevel !== undefined) {
+      updates.push(`education_level = $${paramCount}`);
+      values.push(profileData.educationLevel);
+      paramCount++;
+    }
+
+    if (profileData.isOnboardingComplete !== undefined) {
+      updates.push(`is_onboarding_complete = $${paramCount}`);
+      values.push(profileData.isOnboardingComplete);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No profile data provided for update');
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(userId);
+
+    const query = `
+      UPDATE users 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING *
+    `;
+
+    const result = await this.pool.query(query, values);
+    return result.rows[0];
+  }
+
+  async getUserProfile(userId: number): Promise<{
+    age?: number;
+    educationLevel?: string;
+    isOnboardingComplete: boolean;
+  } | null> {
+    const query = 'SELECT age, education_level, is_onboarding_complete FROM users WHERE id = $1';
+    const result = await this.pool.query(query, [userId]);
+    
+    if (!result.rows[0]) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      age: row.age,
+      educationLevel: row.education_level,
+      isOnboardingComplete: row.is_onboarding_complete
+    };
   }
 
   // Subscription management

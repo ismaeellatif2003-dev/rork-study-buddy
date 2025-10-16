@@ -20,7 +20,7 @@ import { googleAuthService } from '@/utils/google-auth';
 import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
-  const { profile, updateProfile, isLoading, isOnboardingComplete } = useUserProfile();
+  const { profile, updateProfile, isLoading, isOnboardingComplete, loadProfileFromBackend } = useUserProfile();
   const { subscription, getCurrentPlan, activateTestProPlan, syncWithBackend } = useSubscription();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +81,7 @@ export default function SettingsScreen() {
   const handleGoogleSignInSuccess = async () => {
     await checkGoogleSignInStatus();
     await syncWithBackend();
+    await loadProfileFromBackend();
   };
 
   const handleGoogleSignOutSuccess = async () => {

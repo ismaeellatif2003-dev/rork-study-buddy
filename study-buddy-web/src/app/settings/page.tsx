@@ -9,6 +9,7 @@ import { getUserProfile, updateUserProfile, getEducationLevels, type UserProfile
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { GoogleSignIn } from '@/components/auth/GoogleSignIn';
+import { profileApi } from '@/services/dataService';
 
 export default function SettingsPage() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
@@ -65,6 +66,47 @@ export default function SettingsPage() {
     });
   }, []);
 
+  // Load profile from backend when authenticated
+  useEffect(() => {
+    const loadProfileFromBackend = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        console.log('🔄 Loading profile from backend...');
+        const response = await profileApi.get();
+        
+        if (response.success && response.profile) {
+          const backendProfile = response.profile;
+          
+          // Update local profile with backend data
+          const updatedProfile = {
+            ...userProfile,
+            age: backendProfile.age,
+            educationLevel: backendProfile.educationLevel,
+            accountType: userProfile.accountType, // Keep existing account type
+          };
+          
+          // Only update if we have meaningful data from backend
+          if (backendProfile.age || backendProfile.educationLevel) {
+            updateUserProfile(updatedProfile);
+            setUserProfile(updatedProfile);
+            setEditForm({
+              name: updatedProfile.name,
+              email: updatedProfile.email,
+              age: updatedProfile.age?.toString() || '',
+              educationLevel: updatedProfile.educationLevel,
+            });
+            console.log('✅ Profile loaded from backend:', updatedProfile);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load profile from backend:', error?.message || error || 'Unknown error');
+      }
+    };
+
+    loadProfileFromBackend();
+  }, [isAuthenticated, userProfile]);
+
   // Listen for profile updates
   useEffect(() => {
     const handleProfileUpdate = (e: CustomEvent) => {
@@ -101,7 +143,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     const updatedProfile = {
       name: editForm.name,
       email: editForm.email,
@@ -112,6 +154,21 @@ export default function SettingsPage() {
     
     updateUserProfile(updatedProfile);
     setIsEditingProfile(false);
+    
+    // Sync to backend if authenticated
+    if (isAuthenticated) {
+      try {
+        console.log('🔄 Syncing profile update to backend...');
+        await profileApi.sync('web', {
+          age: updatedProfile.age,
+          educationLevel: updatedProfile.educationLevel,
+          isOnboardingComplete: true // Assume onboarding is complete if user is editing profile
+        });
+        console.log('✅ Profile update synced to backend successfully');
+      } catch (error) {
+        console.error('Failed to sync profile update to backend:', error?.message || error || 'Unknown error');
+      }
+    }
   };
 
   const handleCancelEdit = () => {

@@ -156,11 +156,41 @@ export const syncApi = {
   },
 };
 
+// Profile API
+export const profileApi = {
+  async get() {
+    return authFetch('/profile');
+  },
+
+  async update(profileData: {
+    age?: number;
+    educationLevel?: string;
+    isOnboardingComplete?: boolean;
+  }) {
+    return authFetch('/profile', {
+      method: 'POST',
+      body: JSON.stringify(profileData),
+    });
+  },
+
+  async sync(platform: 'mobile' | 'web', profile: {
+    age?: number;
+    educationLevel?: string;
+    isOnboardingComplete?: boolean;
+  }) {
+    return authFetch('/profile/sync', {
+      method: 'POST',
+      body: JSON.stringify({ platform, profile }),
+    });
+  },
+};
+
 export default {
   notes: notesApi,
   flashcards: flashcardsApi,
   essays: essaysApi,
   chat: chatApi,
   sync: syncApi,
+  profile: profileApi,
 };
 

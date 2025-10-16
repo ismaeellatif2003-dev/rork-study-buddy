@@ -13,6 +13,9 @@ CREATE TABLE users (
   picture TEXT,
   mobile_device_id VARCHAR(255), -- For mobile app linking
   web_session_id VARCHAR(255),   -- For web session tracking
+  age INTEGER,                   -- User's age
+  education_level VARCHAR(50),   -- User's education level
+  is_onboarding_complete BOOLEAN DEFAULT false, -- Whether user completed onboarding
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   last_login_at TIMESTAMP DEFAULT NOW()
@@ -130,6 +133,7 @@ CREATE TABLE mobile_subscriptions (
 -- Indexes for better performance
 CREATE INDEX idx_users_google_id ON users(google_id);
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_onboarding ON users(is_onboarding_complete);
 CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_active ON subscriptions(is_active);
 CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);

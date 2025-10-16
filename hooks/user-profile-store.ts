@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { UserProfile, EducationLevel } from '@/types/study';
+import { profileApi } from '@/services/dataService';
 
 const STORAGE_KEY = 'study_buddy_user_profile';
 
@@ -91,6 +92,22 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     
     const updatedProfile = { ...profile, ...updates };
     await saveProfile(updatedProfile);
+    
+    // Sync to backend if authenticated
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (authToken) {
+        console.log('🔄 Syncing profile update to backend...');
+        await profileApi.sync('mobile', {
+          age: updatedProfile.age,
+          educationLevel: updatedProfile.educationLevel,
+          isOnboardingComplete: updatedProfile.isOnboardingComplete
+        });
+        console.log('✅ Profile update synced to backend successfully');
+      }
+    } catch (backendError) {
+      console.error('Failed to sync profile update to backend:', backendError?.message || backendError || 'Unknown error');
+    }
   }, [profile, saveProfile]);
 
   // Complete onboarding
@@ -101,6 +118,50 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
       isOnboardingComplete: true,
     };
     await saveProfile(newProfile);
+    
+    // Sync to backend if authenticated
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (authToken) {
+        console.log('🔄 Syncing profile to backend after onboarding...');
+        await profileApi.sync('mobile', {
+          age,
+          educationLevel,
+          isOnboardingComplete: true
+        });
+        console.log('✅ Profile synced to backend successfully');
+      }
+    } catch (backendError) {
+      console.error('Failed to sync profile to backend:', backendError?.message || backendError || 'Unknown error');
+    }
+  }, [saveProfile]);
+
+  // Load profile from backend
+  const loadProfileFromBackend = useCallback(async () => {
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (!authToken) return;
+      
+      console.log('🔄 Loading profile from backend...');
+      const response = await profileApi.get();
+      
+      if (response.success && response.profile) {
+        const backendProfile = response.profile;
+        const localProfile: UserProfile = {
+          age: backendProfile.age,
+          educationLevel: backendProfile.educationLevel,
+          isOnboardingComplete: backendProfile.isOnboardingComplete
+        };
+        
+        // Only update if we have meaningful data from backend
+        if (backendProfile.age || backendProfile.educationLevel || backendProfile.isOnboardingComplete) {
+          await saveProfile(localProfile);
+          console.log('✅ Profile loaded from backend:', localProfile);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load profile from backend:', error?.message || error || 'Unknown error');
+    }
   }, [saveProfile]);
 
   // Get education level context for AI
@@ -132,7 +193,8 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     saveProfile,
     updateProfile,
     completeOnboarding,
+    loadProfileFromBackend,
     getEducationContext,
     isOnboardingComplete,
-  }), [profile, isLoading, saveProfile, updateProfile, completeOnboarding, getEducationContext, isOnboardingComplete]);
+  }), [profile, isLoading, saveProfile, updateProfile, completeOnboarding, loadProfileFromBackend, getEducationContext, isOnboardingComplete]);
 });

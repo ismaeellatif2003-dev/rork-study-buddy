@@ -1147,6 +1147,108 @@ app.post("/usage/update", async (c) => {
   }
 });
 
+// ==================== USER PROFILE ENDPOINTS ====================
+
+// Get user profile
+app.get("/profile", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const profile = await databaseService.getUserProfile(decoded.userId);
+    
+    return c.json({ success: true, profile });
+  } catch (error: any) {
+    console.error("Get profile error:", error);
+    return c.json({ error: "Failed to get profile" }, 500);
+  }
+});
+
+// Update user profile
+app.post("/profile", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { age, educationLevel, isOnboardingComplete } = await c.req.json();
+    
+    const updatedUser = await databaseService.updateUserProfile(decoded.userId, {
+      age,
+      educationLevel,
+      isOnboardingComplete
+    });
+    
+    return c.json({ success: true, user: updatedUser });
+  } catch (error: any) {
+    console.error("Update profile error:", error);
+    return c.json({ error: "Failed to update profile" }, 500);
+  }
+});
+
+// Sync user profile (for cross-platform sync)
+app.post("/profile/sync", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { platform, profile } = await c.req.json();
+    
+    console.log("🔄 Profile sync request received from:", platform);
+    
+    // Validate platform
+    if (!['mobile', 'web'].includes(platform)) {
+      return c.json({ error: "Invalid platform. Must be 'mobile' or 'web'" }, 400);
+    }
+    
+    // Update profile in database
+    const updatedUser = await databaseService.updateUserProfile(decoded.userId, {
+      age: profile.age,
+      educationLevel: profile.educationLevel,
+      isOnboardingComplete: profile.isOnboardingComplete
+    });
+    
+    // Log sync event
+    await databaseService.createSyncEvent({
+      userId: decoded.userId,
+      eventType: 'profile_sync',
+      data: {
+        platform,
+        profile: {
+          age: profile.age,
+          educationLevel: profile.educationLevel,
+          isOnboardingComplete: profile.isOnboardingComplete
+        }
+      },
+      platform
+    });
+    
+    return c.json({ 
+      success: true, 
+      profile: {
+        age: updatedUser.age,
+        educationLevel: updatedUser.education_level,
+        isOnboardingComplete: updatedUser.is_onboarding_complete
+      },
+      platform 
+    });
+  } catch (error: any) {
+    console.error("Profile sync error:", error);
+    return c.json({ error: "Failed to sync profile" }, 500);
+  }
+});
+
 // ==================== NOTES ENDPOINTS ====================
 
 app.get("/notes", async (c) => {
@@ -1448,6 +1550,11 @@ app.get("/", (c) => {
       },
       usage: {
         update: "/usage/update"
+      },
+      profile: {
+        get: "GET /profile",
+        update: "POST /profile",
+        sync: "POST /profile/sync"
       },
       notes: {
         getAll: "GET /notes",

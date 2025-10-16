@@ -137,12 +137,14 @@ export class AuthService {
       const usage = await this.databaseService.getUserUsageStats(userId);
       const notes = await this.databaseService.getUserNotes(userId);
       const flashcards = await this.databaseService.getUserFlashcards(userId);
+      const profile = await this.databaseService.getUserProfile(userId);
 
       return {
         subscription: subscription || { plan: 'free', isActive: true, expiresAt: null },
         usage: usage || { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 },
         notes,
         flashcards,
+        profile: profile || { age: null, educationLevel: null, isOnboardingComplete: false },
       };
     } catch (error) {
       console.error('Sync error:', error);
