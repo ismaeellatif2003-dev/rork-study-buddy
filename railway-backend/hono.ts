@@ -1202,10 +1202,19 @@ app.post("/profile/sync", async (c) => {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwtService.verifyToken(token);
-    const { platform, profile } = await c.req.json();
+    console.log("🔐 Profile sync token received:", token.substring(0, 20) + "...");
     
-    console.log("🔄 Profile sync request received from:", platform);
+    let decoded;
+    try {
+      decoded = jwtService.verifyToken(token);
+      console.log("✅ JWT verification successful for user:", decoded.userId);
+    } catch (jwtError) {
+      console.error("❌ JWT verification failed:", jwtError);
+      return c.json({ error: "Invalid or expired token" }, 401);
+    }
+    
+    const { platform, profile } = await c.req.json();
+    console.log("🔄 Profile sync request received from:", platform, "with profile:", profile);
     
     // Validate platform
     if (!['mobile', 'web'].includes(platform)) {
@@ -1213,11 +1222,13 @@ app.post("/profile/sync", async (c) => {
     }
     
     // Update profile in database
+    console.log("💾 Updating user profile in database for user:", decoded.userId);
     const updatedUser = await databaseService.updateUserProfile(decoded.userId, {
       age: profile.age,
       educationLevel: profile.educationLevel,
       isOnboardingComplete: profile.isOnboardingComplete
     });
+    console.log("✅ Profile updated in database:", updatedUser);
     
     // Log sync event
     await databaseService.createSyncEvent({

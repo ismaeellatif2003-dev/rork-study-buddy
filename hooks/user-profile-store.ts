@@ -97,13 +97,17 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     try {
       const authToken = await AsyncStorage.getItem('authToken');
       if (authToken) {
-        console.log('🔄 Syncing profile update to backend...');
-        await profileApi.sync('mobile', {
+        console.log('🔄 Syncing profile update to backend...', { 
+          age: updatedProfile.age, 
+          educationLevel: updatedProfile.educationLevel, 
+          isOnboardingComplete: updatedProfile.isOnboardingComplete 
+        });
+        const syncResponse = await profileApi.sync('mobile', {
           age: updatedProfile.age,
           educationLevel: updatedProfile.educationLevel,
           isOnboardingComplete: updatedProfile.isOnboardingComplete
         });
-        console.log('✅ Profile update synced to backend successfully');
+        console.log('✅ Profile update synced to backend successfully:', syncResponse);
       }
     } catch (backendError) {
       console.error('Failed to sync profile update to backend:', backendError?.message || backendError || 'Unknown error');
@@ -123,13 +127,13 @@ export const [UserProfileProvider, useUserProfile] = createContextHook(() => {
     try {
       const authToken = await AsyncStorage.getItem('authToken');
       if (authToken) {
-        console.log('🔄 Syncing profile to backend after onboarding...');
-        await profileApi.sync('mobile', {
+        console.log('🔄 Syncing profile to backend after onboarding...', { age, educationLevel });
+        const syncResponse = await profileApi.sync('mobile', {
           age,
           educationLevel,
           isOnboardingComplete: true
         });
-        console.log('✅ Profile synced to backend successfully');
+        console.log('✅ Profile synced to backend successfully:', syncResponse);
       }
     } catch (backendError) {
       console.error('Failed to sync profile to backend:', backendError?.message || backendError || 'Unknown error');
