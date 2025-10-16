@@ -51,3 +51,16 @@ export function CardFooter({ children, className = '' }: CardFooterProps) {
     </div>
   );
 }
+
+interface CardTitleProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function CardTitle({ children, className = '' }: CardTitleProps) {
+  return (
+    <h3 className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}>
+      {children}
+    </h3>
+  );
+}
