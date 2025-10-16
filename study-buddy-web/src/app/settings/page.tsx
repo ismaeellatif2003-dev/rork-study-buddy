@@ -85,11 +85,12 @@ export default function SettingsPage() {
             ...userProfile,
             age: backendProfile.age,
             educationLevel: backendProfile.educationLevel,
-            accountType: userProfile.accountType, // Keep existing account type
+            accountType: userProfile?.accountType || 'free', // Keep existing account type
+            isOnboardingComplete: backendProfile.isOnboardingComplete
           };
           
           // Only update if we have meaningful data from backend
-          if (backendProfile.age || backendProfile.educationLevel) {
+          if (backendProfile.age || backendProfile.educationLevel || backendProfile.isOnboardingComplete !== undefined) {
             updateUserProfile(updatedProfile);
             setUserProfile(updatedProfile);
             setEditForm({
@@ -138,20 +139,24 @@ export default function SettingsPage() {
   const handleEditProfile = () => {
     setIsEditingProfile(true);
     setEditForm({
-      name: user?.name || userProfile.name,
-      email: user?.email || userProfile.email,
-      age: userProfile.age?.toString() || '',
-      educationLevel: userProfile.educationLevel,
+      name: user?.name || userProfile?.name || '',
+      email: user?.email || userProfile?.email || '',
+      age: userProfile?.age?.toString() || '',
+      educationLevel: userProfile?.educationLevel || '',
     });
   };
 
   const handleSaveProfile = async () => {
+    // Determine onboarding completion status
+    const isOnboardingComplete = !!(editForm.age && editForm.educationLevel);
+    
     const updatedProfile = {
       name: editForm.name,
       email: editForm.email,
       age: editForm.age ? parseInt(editForm.age) : null,
       educationLevel: editForm.educationLevel,
-      accountType: userProfile.accountType,
+      accountType: userProfile?.accountType || 'free',
+      isOnboardingComplete: isOnboardingComplete,
     };
     
     updateUserProfile(updatedProfile);
@@ -161,10 +166,11 @@ export default function SettingsPage() {
     if (isAuthenticated) {
       try {
         console.log('🔄 Syncing profile update to backend...');
+        
         await profileApi.sync('web', {
           age: updatedProfile.age,
           educationLevel: updatedProfile.educationLevel,
-          isOnboardingComplete: true // Assume onboarding is complete if user is editing profile
+          isOnboardingComplete: updatedProfile.isOnboardingComplete
         });
         console.log('✅ Profile update synced to backend successfully');
       } catch (error) {
@@ -176,10 +182,10 @@ export default function SettingsPage() {
   const handleCancelEdit = () => {
     setIsEditingProfile(false);
     setEditForm({
-      name: user?.name || userProfile.name,
-      email: user?.email || userProfile.email,
-      age: userProfile.age?.toString() || '',
-      educationLevel: userProfile.educationLevel,
+      name: user?.name || userProfile?.name || '',
+      email: user?.email || userProfile?.email || '',
+      age: userProfile?.age?.toString() || '',
+      educationLevel: userProfile?.educationLevel || '',
     });
   };
 
@@ -251,8 +257,8 @@ export default function SettingsPage() {
               <>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900 dark:text-white">{user?.name || userProfile.name}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">{user?.email || userProfile.email}</div>
+                    <div className="font-medium text-gray-900 dark:text-white">{user?.name || userProfile?.name || 'User'}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{user?.email || userProfile?.email || 'No email'}</div>
                   </div>
                   <Button size="sm" onClick={handleEditProfile} className="bg-gray-600 text-white hover:bg-gray-700">
                     <Edit3 size={16} className="mr-1" />
@@ -264,13 +270,13 @@ export default function SettingsPage() {
                   <div>
                     <div className="font-medium text-gray-900">Age</div>
                     <div className="text-sm text-gray-600">
-                      {userProfile.age ? `${userProfile.age} years old` : 'Not specified'}
+                      {userProfile?.age ? `${userProfile.age} years old` : 'Not specified'}
                     </div>
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Education Level</div>
                     <div className="text-sm text-gray-600">
-                      {userProfile.educationLevel ? 
+                      {userProfile?.educationLevel ? 
                         getEducationLevels().find(level => level.value === userProfile.educationLevel)?.label || userProfile.educationLevel
                         : 'Not specified'
                       }
@@ -281,7 +287,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium text-gray-900">Account Type</div>
-                    <div className="text-sm text-gray-600">{userProfile.accountType}</div>
+                    <div className="text-sm text-gray-600">{userProfile?.accountType || 'Free'}</div>
                   </div>
                   <Button size="sm" onClick={() => window.location.href = '/subscription'} className="bg-blue-600 text-white hover:bg-blue-700">
                     Upgrade to Pro

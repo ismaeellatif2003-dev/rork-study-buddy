@@ -7,6 +7,7 @@ export interface UserProfile {
   age: number | null;
   educationLevel: string;
   accountType: string;
+  isOnboardingComplete?: boolean;
 }
 
 const STORAGE_KEY = 'studyBuddyUserProfile';
@@ -18,7 +19,8 @@ export const getUserProfile = (): UserProfile => {
       email: 'john.doe@example.com',
       age: null,
       educationLevel: '',
-      accountType: 'Free Plan'
+      accountType: 'Free Plan',
+      isOnboardingComplete: false
     };
   }
   
@@ -33,7 +35,8 @@ export const getUserProfile = (): UserProfile => {
     email: 'john.doe@example.com',
     age: null,
     educationLevel: '',
-    accountType: 'Free Plan'
+    accountType: 'Free Plan',
+    isOnboardingComplete: false
   };
   
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProfile));
