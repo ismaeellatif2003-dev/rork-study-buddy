@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Zap, MessageCircle, FileText, Crown, Settings } from 'lucide-react';
+import { BookOpen, Zap, MessageCircle, FileText, Crown, Settings, Video } from 'lucide-react';
 
 const navigationItems = [
   { href: '/notes', icon: BookOpen, label: 'Notes' },
   { href: '/flashcards', icon: Zap, label: 'Flashcards' },
   { href: '/chat', icon: MessageCircle, label: 'Ask AI' },
   { href: '/essay-writer', icon: FileText, label: 'Essay Writer' },
+  { href: '/video-analyzer', icon: Video, label: 'Video AI' },
   { href: '/subscription', icon: Crown, label: 'Pro' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
