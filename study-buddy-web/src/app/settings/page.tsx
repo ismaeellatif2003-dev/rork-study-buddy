@@ -38,7 +38,7 @@ export default function SettingsPage() {
     }
     localStorage.setItem('studyBuddyDarkMode', JSON.stringify(darkMode));
   }, [darkMode]);
-  const [userProfile, setUserProfile] = useState<UserProfile>(getUserProfile());
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -46,6 +46,7 @@ export default function SettingsPage() {
     age: '',
     educationLevel: '',
   });
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function SettingsPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Load user profile on component mount
+  // Load user profile on component mount (client-side only)
   useEffect(() => {
     const profile = getUserProfile();
     setUserProfile(profile);
@@ -64,12 +65,13 @@ export default function SettingsPage() {
       age: profile.age?.toString() || '',
       educationLevel: profile.educationLevel,
     });
+    setIsProfileLoaded(true);
   }, []);
 
   // Load profile from backend when authenticated
   useEffect(() => {
     const loadProfileFromBackend = async () => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !isProfileLoaded || !userProfile) return;
       
       try {
         console.log('🔄 Loading profile from backend...');
@@ -105,7 +107,7 @@ export default function SettingsPage() {
     };
 
     loadProfileFromBackend();
-  }, [isAuthenticated, userProfile]);
+  }, [isAuthenticated, isProfileLoaded, userProfile]);
 
   // Listen for profile updates
   useEffect(() => {
@@ -180,6 +182,20 @@ export default function SettingsPage() {
       educationLevel: userProfile.educationLevel,
     });
   };
+
+  // Show loading state until profile is loaded
+  if (!isProfileLoaded) {
+    return (
+      <div className="container mx-auto px-4 py-8 pb-24">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Settings</h1>
+          <div className="flex items-center justify-center py-8">
+            <div className="text-gray-600 dark:text-gray-400">Loading profile...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 pb-24">
