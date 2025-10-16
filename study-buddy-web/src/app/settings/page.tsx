@@ -71,14 +71,16 @@ export default function SettingsPage() {
   // Load profile from backend when authenticated
   useEffect(() => {
     const loadProfileFromBackend = async () => {
-      if (!isAuthenticated || !isProfileLoaded || !userProfile) return;
+      if (!isAuthenticated || !isProfileLoaded) return;
       
       try {
-        console.log('🔄 Loading profile from backend...');
+        console.log('🔄 Loading profile from backend...', { isAuthenticated, isProfileLoaded, userProfile });
         const response = await profileApi.get();
+        console.log('📄 Backend profile response:', response);
         
         if (response.success && response.profile) {
           const backendProfile = response.profile;
+          console.log('📊 Backend profile data:', backendProfile);
           
           // Update local profile with backend data
           const updatedProfile = {
@@ -90,7 +92,15 @@ export default function SettingsPage() {
           };
           
           // Only update if we have meaningful data from backend
-          if (backendProfile.age || backendProfile.educationLevel || backendProfile.isOnboardingComplete !== undefined) {
+          const hasBackendData = backendProfile.age || backendProfile.educationLevel || backendProfile.isOnboardingComplete !== undefined;
+          console.log('🔍 Backend data check:', { 
+            hasBackendData, 
+            age: backendProfile.age, 
+            educationLevel: backendProfile.educationLevel, 
+            isOnboardingComplete: backendProfile.isOnboardingComplete 
+          });
+          
+          if (hasBackendData) {
             updateUserProfile(updatedProfile);
             setUserProfile(updatedProfile);
             setEditForm({
@@ -100,7 +110,11 @@ export default function SettingsPage() {
               educationLevel: updatedProfile.educationLevel,
             });
             console.log('✅ Profile loaded from backend:', updatedProfile);
+          } else {
+            console.log('⚠️ No meaningful backend data found, keeping local profile');
           }
+        } else {
+          console.log('⚠️ No profile data in backend response');
         }
       } catch (error) {
         console.error('Failed to load profile from backend:', error?.message || error || 'Unknown error');
@@ -108,7 +122,7 @@ export default function SettingsPage() {
     };
 
     loadProfileFromBackend();
-  }, [isAuthenticated, isProfileLoaded, userProfile]);
+  }, [isAuthenticated, isProfileLoaded]); // Removed userProfile from dependencies to avoid circular updates
 
   // Listen for profile updates
   useEffect(() => {
