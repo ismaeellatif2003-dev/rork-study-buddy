@@ -104,11 +104,18 @@ export default function VideoAnalyzerPage() {
       hasSession: !!session,
       hasUser: !!session?.user,
       hasEmail: !!session?.user?.email,
-      email: session?.user?.email
+      email: session?.user?.email,
+      hasBackendToken: !!session?.backendToken,
+      sessionKeys: session ? Object.keys(session) : []
     });
 
     if (!session?.user?.email) {
       setError('You must be logged in to analyze videos.');
+      return;
+    }
+
+    if (!session?.backendToken) {
+      setError('Video analysis requires backend authentication. Please sign out and sign back in to refresh your authentication.');
       return;
     }
 
