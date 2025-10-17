@@ -151,6 +151,13 @@ export class DatabaseService {
     return !this.pool;
   }
 
+  private async executeQuery(query: string, params: any[] = []): Promise<any> {
+    if (this.isDevelopmentMode()) {
+      throw new Error('Database queries not available in development mode');
+    }
+    return await this.pool!.query(query, params);
+  }
+
   // Mock data for development
   private getMockUser(email: string): User {
     return {
@@ -175,7 +182,8 @@ export class DatabaseService {
       plan_id: 'free',
       is_active: true,
       created_at: new Date(),
-      expires_at: null,
+      updated_at: new Date(),
+      expires_at: undefined,
     };
   }
 
@@ -187,7 +195,7 @@ export class DatabaseService {
       messages: 0,
       essays: 0,
       ocr_scans: 0,
-      last_reset: new Date(),
+      updated_at: new Date(),
     };
   }
 
@@ -217,7 +225,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       userData.googleId,
       userData.email,
       userData.name,
@@ -228,29 +236,29 @@ export class DatabaseService {
 
   async getUserByGoogleId(googleId: string): Promise<User | null> {
     const query = 'SELECT * FROM users WHERE google_id = $1';
-    const result = await this.pool.query(query, [googleId]);
+    const result = await this.executeQuery(query, [googleId]);
     return result.rows[0] || null;
   }
 
   async getUserById(userId: number): Promise<User | null> {
     const query = 'SELECT * FROM users WHERE id = $1';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.executeQuery(query, [userId]);
     return result.rows[0] || null;
   }
 
   async updateUserLastLogin(userId: number): Promise<void> {
     const query = 'UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1';
-    await this.pool.query(query, [userId]);
+    await this.executeQuery(query, [userId]);
   }
 
   async updateUserMobileDevice(userId: number, deviceId: string): Promise<void> {
     const query = 'UPDATE users SET mobile_device_id = $1, updated_at = NOW() WHERE id = $2';
-    await this.pool.query(query, [deviceId, userId]);
+    await this.executeQuery(query, [deviceId, userId]);
   }
 
   async updateUserWebSession(userId: number, sessionId: string): Promise<void> {
     const query = 'UPDATE users SET web_session_id = $1, updated_at = NOW() WHERE id = $2';
-    await this.pool.query(query, [sessionId, userId]);
+    await this.executeQuery(query, [sessionId, userId]);
   }
 
   // User profile management
@@ -295,7 +303,7 @@ export class DatabaseService {
       RETURNING *
     `;
 
-    const result = await this.pool.query(query, values);
+    const result = await this.executeQuery(query, values);
     return result.rows[0];
   }
 
@@ -335,7 +343,7 @@ export class DatabaseService {
       RETURNING *
     `;
     const expiresAt = planId === 'free' ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const result = await this.pool.query(query, [userId, planId, expiresAt]);
+    const result = await this.executeQuery(query, [userId, planId, expiresAt]);
     return result.rows[0];
   }
 
@@ -358,7 +366,7 @@ export class DatabaseService {
 
   async updateUserSubscription(userId: number, planId: string): Promise<UserSubscription> {
     // Deactivate current subscription
-    await this.pool.query(
+    await this.executeQuery(
       'UPDATE subscriptions SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND is_active = true',
       [userId]
     );
@@ -369,7 +377,7 @@ export class DatabaseService {
 
   async getSubscriptionPlan(planId: string): Promise<SubscriptionPlan | null> {
     const query = 'SELECT * FROM subscription_plans WHERE id = $1';
-    const result = await this.pool.query(query, [planId]);
+    const result = await this.executeQuery(query, [planId]);
     return result.rows[0] || null;
   }
 
@@ -386,7 +394,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       sessionData.userId,
       sessionToken,
       sessionData.platform,
@@ -398,18 +406,18 @@ export class DatabaseService {
 
   async getUserSession(sessionToken: string): Promise<UserSession | null> {
     const query = 'SELECT * FROM user_sessions WHERE session_token = $1 AND expires_at > NOW()';
-    const result = await this.pool.query(query, [sessionToken]);
+    const result = await this.executeQuery(query, [sessionToken]);
     return result.rows[0] || null;
   }
 
   async deleteUserSession(sessionToken: string): Promise<void> {
     const query = 'DELETE FROM user_sessions WHERE session_token = $1';
-    await this.pool.query(query, [sessionToken]);
+    await this.executeQuery(query, [sessionToken]);
   }
 
   async cleanupExpiredSessions(): Promise<void> {
     const query = 'DELETE FROM user_sessions WHERE expires_at <= NOW()';
-    await this.pool.query(query);
+    await this.executeQuery(query);
   }
 
   // Usage tracking
@@ -443,7 +451,7 @@ export class DatabaseService {
       DO UPDATE SET ${type} = user_usage.${type} + $2, updated_at = NOW()
       RETURNING *
     `;
-    const result = await this.pool.query(query, [userId, increment]);
+    const result = await this.executeQuery(query, [userId, increment]);
     return result.rows[0];
   }
 
@@ -468,7 +476,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, NOW(), NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       userId,
       noteData.title,
       noteData.content,
@@ -510,13 +518,13 @@ export class DatabaseService {
       WHERE id = $${paramCount++} AND user_id = $${paramCount++}
       RETURNING *
     `;
-    const result = await this.pool.query(query, values);
+    const result = await this.executeQuery(query, values);
     return result.rows[0] || null;
   }
 
   async deleteNote(noteId: number, userId: number): Promise<boolean> {
     const query = 'DELETE FROM notes WHERE id = $1 AND user_id = $2';
-    const result = await this.pool.query(query, [noteId, userId]);
+    const result = await this.executeQuery(query, [noteId, userId]);
     return (result.rowCount || 0) > 0;
   }
 
@@ -547,7 +555,7 @@ export class DatabaseService {
     
     const results = [];
     for (const flashcard of flashcards) {
-      const result = await this.pool.query(query, [
+      const result = await this.executeQuery(query, [
         userId,
         flashcard.set_id,
         flashcard.set_name,
@@ -565,7 +573,7 @@ export class DatabaseService {
   // Essays management
   async getUserEssays(userId: number): Promise<Essay[]> {
     const query = 'SELECT * FROM essays WHERE user_id = $1 ORDER BY created_at DESC';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.executeQuery(query, [userId]);
     return result.rows;
   }
 
@@ -581,7 +589,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       userId,
       essayData.title,
       essayData.prompt,
@@ -604,7 +612,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, false, NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       eventData.userId,
       eventData.eventType,
       JSON.stringify(eventData.data),
@@ -620,13 +628,13 @@ export class DatabaseService {
       ORDER BY created_at DESC
       LIMIT $3
     `;
-    const result = await this.pool.query(query, [userId, platform, limit]);
+    const result = await this.executeQuery(query, [userId, platform, limit]);
     return result.rows;
   }
 
   async markSyncEventProcessed(eventId: number): Promise<void> {
     const query = 'UPDATE sync_events SET processed = true WHERE id = $1';
-    await this.pool.query(query, [eventId]);
+    await this.executeQuery(query, [eventId]);
   }
 
   // Mobile subscription management
@@ -643,7 +651,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, $5, true, $6, NOW(), NOW())
       RETURNING *
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.executeQuery(query, [
       subscriptionData.userId,
       subscriptionData.platform,
       subscriptionData.productId,
@@ -656,7 +664,7 @@ export class DatabaseService {
 
   async getUserMobileSubscriptions(userId: number): Promise<MobileSubscription[]> {
     const query = 'SELECT * FROM mobile_subscriptions WHERE user_id = $1 ORDER BY created_at DESC';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.executeQuery(query, [userId]);
     return result.rows;
   }
 
@@ -697,7 +705,7 @@ export class DatabaseService {
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
     `;
     
-    await this.pool.query(query, [
+    await this.executeQuery(query, [
       analysis.id,
       analysis.userId,
       analysis.title,
@@ -719,7 +727,7 @@ export class DatabaseService {
       WHERE id = $1
     `;
     
-    const result = await this.pool.query(query, [analysisId]);
+    const result = await this.executeQuery(query, [analysisId]);
     if (result.rows.length === 0) {
       return null;
     }
@@ -835,7 +843,7 @@ export class DatabaseService {
       WHERE id = $${paramCount}
     `;
 
-    await this.pool.query(query, values);
+    await this.executeQuery(query, values);
   }
 
   // Update video analysis topic
@@ -879,7 +887,7 @@ export class DatabaseService {
     `;
 
     for (const note of notes) {
-      await this.pool.query(query, [
+      await this.executeQuery(query, [
         note.title,
         note.content,
         note.userId,
