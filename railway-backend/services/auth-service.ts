@@ -25,6 +25,24 @@ export class AuthService {
 
   async authenticateUser(idToken: string, platform: string, deviceInfo?: any) {
     try {
+      // Development mode bypass for testing
+      if (process.env.NODE_ENV === 'development' && idToken === 'test') {
+        console.log('🔧 Development mode: Using mock authentication');
+        const mockUser = {
+          id: '1',
+          email: 'test@example.com',
+          name: 'Test User',
+          picture: 'https://via.placeholder.com/150'
+        };
+        
+        const token = this.jwtService.generateToken(mockUser.id, mockUser.email);
+        
+        return {
+          token,
+          user: mockUser
+        };
+      }
+      
       // Get the appropriate client ID based on platform
       const clientId = this.getClientIdForPlatform(platform);
       

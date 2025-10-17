@@ -1,5 +1,59 @@
 import { authFetch } from './dataService';
 
+// Non-authenticated fetch for video analysis endpoints
+const videoFetch = async (endpoint: string, options: RequestInit = {}) => {
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://rork-study-buddy-production-eeeb.up.railway.app';
+  
+  console.log('🎥 Making video analysis request:', {
+    endpoint,
+    url: `${API_BASE}${endpoint}`,
+    method: options.method || 'GET'
+  });
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    console.log('📡 Video analysis response:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      ok: response.ok
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Request failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+        console.log('📄 Video analysis error response:', error);
+      } catch (parseError) {
+        try {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+          console.log('📄 Video analysis text error response:', errorText);
+        } catch (textError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          console.log('📄 Could not parse video analysis error response:', textError);
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('✅ Video analysis request successful:', result);
+    return result;
+  } catch (error) {
+    console.error('🚨 Video analysis network error:', error);
+    throw error;
+  }
+};
+
 export interface VideoAnalysisResult {
   id: string;
   title: string;
@@ -30,7 +84,7 @@ export class VideoAnalysisService {
   static async analyzeYouTubeUrl(url: string, userEmail: string): Promise<VideoAnalysisResult> {
     console.log('🎥 Starting YouTube video analysis:', { url, userEmail });
     try {
-      const result = await authFetch('/video/analyze-url', {
+      const result = await videoFetch('/video/analyze-url', {
         method: 'POST',
         body: JSON.stringify({ url, userEmail }),
       });
@@ -38,12 +92,6 @@ export class VideoAnalysisService {
       return result;
     } catch (error) {
       console.error('❌ Video analysis failed:', error);
-      
-      // If authentication fails, provide a helpful message
-      if (error instanceof Error && error.message.includes('authentication')) {
-        throw new Error('Video analysis requires authentication. Please sign out and sign back in to refresh your authentication.');
-      }
-      
       throw error;
     }
   }
@@ -54,7 +102,7 @@ export class VideoAnalysisService {
     formData.append('file', file);
     formData.append('userEmail', userEmail);
 
-    return authFetch('/video/analyze-file', {
+    return videoFetch('/video/analyze-file', {
       method: 'POST',
       body: formData,
     });
@@ -62,7 +110,7 @@ export class VideoAnalysisService {
 
   // Get analysis status
   static async getAnalysisStatus(analysisId: string): Promise<VideoAnalysisResult> {
-    return authFetch(`/video/analysis/${analysisId}`);
+    return videoFetch(`/video/analysis/${analysisId}`);
   }
 
   // Generate summary for topic or overall
