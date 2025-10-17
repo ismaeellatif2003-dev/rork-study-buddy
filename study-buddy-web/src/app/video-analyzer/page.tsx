@@ -56,6 +56,17 @@ export default function VideoAnalyzerPage() {
       setError('Invalid YouTube URL.');
       return;
     }
+    
+    // Test authentication first
+    console.log('🧪 Testing authentication...');
+    try {
+      const response = await fetch('/api/auth/session');
+      const sessionData = await response.json();
+      console.log('🧪 Session data:', sessionData);
+    } catch (error) {
+      console.error('🧪 Session test failed:', error);
+    }
+    
     await analyzeVideo('url', videoUrl);
   };
 

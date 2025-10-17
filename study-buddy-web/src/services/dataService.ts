@@ -88,6 +88,11 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
     return result;
   } catch (error) {
     console.error('🚨 Network or fetch error:', error);
+    console.error('🚨 Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };
