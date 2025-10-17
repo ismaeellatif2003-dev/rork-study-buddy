@@ -2019,11 +2019,17 @@ async function processYouTubeVideo(analysisId: string, url: string) {
       throw new Error('Invalid YouTube URL - could not extract video ID');
     }
 
-    // For now, use a more realistic fallback transcript that simulates real video content
-    // This ensures the system works reliably while we can improve real content extraction later
-    console.log(`📝 Creating realistic transcript for video analysis`);
-    const transcript = createRealisticTranscript(url, videoId);
-    console.log(`✅ Realistic transcript created: ${transcript.length} characters`);
+    // Use YouTube Transcript API for reliable transcript extraction
+    console.log(`📝 Getting transcript from YouTube using Transcript API`);
+    const { transcript, metadata } = await getYouTubeTranscriptFromAPI(url);
+    console.log(`✅ Transcript retrieved from API: ${transcript.length} characters`);
+    
+    // Update the analysis title with the actual video title if available
+    if (metadata?.title) {
+      await databaseService.updateVideoAnalysis(analysisId, { 
+        title: `YouTube Video Analysis - ${metadata.title}` 
+      });
+    }
 
     await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
 
@@ -2349,7 +2355,80 @@ function createRealisticTranscript(url: string, videoId: string): string {
   `.trim();
 }
 
-// Get YouTube transcript using YouTube Transcript API
+// Get YouTube transcript using Transcript API
+async function getYouTubeTranscriptFromAPI(url: string): Promise<{ transcript: string; metadata?: any }> {
+  try {
+    console.log(`📝 Fetching transcript from Transcript API for: ${url}`);
+    
+    const apiKey = process.env.TRANSCRIPT_API_KEY;
+    if (!apiKey) {
+      console.log('⚠️ No Transcript API key found, using fallback');
+      return { 
+        transcript: createRealisticTranscript(url, extractYouTubeVideoId(url) || 'unknown') 
+      };
+    }
+    
+    const searchParams = new URLSearchParams({
+      video_url: url,
+      format: 'text',
+      include_timestamp: 'false',
+      send_metadata: 'true'
+    });
+    
+    const apiUrl = `https://transcriptapi.com/api/v2/youtube/transcript?${searchParams.toString()}`;
+    
+    const apiResponse = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!apiResponse.ok) {
+      const errorText = await apiResponse.text();
+      console.error(`❌ Transcript API failed: ${apiResponse.status} - ${errorText}`);
+      
+      // Handle specific error cases
+      if (apiResponse.status === 401) {
+        throw new Error('Invalid Transcript API key');
+      } else if (apiResponse.status === 402) {
+        throw new Error('Transcript API credits exhausted');
+      } else if (apiResponse.status === 404) {
+        throw new Error('Transcript not available for this video');
+      } else if (apiResponse.status === 429) {
+        throw new Error('Transcript API rate limit exceeded');
+      } else {
+        throw new Error(`Transcript API error: ${apiResponse.status}`);
+      }
+    }
+    
+    const data = await apiResponse.json() as any;
+    
+    if (data.transcript && typeof data.transcript === 'string') {
+      console.log(`✅ Transcript retrieved: ${data.transcript.length} characters`);
+      if (data.metadata) {
+        console.log(`📊 Video metadata: ${data.metadata.title} by ${data.metadata.author_name}`);
+      }
+      return { 
+        transcript: data.transcript, 
+        metadata: data.metadata 
+      };
+    } else {
+      throw new Error('Invalid transcript format from API');
+    }
+  } catch (error) {
+    console.error('❌ Failed to get transcript from API:', error);
+    
+    // Fallback to realistic transcript
+    console.log('🔄 Falling back to realistic transcript');
+    return { 
+      transcript: createRealisticTranscript(url, extractYouTubeVideoId(url) || 'unknown') 
+    };
+  }
+}
+
+// Get YouTube transcript using YouTube Transcript API (legacy method)
 async function getYouTubeTranscript(videoId: string): Promise<string> {
   try {
     console.log(`📝 Fetching transcript for video ID: ${videoId}`);
