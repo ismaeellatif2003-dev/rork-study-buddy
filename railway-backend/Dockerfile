@@ -7,7 +7,9 @@ RUN apk add --no-cache \
     ffmpeg \
     python3 \
     py3-pip \
-    && pip3 install yt-dlp
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install yt-dlp \
+    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp
 
 # Copy package files first
 COPY package*.json ./
