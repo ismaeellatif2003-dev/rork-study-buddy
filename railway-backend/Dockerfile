@@ -2,7 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# No system dependencies needed for transcript-based processing
+# Install system dependencies for video processing
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    && python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install yt-dlp \
+    && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp
 
 # Copy package files first
 COPY package*.json ./

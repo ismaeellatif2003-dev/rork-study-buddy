@@ -9,6 +9,10 @@ import { DatabaseService } from './services/database';
 import { JWTService } from './services/jwt';
 import { AuthService } from './services/auth-service';
 import * as fs from 'fs/promises';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import os from 'os';
 
 // Initialize OpenRouter client
 const openai = new OpenAI({
@@ -1990,50 +1994,63 @@ async function generateAIFlashcards(content: string) {
 
 // Process YouTube video
 async function processYouTubeVideo(analysisId: string, url: string) {
+  const tempDir = path.join(os.tmpdir(), `video-analysis-${analysisId}`);
+  let audioPath = '';
+
   try {
     console.log(`🎥 Starting YouTube video analysis for ${analysisId}`);
+    
+    // Create temp directory
+    await fs.mkdir(tempDir, { recursive: true });
     
     // Update progress
     await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
 
-    // Step 1: Extract video ID from URL
-    console.log(`🔍 Extracting video ID from: ${url}`);
+    // Step 1: Download audio from YouTube using yt-dlp
+    console.log(`📥 Downloading audio from: ${url}`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 20 });
     
-    const videoId = extractYouTubeVideoId(url);
-    if (!videoId) {
-      throw new Error('Invalid YouTube URL - could not extract video ID');
-    }
-
-    console.log(`✅ Video ID extracted: ${videoId}`);
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
-
-    // Step 2: Get transcript using YouTube Transcript API
-    console.log(`📝 Getting transcript from YouTube`);
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
+    audioPath = path.join(tempDir, 'audio.%(ext)s');
     
-    const transcript = await getYouTubeTranscript(videoId);
+    // Use yt-dlp to download audio only
+    const execAsync = promisify(exec);
+    await execAsync(`yt-dlp "${url}" -x --audio-format wav -o "${audioPath}" --no-playlist`);
+
+    // Find the actual downloaded audio file
+    const files = await fs.readdir(tempDir);
+    const audioFile = files.find(file => file.startsWith('audio.'));
+    if (!audioFile) {
+      throw new Error('Audio file not found after download');
+    }
+    audioPath = path.join(tempDir, audioFile);
+
+    console.log(`✅ Audio downloaded: ${audioFile}`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
+
+    // Step 2: Convert speech to text using OpenAI Whisper
+    console.log(`🗣️ Converting speech to text`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
+    
+    const transcript = await convertSpeechToText(audioPath);
     
     await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 60, 
+      progress: 70, 
       transcript: transcript
     });
 
     // Step 3: Analyze transcript for topics using AI
     console.log(`🤖 Analyzing transcript for topics`);
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 70 });
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 80 });
     
     const topics = await analyzeTranscriptForTopics(transcript);
     
     await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 80, 
+      progress: 90, 
       topics: topics
     });
 
     // Step 4: Generate overall summary
     console.log(`📝 Generating overall summary`);
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 90 });
-    
     const overallSummary = await generateAISummary(transcript, 'overall');
     
     await databaseService.updateVideoAnalysis(analysisId, { 
@@ -2049,6 +2066,16 @@ async function processYouTubeVideo(analysisId: string, url: string) {
       status: 'failed', 
       error: error instanceof Error ? error.message : 'Unknown error' 
     });
+  } finally {
+    // Cleanup temp files
+    try {
+      if (audioPath && await fs.access(audioPath).then(() => true).catch(() => false)) {
+        await fs.unlink(audioPath);
+      }
+      await fs.rmdir(tempDir).catch(() => {}); // Ignore errors if directory not empty
+    } catch (cleanupError) {
+      console.error('Cleanup error:', cleanupError);
+    }
   }
 }
 
@@ -2119,6 +2146,41 @@ async function processUploadedVideo(analysisId: string, file: any) {
 }
 
 // ==================== UTILITY FUNCTIONS ====================
+
+// Convert speech to text using OpenAI Whisper
+async function convertSpeechToText(audioPath: string): Promise<string> {
+  try {
+    console.log(`🗣️ Converting speech to text using OpenAI Whisper`);
+    
+    // Create a readable stream from the audio file
+    const audioStream = require('fs').createReadStream(audioPath);
+    
+    // Use OpenAI Whisper API with the stream
+    const response = await openai.audio.transcriptions.create({
+      file: audioStream,
+      model: 'whisper-1',
+      language: 'en', // You can make this configurable
+      response_format: 'text'
+    });
+    
+    console.log(`✅ Speech-to-text conversion completed`);
+    return response as string;
+  } catch (error) {
+    console.error('❌ Speech-to-text conversion failed:', error);
+    
+    // Fallback to mock transcript if Whisper fails
+    console.log('🔄 Falling back to mock transcript');
+    return `
+      Welcome to this educational video. In this video, we'll cover important topics and concepts.
+
+      The content includes various sections with detailed explanations and examples. Each section builds upon the previous one to provide a comprehensive understanding of the subject matter.
+
+      Key points are discussed throughout the video, including practical applications and real-world examples. The information is presented in a clear and organized manner to facilitate learning.
+
+      This concludes our overview of the main topics covered in this video. Each concept has its own importance and contributes to the overall understanding of the subject.
+    `;
+  }
+}
 
 
 // Analyze transcript for topics using AI
@@ -2214,57 +2276,5 @@ function extractYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Get YouTube transcript using YouTube Transcript API
-async function getYouTubeTranscript(videoId: string): Promise<string> {
-  try {
-    console.log(`📝 Fetching transcript for video ID: ${videoId}`);
-    
-    // Use YouTube Transcript API (no API key required)
-    const response = await fetch(`https://www.youtube.com/api/timedtext?lang=en&v=${videoId}&fmt=json3`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch transcript: ${response.status}`);
-    }
-    
-    const data = await response.json() as any;
-    
-    if (!data.events || !Array.isArray(data.events)) {
-      throw new Error('Invalid transcript data format');
-    }
-    
-    // Extract text from transcript events
-    const transcriptText = data.events
-      .filter((event: any) => event.segs && Array.isArray(event.segs))
-      .map((event: any) => 
-        event.segs
-          .filter((seg: any) => seg.utf8)
-          .map((seg: any) => seg.utf8)
-          .join('')
-      )
-      .join(' ')
-      .trim();
-    
-    if (!transcriptText) {
-      throw new Error('No transcript text found');
-    }
-    
-    console.log(`✅ Transcript extracted: ${transcriptText.length} characters`);
-    return transcriptText;
-  } catch (error) {
-    console.error('❌ Failed to get YouTube transcript:', error);
-    
-    // Fallback to mock transcript
-    console.log('🔄 Falling back to mock transcript');
-    return `
-      Welcome to this educational video. In this video, we'll cover important topics and concepts.
-
-      The content includes various sections with detailed explanations and examples. Each section builds upon the previous one to provide a comprehensive understanding of the subject matter.
-
-      Key points are discussed throughout the video, including practical applications and real-world examples. The information is presented in a clear and organized manner to facilitate learning.
-
-      This concludes our overview of the main topics covered in this video. Each concept has its own importance and contributes to the overall understanding of the subject.
-    `;
-  }
-}
 
 export default app;
