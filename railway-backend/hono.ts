@@ -1803,7 +1803,7 @@ app.post("/video/generate-summary", async (c) => {
     
     // Update analysis with summary
     if (type === 'overall') {
-      await databaseService.updateVideoAnalysis(analysisId, { overallSummary: summary });
+      await databaseService.updateVideoAnalysis(analysisId, { overall_summary: summary });
     } else if (type === 'topic' && topicId) {
       await databaseService.updateVideoAnalysisTopic(analysisId, topicId, { summary });
     }
@@ -2056,7 +2056,7 @@ async function processYouTubeVideo(analysisId: string, url: string) {
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 100, 
       status: 'completed',
-      overallSummary: overallSummary
+      overall_summary: overallSummary
     });
 
     console.log(`✅ YouTube video analysis completed for ${analysisId}`);
@@ -2132,7 +2132,7 @@ async function processUploadedVideo(analysisId: string, file: any) {
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 100, 
       status: 'completed',
-      overallSummary: overallSummary
+      overall_summary: overallSummary
     });
 
     console.log(`✅ Uploaded video analysis completed for ${analysisId}`);
