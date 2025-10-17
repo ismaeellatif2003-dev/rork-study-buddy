@@ -23,7 +23,7 @@ const getAuthToken = async (): Promise<string | null> => {
 };
 
 // Helper for authenticated requests
-const authFetch = async (endpoint: string, options: RequestInit = {}) => {
+export const authFetch = async (endpoint: string, options: RequestInit = {}) => {
   const token = await getAuthToken();
   if (!token) {
     throw new Error('Not authenticated');
@@ -172,7 +172,7 @@ export const profileApi = {
   },
 };
 
-export default {
+const dataService = {
   notes: notesApi,
   flashcards: flashcardsApi,
   essays: essaysApi,
@@ -180,4 +180,6 @@ export default {
   sync: syncApi,
   profile: profileApi,
 };
+
+export default dataService;
 

@@ -5,13 +5,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Database connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+let pool: Pool | null = null;
+
+// Initialize database connection only if DATABASE_URL is available
+if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  });
+} else {
+  console.log('🔧 Running in development mode with mock database');
+}
 
 // Types for database operations
 export interface User {
@@ -133,19 +140,69 @@ export interface MobileSubscription {
 }
 
 export class DatabaseService {
-  private pool: Pool;
+  private pool: Pool | null;
 
   constructor() {
     this.pool = pool;
   }
 
+  // Check if we're in development mode (no database connection)
+  private isDevelopmentMode(): boolean {
+    return !this.pool;
+  }
+
+  // Mock data for development
+  private getMockUser(email: string): User {
+    return {
+      id: 1,
+      google_id: 'mock-google-id',
+      email: email,
+      name: 'Test User',
+      picture: 'https://via.placeholder.com/150',
+      age: 25,
+      education_level: 'bachelors',
+      is_onboarding_complete: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+      last_login_at: new Date(),
+    };
+  }
+
+  private getMockSubscription(): UserSubscription {
+    return {
+      id: 1,
+      user_id: 1,
+      plan_id: 'free',
+      is_active: true,
+      created_at: new Date(),
+      expires_at: null,
+    };
+  }
+
+  private getMockUsage(): UserUsage {
+    return {
+      user_id: 1,
+      notes: 0,
+      flashcards: 0,
+      messages: 0,
+      essays: 0,
+      ocr_scans: 0,
+      last_reset: new Date(),
+    };
+  }
+
   // Connection management
   async connect(): Promise<PoolClient> {
-    return await this.pool.connect();
+    if (this.isDevelopmentMode()) {
+      throw new Error('Database connection not available in development mode');
+    }
+    return await this.pool!.connect();
   }
 
   async close(): Promise<void> {
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+    }
   }
 
   // User management
@@ -247,8 +304,16 @@ export class DatabaseService {
     educationLevel?: string;
     isOnboardingComplete: boolean;
   } | null> {
+    if (this.isDevelopmentMode()) {
+      return {
+        age: 25,
+        educationLevel: 'bachelors',
+        isOnboardingComplete: true
+      };
+    }
+
     const query = 'SELECT age, education_level, is_onboarding_complete FROM users WHERE id = $1';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.pool!.query(query, [userId]);
     
     if (!result.rows[0]) {
       return null;
@@ -275,6 +340,10 @@ export class DatabaseService {
   }
 
   async getUserSubscription(userId: number): Promise<UserSubscription | null> {
+    if (this.isDevelopmentMode()) {
+      return this.getMockSubscription();
+    }
+
     const query = `
       SELECT s.*, p.name as plan_name, p.limits
       FROM subscriptions s
@@ -283,7 +352,7 @@ export class DatabaseService {
       ORDER BY s.created_at DESC
       LIMIT 1
     `;
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.pool!.query(query, [userId]);
     return result.rows[0] || null;
   }
 
@@ -345,8 +414,12 @@ export class DatabaseService {
 
   // Usage tracking
   async getUserUsageStats(userId: number): Promise<UserUsage> {
+    if (this.isDevelopmentMode()) {
+      return this.getMockUsage();
+    }
+
     const query = 'SELECT * FROM user_usage WHERE user_id = $1';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.pool!.query(query, [userId]);
     
     if (result.rows.length === 0) {
       // Create default usage record
@@ -355,7 +428,7 @@ export class DatabaseService {
         VALUES ($1, 0, 0, 0, 0, 0, NOW())
         RETURNING *
       `;
-      const insertResult = await this.pool.query(insertQuery, [userId]);
+      const insertResult = await this.pool!.query(insertQuery, [userId]);
       return insertResult.rows[0];
     }
     
@@ -376,8 +449,12 @@ export class DatabaseService {
 
   // Notes management
   async getUserNotes(userId: number): Promise<Note[]> {
+    if (this.isDevelopmentMode()) {
+      return []; // Return empty array for development
+    }
+
     const query = 'SELECT * FROM notes WHERE user_id = $1 ORDER BY created_at DESC';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.pool!.query(query, [userId]);
     return result.rows;
   }
 
@@ -445,8 +522,12 @@ export class DatabaseService {
 
   // Flashcards management
   async getUserFlashcards(userId: number): Promise<Flashcard[]> {
+    if (this.isDevelopmentMode()) {
+      return []; // Return empty array for development
+    }
+
     const query = 'SELECT * FROM flashcards WHERE user_id = $1 ORDER BY created_at DESC';
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.pool!.query(query, [userId]);
     return result.rows;
   }
 
@@ -586,12 +667,225 @@ export class DatabaseService {
 
   // Health check
   async healthCheck(): Promise<boolean> {
+    if (this.isDevelopmentMode()) {
+      return true; // Mock database is always "healthy"
+    }
+    
     try {
-      await this.pool.query('SELECT 1');
+      await this.pool!.query('SELECT 1');
       return true;
     } catch (error) {
       console.error('Database health check failed:', error);
       return false;
+    }
+  }
+
+  // ==================== VIDEO ANALYSIS METHODS ====================
+
+  // Create video analysis record
+  async createVideoAnalysis(analysis: {
+    id: string;
+    userId: string;
+    title: string;
+    source: 'youtube' | 'upload';
+    sourceUrl: string;
+    status: 'processing' | 'completed' | 'failed';
+    progress: number;
+  }): Promise<void> {
+    const query = `
+      INSERT INTO video_analyses (id, user_id, title, source, source_url, status, progress, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+    `;
+    
+    await this.pool.query(query, [
+      analysis.id,
+      analysis.userId,
+      analysis.title,
+      analysis.source,
+      analysis.sourceUrl,
+      analysis.status,
+      analysis.progress
+    ]);
+  }
+
+  // Get video analysis by ID
+  async getVideoAnalysis(analysisId: string): Promise<any> {
+    const query = `
+      SELECT 
+        id, user_id, title, source, source_url, status, progress, 
+        transcript, duration, topics, notes, flashcards, overall_summary,
+        error, created_at, updated_at
+      FROM video_analyses 
+      WHERE id = $1
+    `;
+    
+    const result = await this.pool.query(query, [analysisId]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      source: row.source,
+      sourceUrl: row.source_url,
+      status: row.status,
+      progress: row.progress,
+      transcript: row.transcript,
+      duration: row.duration,
+      topics: row.topics ? JSON.parse(row.topics) : null,
+      notes: row.notes ? JSON.parse(row.notes) : null,
+      flashcards: row.flashcards ? JSON.parse(row.flashcards) : null,
+      overallSummary: row.overall_summary,
+      error: row.error,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  // Update video analysis
+  async updateVideoAnalysis(analysisId: string, updates: {
+    status?: 'processing' | 'completed' | 'failed';
+    progress?: number;
+    transcript?: string;
+    duration?: number;
+    title?: string;
+    topics?: any[];
+    notes?: any[];
+    flashcards?: any[];
+    overallSummary?: string;
+    error?: string;
+  }): Promise<void> {
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (updates.status !== undefined) {
+      updateFields.push(`status = $${paramCount}`);
+      values.push(updates.status);
+      paramCount++;
+    }
+
+    if (updates.progress !== undefined) {
+      updateFields.push(`progress = $${paramCount}`);
+      values.push(updates.progress);
+      paramCount++;
+    }
+
+    if (updates.transcript !== undefined) {
+      updateFields.push(`transcript = $${paramCount}`);
+      values.push(updates.transcript);
+      paramCount++;
+    }
+
+    if (updates.duration !== undefined) {
+      updateFields.push(`duration = $${paramCount}`);
+      values.push(updates.duration);
+      paramCount++;
+    }
+
+    if (updates.title !== undefined) {
+      updateFields.push(`title = $${paramCount}`);
+      values.push(updates.title);
+      paramCount++;
+    }
+
+    if (updates.topics !== undefined) {
+      updateFields.push(`topics = $${paramCount}`);
+      values.push(JSON.stringify(updates.topics));
+      paramCount++;
+    }
+
+    if (updates.notes !== undefined) {
+      updateFields.push(`notes = $${paramCount}`);
+      values.push(JSON.stringify(updates.notes));
+      paramCount++;
+    }
+
+    if (updates.flashcards !== undefined) {
+      updateFields.push(`flashcards = $${paramCount}`);
+      values.push(JSON.stringify(updates.flashcards));
+      paramCount++;
+    }
+
+    if (updates.overallSummary !== undefined) {
+      updateFields.push(`overall_summary = $${paramCount}`);
+      values.push(updates.overallSummary);
+      paramCount++;
+    }
+
+    if (updates.error !== undefined) {
+      updateFields.push(`error = $${paramCount}`);
+      values.push(updates.error);
+      paramCount++;
+    }
+
+    if (updateFields.length === 0) {
+      return;
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    values.push(analysisId);
+
+    const query = `
+      UPDATE video_analyses 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCount}
+    `;
+
+    await this.pool.query(query, values);
+  }
+
+  // Update video analysis topic
+  async updateVideoAnalysisTopic(analysisId: string, topicId: string, updates: { summary?: string }): Promise<void> {
+    const analysis = await this.getVideoAnalysis(analysisId);
+    if (!analysis || !analysis.topics) {
+      throw new Error('Analysis or topics not found');
+    }
+
+    const updatedTopics = analysis.topics.map((topic: any) => 
+      topic.id === topicId ? { ...topic, ...updates } : topic
+    );
+
+    await this.updateVideoAnalysis(analysisId, { topics: updatedTopics });
+  }
+
+  // Add flashcards to video analysis
+  async addVideoAnalysisFlashcards(analysisId: string, newFlashcards: any[]): Promise<void> {
+    const analysis = await this.getVideoAnalysis(analysisId);
+    if (!analysis) {
+      throw new Error('Analysis not found');
+    }
+
+    const existingFlashcards = analysis.flashcards || [];
+    const updatedFlashcards = [...existingFlashcards, ...newFlashcards];
+
+    await this.updateVideoAnalysis(analysisId, { flashcards: updatedFlashcards });
+  }
+
+  // Create notes from video analysis
+  async createNotes(notes: Array<{
+    title: string;
+    content: string;
+    userId: string;
+    source: string;
+    sourceId: string;
+  }>): Promise<void> {
+    const query = `
+      INSERT INTO notes (title, content, user_id, source, source_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+    `;
+
+    for (const note of notes) {
+      await this.pool.query(query, [
+        note.title,
+        note.content,
+        note.userId,
+        note.source,
+        note.sourceId
+      ]);
     }
   }
 }

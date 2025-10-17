@@ -85,6 +85,8 @@ export default function SettingsPage() {
           // Update local profile with backend data
           const updatedProfile = {
             ...userProfile,
+            name: userProfile?.name || '',
+            email: userProfile?.email || '',
             age: backendProfile.age,
             educationLevel: backendProfile.educationLevel,
             accountType: userProfile?.accountType || 'free', // Keep existing account type
@@ -116,9 +118,9 @@ export default function SettingsPage() {
         } else {
           console.log('⚠️ No profile data in backend response');
         }
-      } catch (error) {
-        console.error('Failed to load profile from backend:', error?.message || error || 'Unknown error');
-      }
+        } catch (error) {
+          console.error('Failed to load profile from backend:', error instanceof Error ? error.message : 'Unknown error');
+        }
     };
 
     loadProfileFromBackend();
@@ -182,13 +184,13 @@ export default function SettingsPage() {
         console.log('🔄 Syncing profile update to backend...');
         
         await profileApi.sync('web', {
-          age: updatedProfile.age,
+          age: updatedProfile.age || undefined,
           educationLevel: updatedProfile.educationLevel,
           isOnboardingComplete: updatedProfile.isOnboardingComplete
         });
         console.log('✅ Profile update synced to backend successfully');
       } catch (error) {
-        console.error('Failed to sync profile update to backend:', error?.message || error || 'Unknown error');
+          console.error('Failed to sync profile update to backend:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
   };
