@@ -39,6 +39,7 @@ export default function VideoAnalyzerPage() {
   const [analysisResult, setAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'topics' | 'summary' | 'flashcards'>('topics');
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -57,7 +58,17 @@ export default function VideoAnalyzerPage() {
       return;
     }
     
-    // Test authentication first
+    // Test backend connectivity first
+    console.log('🧪 Testing backend connectivity...');
+    try {
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app');
+      const data = await response.text();
+      console.log('🧪 Backend connectivity test:', { status: response.status, data: data.substring(0, 100) });
+    } catch (error) {
+      console.error('🧪 Backend connectivity test failed:', error);
+    }
+    
+    // Test authentication
     console.log('🧪 Testing authentication...');
     try {
       const response = await fetch('/api/auth/session');
@@ -159,6 +170,25 @@ export default function VideoAnalyzerPage() {
     const fileInput = document.getElementById('video-file-upload') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
+    }
+  };
+
+  const testBackendConnection = async () => {
+    setIsTestingConnection(true);
+    setError(null);
+    
+    try {
+      console.log('🧪 Testing backend connection...');
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app');
+      const data = await response.text();
+      console.log('✅ Backend connection successful:', { status: response.status, data: data.substring(0, 100) });
+      toast.success('Backend connection successful!');
+    } catch (error) {
+      console.error('❌ Backend connection failed:', error);
+      setError(`Backend connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error('Backend connection failed');
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
@@ -333,6 +363,28 @@ export default function VideoAnalyzerPage() {
                   <Youtube className="mr-2" size={16} /> Analyze URL
                 </Button>
               </div>
+            </div>
+
+            {/* Test Connection Button */}
+            <div className="flex justify-center">
+              <Button 
+                onClick={testBackendConnection} 
+                disabled={isTestingConnection}
+                variant="outline"
+                size="sm"
+              >
+                {isTestingConnection ? (
+                  <>
+                    <Loader2 className="mr-2 animate-spin" size={16} />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-2" size={16} />
+                    Test Backend Connection
+                  </>
+                )}
+              </Button>
             </div>
 
             <div className="relative flex items-center justify-center w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center"
