@@ -129,7 +129,10 @@ export default function VideoAnalyzerPage() {
     }
   };
 
-  const handleRemoveFile = () => {
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Remove file button clicked');
     setVideoFile(null);
     setError(null);
     // Reset the file input
@@ -347,8 +350,9 @@ export default function VideoAnalyzerPage() {
                     </div>
                     <button
                       onClick={handleRemoveFile}
-                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors cursor-pointer z-10 relative"
                       title="Remove file"
+                      type="button"
                     >
                       <X className="text-gray-500 hover:text-red-500" size={16} />
                     </button>
