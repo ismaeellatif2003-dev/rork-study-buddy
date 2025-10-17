@@ -6,7 +6,9 @@ const getAuthToken = async (): Promise<string | null> => {
   
   // Try to get token from NextAuth session
   try {
+    console.log('🔍 Fetching NextAuth session...');
     const response = await fetch('/api/auth/session');
+    console.log('🔍 Session response status:', response.status);
     const session = await response.json();
     
     console.log('🔍 Debug - NextAuth session:', {
@@ -14,7 +16,8 @@ const getAuthToken = async (): Promise<string | null> => {
       hasUser: !!session?.user,
       hasBackendToken: !!session?.backendToken,
       sessionKeys: session ? Object.keys(session) : [],
-      userKeys: session?.user ? Object.keys(session.user) : []
+      userKeys: session?.user ? Object.keys(session.user) : [],
+      fullSession: session // Show the full session for debugging
     });
     
     // NextAuth stores the backend token in the session
