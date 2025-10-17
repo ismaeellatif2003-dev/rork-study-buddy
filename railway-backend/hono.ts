@@ -2066,18 +2066,22 @@ async function processYouTubeVideo(analysisId: string, url: string) {
 
     // Step 3: Analyze transcript for topics using AI
     console.log(`🤖 Analyzing transcript for topics`);
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 80 });
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 70 });
     
     const topics = await analyzeTranscriptForTopics(transcript);
+    console.log(`✅ Topics analyzed: ${topics.length} topics found`);
     
     await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 90, 
-      topics: topics
+      progress: 80, 
+      topics: JSON.stringify(topics) // Ensure topics are properly stringified for JSONB
     });
 
     // Step 4: Generate overall summary
     console.log(`📝 Generating overall summary`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 90 });
+    
     const overallSummary = await generateAISummary(transcript, 'overall');
+    console.log(`✅ Summary generated: ${overallSummary.length} characters`);
     
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 100, 
@@ -2214,24 +2218,24 @@ async function analyzeTranscriptForTopics(transcript: string): Promise<any[]> {
   try {
     console.log(`🤖 Analyzing transcript for topics using AI`);
     
-    const prompt = `Analyze the following video transcript and break it down into logical topics with timestamps. Return a JSON array of topics, each with:
-- id: unique identifier
-- title: descriptive title for the topic
-- startTime: start time in seconds (estimate based on content position)
-- endTime: end time in seconds (estimate based on content position)
-- content: the relevant text content for this topic
+    const prompt = `Analyze the following video transcript and break it down into logical topics. Return a JSON array of topics, each with:
+- id: unique identifier (string)
+- title: descriptive title for the topic (string)
+- startTime: start time in seconds (number, estimate based on content position)
+- endTime: end time in seconds (number, estimate based on content position)
+- content: the relevant text content for this topic (string)
 
 Transcript:
-${transcript}
+${transcript.substring(0, 3000)}...
 
-Return only the JSON array, no other text.`;
+Return only the JSON array, no other text. Make sure the JSON is valid.`;
 
     const response = await openai.chat.completions.create({
       model: 'openai/gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert at analyzing educational content and breaking it down into logical topics. Return only valid JSON arrays.'
+          content: 'You are an expert at analyzing educational content and breaking it down into logical topics. Return only valid JSON arrays with proper data types.'
         },
         {
           role: 'user',
@@ -2243,44 +2247,68 @@ Return only the JSON array, no other text.`;
     });
 
     const responseText = response.choices[0]?.message?.content || '';
+    console.log(`📄 AI response: ${responseText.substring(0, 200)}...`);
     
     try {
-      const topics = JSON.parse(responseText);
-      console.log(`✅ Topic analysis completed: ${topics.length} topics found`);
-      return topics;
+      // Clean the response text
+      const cleanedText = responseText.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      const topics = JSON.parse(cleanedText);
+      
+      // Validate the topics array
+      if (Array.isArray(topics) && topics.length > 0) {
+        console.log(`✅ Topic analysis completed: ${topics.length} topics found`);
+        return topics;
+      } else {
+        throw new Error('Invalid topics array format');
+      }
     } catch (parseError) {
       console.error('❌ Failed to parse AI response:', parseError);
-      // Fallback to simple topic extraction
+      console.log('🔄 Using fallback topic extraction');
       return createFallbackTopics(transcript);
     }
   } catch (error) {
     console.error('❌ Topic analysis failed:', error);
-    // Fallback to simple topic extraction
+    console.log('🔄 Using fallback topic extraction');
     return createFallbackTopics(transcript);
   }
 }
 
 // Create fallback topics when AI analysis fails
 function createFallbackTopics(transcript: string): any[] {
-  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 20);
   const topics = [];
   
-  for (let i = 0; i < Math.min(sentences.length, 4); i++) {
-    const startTime = i * 60; // 1 minute per topic
-    const endTime = (i + 1) * 60;
-    const content = sentences[i]?.trim() || '';
+  // Create 3-5 topics from the transcript
+  const topicCount = Math.min(Math.max(3, Math.floor(sentences.length / 3)), 5);
+  const sentencesPerTopic = Math.ceil(sentences.length / topicCount);
+  
+  for (let i = 0; i < topicCount; i++) {
+    const startSentenceIndex = i * sentencesPerTopic;
+    const endSentenceIndex = Math.min((i + 1) * sentencesPerTopic, sentences.length);
+    const topicSentences = sentences.slice(startSentenceIndex, endSentenceIndex);
     
-    if (content) {
+    if (topicSentences.length > 0) {
+      const content = topicSentences.join('. ').trim() + '.';
+      const startTime = i * 120; // 2 minutes per topic
+      const endTime = (i + 1) * 120;
+      
+      // Create a more descriptive title
+      const firstSentence = topicSentences[0]?.trim() || '';
+      const title = firstSentence.length > 50 
+        ? firstSentence.substring(0, 47) + '...'
+        : firstSentence || `Topic ${i + 1}`;
+      
       topics.push({
         id: `topic-${i + 1}`,
-        title: `Topic ${i + 1}`,
-        startTime,
-        endTime,
-        content
+        title: title,
+        startTime: startTime,
+        endTime: endTime,
+        content: content
       });
     }
   }
   
+  console.log(`✅ Created ${topics.length} fallback topics`);
   return topics;
 }
 
