@@ -28,10 +28,18 @@ export interface VideoTopic {
 export class VideoAnalysisService {
   // Analyze YouTube video
   static async analyzeYouTubeUrl(url: string, userEmail: string): Promise<VideoAnalysisResult> {
-    return authFetch('/video/analyze-url', {
-      method: 'POST',
-      body: JSON.stringify({ url, userEmail }),
-    });
+    console.log('🎥 Starting YouTube video analysis:', { url, userEmail });
+    try {
+      const result = await authFetch('/video/analyze-url', {
+        method: 'POST',
+        body: JSON.stringify({ url, userEmail }),
+      });
+      console.log('✅ Video analysis started successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Video analysis failed:', error);
+      throw error;
+    }
   }
 
   // Analyze uploaded video file

@@ -26,6 +26,7 @@ const getAuthToken = async (): Promise<string | null> => {
 export const authFetch = async (endpoint: string, options: RequestInit = {}) => {
   const token = await getAuthToken();
   if (!token) {
+    console.error('❌ No authentication token found');
     throw new Error('Not authenticated');
   }
 
@@ -35,17 +36,60 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
+  console.log('🔐 Making authenticated request:', {
+    endpoint,
+    hasToken: !!token,
+    tokenPrefix: token.substring(0, 20) + '...',
+    url: `${API_BASE}${endpoint}`,
+    method: options.method || 'GET'
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Request failed');
-  }
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  return response.json();
+    console.log('📡 Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      ok: response.ok
+    });
+
+    if (!response.ok) {
+      console.log('❌ Request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url
+      });
+      
+      let errorMessage = 'Request failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+        console.log('📄 JSON error response:', error);
+      } catch (parseError) {
+        // If response is not JSON, try to get text
+        try {
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+          console.log('📄 Text error response:', errorText);
+        } catch (textError) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          console.log('📄 Could not parse error response:', textError);
+        }
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('✅ Request successful:', result);
+    return result;
+  } catch (error) {
+    console.error('🚨 Network or fetch error:', error);
+    throw error;
+  }
 };
 
 // ==================== NOTES API ====================
