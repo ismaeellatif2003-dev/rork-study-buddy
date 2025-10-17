@@ -9,13 +9,30 @@ const getAuthToken = async (): Promise<string | null> => {
     const response = await fetch('/api/auth/session');
     const session = await response.json();
     
+    console.log('🔍 Debug - NextAuth session:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasBackendToken: !!session?.backendToken,
+      sessionKeys: session ? Object.keys(session) : [],
+      userKeys: session?.user ? Object.keys(session.user) : []
+    });
+    
     // NextAuth stores the backend token in the session
     if (session?.backendToken) {
+      console.log('✅ Found backend token in session');
       return session.backendToken;
     }
     
+    console.log('⚠️ No backend token in session, checking localStorage');
     // Fallback to localStorage for compatibility
-    return localStorage.getItem('authToken');
+    const localToken = localStorage.getItem('authToken');
+    if (localToken) {
+      console.log('✅ Found token in localStorage');
+      return localToken;
+    }
+    
+    console.log('❌ No token found anywhere');
+    return null;
   } catch (error) {
     console.error('Failed to get auth token:', error);
     return localStorage.getItem('authToken');
@@ -27,7 +44,8 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
   const token = await getAuthToken();
   if (!token) {
     console.error('❌ No authentication token found');
-    throw new Error('Not authenticated');
+    console.error('💡 Solution: Please sign out and sign back in to get a fresh authentication token');
+    throw new Error('Not authenticated - Please sign out and sign back in to refresh your authentication');
   }
 
   const headers = {
