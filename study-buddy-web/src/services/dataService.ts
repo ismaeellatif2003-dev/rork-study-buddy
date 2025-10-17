@@ -47,8 +47,16 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
   const token = await getAuthToken();
   if (!token) {
     console.error('❌ No authentication token found');
-    console.error('💡 Solution: Please sign out and sign back in to get a fresh authentication token');
-    throw new Error('Not authenticated - Please sign out and sign back in to refresh your authentication');
+    console.error('💡 This feature requires backend authentication. Some features may not work without it.');
+    
+    // For non-critical endpoints, we can try without authentication
+    const nonCriticalEndpoints = ['/health', '/metrics'];
+    if (nonCriticalEndpoints.some(ep => endpoint.includes(ep))) {
+      console.log('🔄 Attempting request without authentication for non-critical endpoint');
+      return fetch(`${API_BASE}${endpoint}`, options);
+    }
+    
+    throw new Error('This feature requires authentication. Please sign out and sign back in to refresh your authentication.');
   }
 
   const headers = {

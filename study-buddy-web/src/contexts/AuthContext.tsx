@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAuthenticated = !!session?.backendToken;
+  // Consider user authenticated if they have a NextAuth session, even without backend token
+  const isAuthenticated = !!session?.user;
   
   // Debug logging
   useEffect(() => {
@@ -76,9 +77,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load user data and subscription when session changes
   useEffect(() => {
     const loadUserData = async () => {
-      if (session?.backendToken && session?.backendUser) {
-        setUser(session.backendUser);
-        await refreshSubscription();
+      if (session?.user) {
+        // Use NextAuth user data if backend user is not available
+        const userData = session.backendUser || {
+          id: session.user.email || 'unknown',
+          email: session.user.email || '',
+          name: session.user.name || '',
+          picture: session.user.image
+        };
+        setUser(userData);
+        
+        // Only try to load subscription if we have a backend token
+        if (session.backendToken) {
+          await refreshSubscription();
+        } else {
+          // Set a default subscription for users without backend token
+          setSubscription({
+            plan: {
+              id: 'free',
+              name: 'Free Plan',
+              price: 0,
+              billingPeriod: 'month',
+              limits: { notes: 10, flashcards: 10, messages: 5, essays: 2, ocrScans: 3 },
+              features: ['Basic features', 'Limited usage']
+            },
+            isActive: true,
+            usage: { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 }
+          });
+        }
       } else {
         setUser(null);
         setSubscription(null);

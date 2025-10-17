@@ -38,6 +38,12 @@ export class VideoAnalysisService {
       return result;
     } catch (error) {
       console.error('❌ Video analysis failed:', error);
+      
+      // If authentication fails, provide a helpful message
+      if (error instanceof Error && error.message.includes('authentication')) {
+        throw new Error('Video analysis requires authentication. Please sign out and sign back in to refresh your authentication.');
+      }
+      
       throw error;
     }
   }
