@@ -493,14 +493,6 @@ export default function SettingsPage() {
               <Shield size={16} className="mr-2" />
               Terms of Service
             </Button>
-            <Button className="w-full justify-start bg-blue-600 text-white hover:bg-blue-700">
-              <Shield size={16} className="mr-2" />
-              Data Export
-            </Button>
-            <Button className="w-full justify-start bg-red-600 text-white hover:bg-red-700">
-              <Shield size={16} className="mr-2" />
-              Delete Account
-            </Button>
           </CardContent>
         </Card>
 
