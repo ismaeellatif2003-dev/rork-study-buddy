@@ -2226,7 +2226,7 @@ async function getYouTubeTranscript(videoId: string): Promise<string> {
       throw new Error(`Failed to fetch transcript: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as any;
     
     if (!data.events || !Array.isArray(data.events)) {
       throw new Error('Invalid transcript data format');
