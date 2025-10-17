@@ -51,7 +51,8 @@ export default function SettingsPage() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated && !isLoading) {
-      router.push('/auth/signin');
+      console.log('🔍 Settings page - not authenticated, redirecting to sign-in');
+      router.push('/api/auth/signin');
     }
   }, [isAuthenticated, isLoading, router]);
 

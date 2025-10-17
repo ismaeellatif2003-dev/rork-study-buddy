@@ -51,6 +51,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!session?.backendToken;
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 AuthContext - Session status:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasBackendToken: !!session?.backendToken,
+      hasBackendUser: !!session?.backendUser,
+      isAuthenticated,
+      status
+    });
+  }, [session, isAuthenticated, status]);
 
   // Set up axios interceptor for authenticated requests
   useEffect(() => {
