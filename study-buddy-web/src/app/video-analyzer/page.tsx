@@ -78,6 +78,13 @@ export default function VideoAnalyzerPage() {
   };
 
   const analyzeVideo = async (type: 'url' | 'file', input: string | File) => {
+    console.log('🔐 Authentication check:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasEmail: !!session?.user?.email,
+      email: session?.user?.email
+    });
+
     if (!session?.user?.email) {
       setError('You must be logged in to analyze videos.');
       return;
@@ -90,6 +97,8 @@ export default function VideoAnalyzerPage() {
 
     try {
       let result: VideoAnalysisResult;
+      
+      console.log('🎥 Starting video analysis with:', { type, input: type === 'url' ? input : (input as File).name, email: session.user.email });
       
       if (type === 'url') {
         result = await VideoAnalysisService.analyzeYouTubeUrl(input as string, session.user.email);
