@@ -30,7 +30,6 @@
     "openai-whisper": "^1.0.2",
     "pg": "^8.11.0",
     "superjson": "^1.13.1",
-    "yt-dlp-wrap": "^2.3.12",
     "ytdl-core": "^4.11.5",
     "zod": "^3.22.4"
   },

@@ -11,7 +11,7 @@ import { AuthService } from './services/auth-service';
 import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import YTDlpWrap from 'yt-dlp-wrap';
+// import YTDlpWrap from 'yt-dlp-wrap'; // Using system yt-dlp instead
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import os from 'os';
@@ -2013,16 +2013,11 @@ async function processYouTubeVideo(analysisId: string, url: string) {
     console.log(`📥 Downloading video from: ${url}`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 20 });
     
-    const ytDlpWrap = new YTDlpWrap();
     videoPath = path.join(tempDir, 'video.%(ext)s');
     
-    await ytDlpWrap.exec([
-      url,
-      '-o', videoPath,
-      '--format', 'best[height<=720]', // Limit to 720p for faster processing
-      '--no-playlist',
-      '--extract-flat', 'false'
-    ]);
+    // Use system yt-dlp command
+    const execAsync = promisify(exec);
+    await execAsync(`yt-dlp "${url}" -o "${videoPath}" --format "best[height<=720]" --no-playlist`);
 
     // Find the actual downloaded file
     const files = await fs.readdir(tempDir);

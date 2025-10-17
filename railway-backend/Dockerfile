@@ -2,6 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Install system dependencies for video processing
+RUN apk add --no-cache \
+    ffmpeg \
+    python3 \
+    py3-pip \
+    && pip3 install yt-dlp
+
 # Copy package files first
 COPY package*.json ./
 
