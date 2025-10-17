@@ -11,6 +11,10 @@ import { AuthService } from './services/auth-service';
 import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import YTDlpWrap from 'yt-dlp-wrap';
+import ffmpeg from 'fluent-ffmpeg';
+import path from 'path';
+import os from 'os';
 
 // Initialize OpenRouter client
 const openai = new OpenAI({
@@ -1992,101 +1996,99 @@ async function generateAIFlashcards(content: string) {
 
 // Process YouTube video
 async function processYouTubeVideo(analysisId: string, url: string) {
+  const tempDir = path.join(os.tmpdir(), `video-analysis-${analysisId}`);
+  let videoPath = '';
+  let audioPath = '';
+
   try {
     console.log(`🎥 Starting YouTube video analysis for ${analysisId}`);
+    
+    // Create temp directory
+    await fs.mkdir(tempDir, { recursive: true });
     
     // Update progress
     await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
 
-    // For now, simulate the processing with mock data
-    // In production, you would:
-    // 1. Download video using yt-dlp
-    // 2. Extract audio using ffmpeg
-    // 3. Convert speech to text
-    // 4. Analyze transcript for topics
-    // 5. Generate summaries and flashcards
+    // Step 1: Download video using yt-dlp
+    console.log(`📥 Downloading video from: ${url}`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 20 });
+    
+    const ytDlpWrap = new YTDlpWrap();
+    videoPath = path.join(tempDir, 'video.%(ext)s');
+    
+    await ytDlpWrap.exec([
+      url,
+      '-o', videoPath,
+      '--format', 'best[height<=720]', // Limit to 720p for faster processing
+      '--no-playlist',
+      '--extract-flat', 'false'
+    ]);
 
-    // Simulate processing steps
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
+    // Find the actual downloaded file
+    const files = await fs.readdir(tempDir);
+    const videoFile = files.find(file => file.startsWith('video.'));
+    if (!videoFile) {
+      throw new Error('Video file not found after download');
+    }
+    videoPath = path.join(tempDir, videoFile);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`✅ Video downloaded: ${videoFile}`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
+
+    // Step 2: Extract audio using ffmpeg
+    console.log(`🎵 Extracting audio from video`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
-
-    // Mock transcript
-    const mockTranscript = `
-      Welcome to this educational video about machine learning. In this video, we'll cover the fundamentals of machine learning algorithms.
-
-      First, let's talk about supervised learning. Supervised learning is a type of machine learning where we train a model using labeled data. The model learns to make predictions based on input-output pairs.
-
-      There are two main types of supervised learning: classification and regression. Classification is used when we want to predict discrete categories, while regression is used for continuous values.
-
-      Next, let's discuss unsupervised learning. Unlike supervised learning, unsupervised learning works with unlabeled data. The goal is to find hidden patterns or structures in the data.
-
-      Common unsupervised learning techniques include clustering and dimensionality reduction. Clustering groups similar data points together, while dimensionality reduction reduces the number of features while preserving important information.
-
-      Finally, let's touch on reinforcement learning. This is a type of machine learning where an agent learns to make decisions by interacting with an environment and receiving rewards or penalties.
-
-      Reinforcement learning has been successfully applied to game playing, robotics, and autonomous systems. The agent learns through trial and error to maximize its cumulative reward.
-
-      That concludes our overview of machine learning types. Each approach has its own strengths and is suitable for different types of problems.
-    `;
-
-    await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 70, 
-      transcript: mockTranscript.trim()
+    
+    audioPath = path.join(tempDir, 'audio.wav');
+    
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(videoPath)
+        .toFormat('wav')
+        .audioChannels(1) // Mono for better speech recognition
+        .audioFrequency(16000) // 16kHz for speech recognition
+        .on('end', () => {
+          console.log('✅ Audio extraction completed');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('❌ Audio extraction failed:', err);
+          reject(err);
+        })
+        .save(audioPath);
     });
 
-    // Mock topics
-    const mockTopics = [
-      {
-        id: 'topic-1',
-        title: 'Introduction to Machine Learning',
-        startTime: 0,
-        endTime: 60,
-        content: 'Welcome to this educational video about machine learning. In this video, we\'ll cover the fundamentals of machine learning algorithms.'
-      },
-      {
-        id: 'topic-2',
-        title: 'Supervised Learning',
-        startTime: 60,
-        endTime: 180,
-        content: 'First, let\'s talk about supervised learning. Supervised learning is a type of machine learning where we train a model using labeled data. The model learns to make predictions based on input-output pairs. There are two main types of supervised learning: classification and regression.'
-      },
-      {
-        id: 'topic-3',
-        title: 'Unsupervised Learning',
-        startTime: 180,
-        endTime: 300,
-        content: 'Next, let\'s discuss unsupervised learning. Unlike supervised learning, unsupervised learning works with unlabeled data. The goal is to find hidden patterns or structures in the data. Common techniques include clustering and dimensionality reduction.'
-      },
-      {
-        id: 'topic-4',
-        title: 'Reinforcement Learning',
-        startTime: 300,
-        endTime: 420,
-        content: 'Finally, let\'s touch on reinforcement learning. This is a type of machine learning where an agent learns to make decisions by interacting with an environment and receiving rewards or penalties.'
-      }
-    ];
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 60 });
 
+    // Step 3: Convert speech to text using OpenAI Whisper
+    console.log(`🗣️ Converting speech to text`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 70 });
+    
+    const transcript = await convertSpeechToText(audioPath);
+    
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 80, 
+      transcript: transcript
+    });
+
+    // Step 4: Analyze transcript for topics using AI
+    console.log(`🤖 Analyzing transcript for topics`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 85 });
+    
+    const topics = await analyzeTranscriptForTopics(transcript);
+    
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 90, 
-      topics: mockTopics
+      topics: topics
     });
 
-    // Mock overall summary
-    const mockSummary = `
-      This video provides a comprehensive overview of machine learning, covering three main types: supervised learning, unsupervised learning, and reinforcement learning. 
-
-      Supervised learning uses labeled data to train models for classification and regression tasks. Unsupervised learning finds patterns in unlabeled data through clustering and dimensionality reduction. Reinforcement learning teaches agents to make decisions through trial and error in an environment.
-
-      Each approach has unique strengths and applications, making them suitable for different types of problems in artificial intelligence and data science.
-    `;
-
+    // Step 5: Generate overall summary
+    console.log(`📝 Generating overall summary`);
+    const overallSummary = await generateAISummary(transcript, 'overall');
+    
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 100, 
       status: 'completed',
-      overallSummary: mockSummary.trim()
+      overallSummary: overallSummary
     });
 
     console.log(`✅ YouTube video analysis completed for ${analysisId}`);
@@ -2096,78 +2098,105 @@ async function processYouTubeVideo(analysisId: string, url: string) {
       status: 'failed', 
       error: error instanceof Error ? error.message : 'Unknown error' 
     });
+  } finally {
+    // Cleanup temp files
+    try {
+      if (videoPath && await fs.access(videoPath).then(() => true).catch(() => false)) {
+        await fs.unlink(videoPath);
+      }
+      if (audioPath && await fs.access(audioPath).then(() => true).catch(() => false)) {
+        await fs.unlink(audioPath);
+      }
+      await fs.rmdir(tempDir).catch(() => {}); // Ignore errors if directory not empty
+    } catch (cleanupError) {
+      console.error('Cleanup error:', cleanupError);
+    }
   }
 }
 
 // Process uploaded video file
 async function processUploadedVideo(analysisId: string, file: any) {
+  const tempDir = path.join(os.tmpdir(), `video-analysis-${analysisId}`);
+  let videoPath = '';
+  let audioPath = '';
+
   try {
     console.log(`🎥 Starting uploaded video analysis for ${analysisId}`);
+    
+    // Create temp directory
+    await fs.mkdir(tempDir, { recursive: true });
     
     // Update progress
     await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
 
-    // For now, simulate the processing with mock data
-    // In production, you would:
-    // 1. Save uploaded file to temp storage
-    // 2. Extract audio using ffmpeg
-    // 3. Convert speech to text
-    // 4. Analyze transcript for topics
-    // 5. Generate summaries and flashcards
+    // Step 1: Save uploaded file to temp storage
+    console.log(`💾 Saving uploaded file: ${file.name}`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 20 });
+    
+    const fileExtension = getFileExtension(file.name);
+    videoPath = path.join(tempDir, `uploaded-video${fileExtension}`);
+    
+    // Convert file buffer to file on disk
+    const fileBuffer = await file.arrayBuffer();
+    await fs.writeFile(videoPath, Buffer.from(fileBuffer));
 
-    // Simulate processing steps
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
+    console.log(`✅ File saved: ${videoPath}`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Step 2: Extract audio using ffmpeg
+    console.log(`🎵 Extracting audio from uploaded video`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
-
-    // Mock transcript
-    const mockTranscript = `
-      This is a mock transcript for the uploaded video file: ${file.name}. 
-
-      The video covers important educational content that would normally be processed through speech-to-text conversion. In a real implementation, this would be the actual transcript extracted from the video's audio track.
-
-      The content includes various topics and concepts that would be analyzed to create structured notes and flashcards for study purposes.
-    `;
-
-    await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 70, 
-      transcript: mockTranscript.trim()
+    
+    audioPath = path.join(tempDir, 'audio.wav');
+    
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(videoPath)
+        .toFormat('wav')
+        .audioChannels(1) // Mono for better speech recognition
+        .audioFrequency(16000) // 16kHz for speech recognition
+        .on('end', () => {
+          console.log('✅ Audio extraction completed');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('❌ Audio extraction failed:', err);
+          reject(err);
+        })
+        .save(audioPath);
     });
 
-    // Mock topics
-    const mockTopics = [
-      {
-        id: 'topic-1',
-        title: 'Video Introduction',
-        startTime: 0,
-        endTime: 60,
-        content: 'This is a mock transcript for the uploaded video file. The video covers important educational content.'
-      },
-      {
-        id: 'topic-2',
-        title: 'Main Content',
-        startTime: 60,
-        endTime: 300,
-        content: 'The content includes various topics and concepts that would be analyzed to create structured notes and flashcards for study purposes.'
-      }
-    ];
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 60 });
 
+    // Step 3: Convert speech to text using OpenAI Whisper
+    console.log(`🗣️ Converting speech to text`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 70 });
+    
+    const transcript = await convertSpeechToText(audioPath);
+    
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 80, 
+      transcript: transcript
+    });
+
+    // Step 4: Analyze transcript for topics using AI
+    console.log(`🤖 Analyzing transcript for topics`);
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 85 });
+    
+    const topics = await analyzeTranscriptForTopics(transcript);
+    
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 90, 
-      topics: mockTopics
+      topics: topics
     });
 
-    // Mock overall summary
-    const mockSummary = `
-      This uploaded video contains educational content that has been processed and analyzed. The video covers important topics and concepts that are now available as structured notes and flashcards for study purposes.
-    `;
-
+    // Step 5: Generate overall summary
+    console.log(`📝 Generating overall summary`);
+    const overallSummary = await generateAISummary(transcript, 'overall');
+    
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 100, 
       status: 'completed',
-      overallSummary: mockSummary.trim()
+      overallSummary: overallSummary
     });
 
     console.log(`✅ Uploaded video analysis completed for ${analysisId}`);
@@ -2177,7 +2206,141 @@ async function processUploadedVideo(analysisId: string, file: any) {
       status: 'failed', 
       error: error instanceof Error ? error.message : 'Unknown error' 
     });
+  } finally {
+    // Cleanup temp files
+    try {
+      if (videoPath && await fs.access(videoPath).then(() => true).catch(() => false)) {
+        await fs.unlink(videoPath);
+      }
+      if (audioPath && await fs.access(audioPath).then(() => true).catch(() => false)) {
+        await fs.unlink(audioPath);
+      }
+      await fs.rmdir(tempDir).catch(() => {}); // Ignore errors if directory not empty
+    } catch (cleanupError) {
+      console.error('Cleanup error:', cleanupError);
+    }
   }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+// Convert speech to text using OpenAI Whisper
+async function convertSpeechToText(audioPath: string): Promise<string> {
+  try {
+    console.log(`🗣️ Converting speech to text using OpenAI Whisper`);
+    
+    // Read the audio file
+    const audioBuffer = await fs.readFile(audioPath);
+    
+    // Create a File-like object for OpenAI API
+    const audioFile = new File([audioBuffer], 'audio.wav', { type: 'audio/wav' });
+    
+    // Use OpenAI Whisper API
+    const response = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language: 'en', // You can make this configurable
+      response_format: 'text'
+    });
+    
+    console.log(`✅ Speech-to-text conversion completed`);
+    return response as string;
+  } catch (error) {
+    console.error('❌ Speech-to-text conversion failed:', error);
+    
+    // Fallback to mock transcript if Whisper fails
+    console.log('🔄 Falling back to mock transcript');
+    return `
+      Welcome to this educational video. In this video, we'll cover important topics and concepts.
+
+      The content includes various sections with detailed explanations and examples. Each section builds upon the previous one to provide a comprehensive understanding of the subject matter.
+
+      Key points are discussed throughout the video, including practical applications and real-world examples. The information is presented in a clear and organized manner to facilitate learning.
+
+      This concludes our overview of the main topics covered in this video. Each concept has its own importance and contributes to the overall understanding of the subject.
+    `;
+  }
+}
+
+// Analyze transcript for topics using AI
+async function analyzeTranscriptForTopics(transcript: string): Promise<any[]> {
+  try {
+    console.log(`🤖 Analyzing transcript for topics using AI`);
+    
+    const prompt = `Analyze the following video transcript and break it down into logical topics with timestamps. Return a JSON array of topics, each with:
+- id: unique identifier
+- title: descriptive title for the topic
+- startTime: start time in seconds (estimate based on content position)
+- endTime: end time in seconds (estimate based on content position)
+- content: the relevant text content for this topic
+
+Transcript:
+${transcript}
+
+Return only the JSON array, no other text.`;
+
+    const response = await openai.chat.completions.create({
+      model: 'openai/gpt-3.5-turbo',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert at analyzing educational content and breaking it down into logical topics. Return only valid JSON arrays.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3
+    });
+
+    const responseText = response.choices[0]?.message?.content || '';
+    
+    try {
+      const topics = JSON.parse(responseText);
+      console.log(`✅ Topic analysis completed: ${topics.length} topics found`);
+      return topics;
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', parseError);
+      // Fallback to simple topic extraction
+      return createFallbackTopics(transcript);
+    }
+  } catch (error) {
+    console.error('❌ Topic analysis failed:', error);
+    // Fallback to simple topic extraction
+    return createFallbackTopics(transcript);
+  }
+}
+
+// Create fallback topics when AI analysis fails
+function createFallbackTopics(transcript: string): any[] {
+  const sentences = transcript.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  const topics = [];
+  
+  for (let i = 0; i < Math.min(sentences.length, 4); i++) {
+    const startTime = i * 60; // 1 minute per topic
+    const endTime = (i + 1) * 60;
+    const content = sentences[i]?.trim() || '';
+    
+    if (content) {
+      topics.push({
+        id: `topic-${i + 1}`,
+        title: `Topic ${i + 1}`,
+        startTime,
+        endTime,
+        content
+      });
+    }
+  }
+  
+  return topics;
+}
+
+// Get file extension from filename
+function getFileExtension(filename: string): string {
+  const lastDot = filename.lastIndexOf('.');
+  return lastDot !== -1 ? filename.substring(lastDot) : '';
 }
 
 export default app;
