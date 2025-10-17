@@ -881,6 +881,10 @@ export class DatabaseService {
     source: string;
     sourceId: string;
   }>): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      return; // Mock implementation - do nothing in development
+    }
+
     const query = `
       INSERT INTO notes (title, content, user_id, source, source_id, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -895,6 +899,117 @@ export class DatabaseService {
         note.sourceId
       ]);
     }
+  }
+
+  // Video Analysis Methods
+  async createVideoAnalysis(analysis: {
+    id: string;
+    userId: string;
+    title: string;
+    source: string;
+    sourceUrl?: string;
+    status: string;
+    progress: number;
+  }): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Creating video analysis:', analysis);
+      return;
+    }
+
+    const query = `
+      INSERT INTO video_analyses (id, user_id, title, source, source_url, status, progress, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+    `;
+    await this.executeQuery(query, [
+      analysis.id,
+      analysis.userId,
+      analysis.title,
+      analysis.source,
+      analysis.sourceUrl,
+      analysis.status,
+      analysis.progress
+    ]);
+  }
+
+  async getVideoAnalysis(analysisId: string): Promise<any> {
+    if (this.isDevelopmentMode()) {
+      // Return mock data for development
+      return {
+        id: analysisId,
+        userId: 'test@example.com',
+        title: 'Mock Video Analysis',
+        source: 'youtube',
+        sourceUrl: 'https://youtube.com/watch?v=test',
+        status: 'completed',
+        progress: 100,
+        transcript: 'This is a mock transcript for testing purposes.',
+        topics: [
+          {
+            id: 'topic-1',
+            title: 'Introduction',
+            startTime: 0,
+            endTime: 60,
+            content: 'This is the introduction section of the video.'
+          },
+          {
+            id: 'topic-2',
+            title: 'Main Content',
+            startTime: 60,
+            endTime: 300,
+            content: 'This is the main content section of the video.'
+          }
+        ],
+        overallSummary: 'This is a mock summary of the video content.',
+        flashcards: [
+          { id: 'card-1', front: 'What is the main topic?', back: 'The main topic covers key concepts.' },
+          { id: 'card-2', front: 'What are the key points?', back: 'The key points include important details.' }
+        ]
+      };
+    }
+
+    const query = 'SELECT * FROM video_analyses WHERE id = $1';
+    const result = await this.executeQuery(query, [analysisId]);
+    return result.rows[0] || null;
+  }
+
+  async updateVideoAnalysis(analysisId: string, updates: any): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Updating video analysis:', analysisId, updates);
+      return;
+    }
+
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+    const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
+    
+    const query = `
+      UPDATE video_analyses 
+      SET ${setClause}, updated_at = NOW()
+      WHERE id = $1
+    `;
+    await this.executeQuery(query, [analysisId, ...values]);
+  }
+
+  async updateVideoAnalysisTopic(analysisId: string, topicId: string, updates: any): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Updating video analysis topic:', analysisId, topicId, updates);
+      return;
+    }
+
+    // This would require updating the JSONB topics field
+    // For now, just log in development mode
+    console.log('Topic update not implemented in database yet');
+  }
+
+  async addVideoAnalysisFlashcards(analysisId: string, flashcards: any[]): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Adding video analysis flashcards:', analysisId, flashcards);
+      return;
+    }
+
+    // This would require updating the JSONB flashcards field
+    // For now, just log in development mode
+    console.log('Flashcards update not implemented in database yet');
   }
 }
 

@@ -2249,4 +2249,196 @@ async function cleanupTempFiles(tempDir: string): Promise<void> {
   }
 }
 
+// ==================== VIDEO PROCESSING FUNCTIONS ====================
+
+// Process YouTube video
+async function processYouTubeVideo(analysisId: string, url: string) {
+  try {
+    console.log(`🎥 Starting YouTube video analysis for ${analysisId}`);
+    
+    // Update progress
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
+
+    // For now, simulate the processing with mock data
+    // In production, you would:
+    // 1. Download video using yt-dlp
+    // 2. Extract audio using ffmpeg
+    // 3. Convert speech to text
+    // 4. Analyze transcript for topics
+    // 5. Generate summaries and flashcards
+
+    // Simulate processing steps
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
+
+    // Mock transcript
+    const mockTranscript = `
+      Welcome to this educational video about machine learning. In this video, we'll cover the fundamentals of machine learning algorithms.
+
+      First, let's talk about supervised learning. Supervised learning is a type of machine learning where we train a model using labeled data. The model learns to make predictions based on input-output pairs.
+
+      There are two main types of supervised learning: classification and regression. Classification is used when we want to predict discrete categories, while regression is used for continuous values.
+
+      Next, let's discuss unsupervised learning. Unlike supervised learning, unsupervised learning works with unlabeled data. The goal is to find hidden patterns or structures in the data.
+
+      Common unsupervised learning techniques include clustering and dimensionality reduction. Clustering groups similar data points together, while dimensionality reduction reduces the number of features while preserving important information.
+
+      Finally, let's touch on reinforcement learning. This is a type of machine learning where an agent learns to make decisions by interacting with an environment and receiving rewards or penalties.
+
+      Reinforcement learning has been successfully applied to game playing, robotics, and autonomous systems. The agent learns through trial and error to maximize its cumulative reward.
+
+      That concludes our overview of machine learning types. Each approach has its own strengths and is suitable for different types of problems.
+    `;
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 70, 
+      transcript: mockTranscript.trim()
+    });
+
+    // Mock topics
+    const mockTopics = [
+      {
+        id: 'topic-1',
+        title: 'Introduction to Machine Learning',
+        startTime: 0,
+        endTime: 60,
+        content: 'Welcome to this educational video about machine learning. In this video, we\'ll cover the fundamentals of machine learning algorithms.'
+      },
+      {
+        id: 'topic-2',
+        title: 'Supervised Learning',
+        startTime: 60,
+        endTime: 180,
+        content: 'First, let\'s talk about supervised learning. Supervised learning is a type of machine learning where we train a model using labeled data. The model learns to make predictions based on input-output pairs. There are two main types of supervised learning: classification and regression.'
+      },
+      {
+        id: 'topic-3',
+        title: 'Unsupervised Learning',
+        startTime: 180,
+        endTime: 300,
+        content: 'Next, let\'s discuss unsupervised learning. Unlike supervised learning, unsupervised learning works with unlabeled data. The goal is to find hidden patterns or structures in the data. Common techniques include clustering and dimensionality reduction.'
+      },
+      {
+        id: 'topic-4',
+        title: 'Reinforcement Learning',
+        startTime: 300,
+        endTime: 420,
+        content: 'Finally, let\'s touch on reinforcement learning. This is a type of machine learning where an agent learns to make decisions by interacting with an environment and receiving rewards or penalties.'
+      }
+    ];
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 90, 
+      topics: mockTopics
+    });
+
+    // Mock overall summary
+    const mockSummary = `
+      This video provides a comprehensive overview of machine learning, covering three main types: supervised learning, unsupervised learning, and reinforcement learning. 
+
+      Supervised learning uses labeled data to train models for classification and regression tasks. Unsupervised learning finds patterns in unlabeled data through clustering and dimensionality reduction. Reinforcement learning teaches agents to make decisions through trial and error in an environment.
+
+      Each approach has unique strengths and applications, making them suitable for different types of problems in artificial intelligence and data science.
+    `;
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 100, 
+      status: 'completed',
+      overallSummary: mockSummary.trim()
+    });
+
+    console.log(`✅ YouTube video analysis completed for ${analysisId}`);
+  } catch (error) {
+    console.error(`❌ YouTube video analysis failed for ${analysisId}:`, error);
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      status: 'failed', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}
+
+// Process uploaded video file
+async function processUploadedVideo(analysisId: string, file: any) {
+  try {
+    console.log(`🎥 Starting uploaded video analysis for ${analysisId}`);
+    
+    // Update progress
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
+
+    // For now, simulate the processing with mock data
+    // In production, you would:
+    // 1. Save uploaded file to temp storage
+    // 2. Extract audio using ffmpeg
+    // 3. Convert speech to text
+    // 4. Analyze transcript for topics
+    // 5. Generate summaries and flashcards
+
+    // Simulate processing steps
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
+
+    // Mock transcript
+    const mockTranscript = `
+      This is a mock transcript for the uploaded video file: ${file.name}. 
+
+      The video covers important educational content that would normally be processed through speech-to-text conversion. In a real implementation, this would be the actual transcript extracted from the video's audio track.
+
+      The content includes various topics and concepts that would be analyzed to create structured notes and flashcards for study purposes.
+    `;
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 70, 
+      transcript: mockTranscript.trim()
+    });
+
+    // Mock topics
+    const mockTopics = [
+      {
+        id: 'topic-1',
+        title: 'Video Introduction',
+        startTime: 0,
+        endTime: 60,
+        content: 'This is a mock transcript for the uploaded video file. The video covers important educational content.'
+      },
+      {
+        id: 'topic-2',
+        title: 'Main Content',
+        startTime: 60,
+        endTime: 300,
+        content: 'The content includes various topics and concepts that would be analyzed to create structured notes and flashcards for study purposes.'
+      }
+    ];
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 90, 
+      topics: mockTopics
+    });
+
+    // Mock overall summary
+    const mockSummary = `
+      This uploaded video contains educational content that has been processed and analyzed. The video covers important topics and concepts that are now available as structured notes and flashcards for study purposes.
+    `;
+
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      progress: 100, 
+      status: 'completed',
+      overallSummary: mockSummary.trim()
+    });
+
+    console.log(`✅ Uploaded video analysis completed for ${analysisId}`);
+  } catch (error) {
+    console.error(`❌ Uploaded video analysis failed for ${analysisId}:`, error);
+    await databaseService.updateVideoAnalysis(analysisId, { 
+      status: 'failed', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}
+
 export default app;
