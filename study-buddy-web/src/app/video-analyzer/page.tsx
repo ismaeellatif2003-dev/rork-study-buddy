@@ -16,7 +16,8 @@ import {
   XCircle, 
   FileText, 
   ClipboardCopy,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Progress } from '@/components/ui/Progress';
@@ -123,7 +124,18 @@ export default function VideoAnalyzerPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setVideoFile(e.target.files[0]);
+      setVideoUrl(''); // Clear URL when file is selected
       setError(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setVideoFile(null);
+    setError(null);
+    // Reset the file input
+    const fileInput = document.getElementById('video-file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -131,6 +143,7 @@ export default function VideoAnalyzerPage() {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setVideoFile(e.dataTransfer.files[0]);
+      setVideoUrl(''); // Clear URL when file is dropped
       setError(null);
     }
   };
@@ -281,7 +294,16 @@ export default function VideoAnalyzerPage() {
                   type="url"
                   placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                   value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
+                  onChange={(e) => {
+                    setVideoUrl(e.target.value);
+                    if (e.target.value && videoFile) {
+                      setVideoFile(null); // Clear file when URL is entered
+                      const fileInput = document.getElementById('video-file-upload') as HTMLInputElement;
+                      if (fileInput) {
+                        fileInput.value = '';
+                      }
+                    }
+                  }}
                   disabled={isAnalyzing}
                 />
                 <Button onClick={handleAnalyzeUrl} disabled={isAnalyzing}>
@@ -311,9 +333,26 @@ export default function VideoAnalyzerPage() {
                   Max 250MB, MP4, AVI, MOV, WMV, WebM
                 </p>
                 {videoFile && (
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-                    Selected: {videoFile.name} ({(videoFile.size / (1024 * 1024)).toFixed(2)} MB)
-                  </p>
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mt-2 w-full max-w-md">
+                    <div className="flex items-center space-x-2">
+                      <Video className="text-blue-500" size={16} />
+                      <div>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                          {videoFile.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRemoveFile}
+                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                      title="Remove file"
+                    >
+                      <X className="text-gray-500 hover:text-red-500" size={16} />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
