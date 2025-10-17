@@ -2229,15 +2229,12 @@ async function convertSpeechToText(audioPath: string): Promise<string> {
   try {
     console.log(`🗣️ Converting speech to text using OpenAI Whisper`);
     
-    // Read the audio file
-    const audioBuffer = await fs.readFile(audioPath);
+    // Create a readable stream from the audio file
+    const audioStream = require('fs').createReadStream(audioPath);
     
-    // Create a File-like object for OpenAI API
-    const audioFile = new File([audioBuffer], 'audio.wav', { type: 'audio/wav' });
-    
-    // Use OpenAI Whisper API
+    // Use OpenAI Whisper API with the stream
     const response = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: audioStream,
       model: 'whisper-1',
       language: 'en', // You can make this configurable
       response_format: 'text'
