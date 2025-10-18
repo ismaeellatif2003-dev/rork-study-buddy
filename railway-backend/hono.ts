@@ -2468,7 +2468,7 @@ async function analyzeTranscriptForTopics(transcript: string): Promise<any[]> {
             
             CRITICAL INSTRUCTIONS:
             - Return ONLY a valid JSON array starting with [ and ending with ]
-            - NO markdown formatting (no ```json or ```)
+            - NO markdown formatting (no \`\`\`json or \`\`\`)
             - NO explanations or additional text
             - NO code blocks or formatting
             - Start your response immediately with [
