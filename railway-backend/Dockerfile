@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache \
     python3 \
     py3-pip \
+    ffmpeg \
     && python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install yt-dlp \
     && ln -s /opt/venv/bin/yt-dlp /usr/local/bin/yt-dlp

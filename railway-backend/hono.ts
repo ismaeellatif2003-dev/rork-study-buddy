@@ -2140,11 +2140,32 @@ async function processYouTubeVideo(analysisId: string, url: string) {
     await databaseService.updateVideoAnalysis(analysisId, { progress: 70 });
     
     const topics = await analyzeTranscriptForTopics(transcript);
-    console.log(`✅ Topics analyzed: ${topics.length} topics found`);
+    
+    // Ensure topics is valid JSON before saving
+    let validTopics;
+    try {
+      if (typeof topics === 'string') {
+        validTopics = JSON.parse(topics);
+      } else {
+        validTopics = topics;
+      }
+      
+      // Validate that it's an array
+      if (!Array.isArray(validTopics)) {
+        console.error('❌ Topics is not an array:', validTopics);
+        validTopics = [];
+      }
+      
+      console.log(`✅ Topics validated: ${validTopics.length} topics`);
+    } catch (parseError) {
+      console.error('❌ Failed to parse topics JSON:', parseError);
+      console.error('❌ Raw topics response:', topics);
+      validTopics = [];
+    }
     
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 80, 
-      topics: JSON.stringify(topics) // Ensure topics are properly stringified for JSONB
+      topics: validTopics
     });
 
     // Step 4: Generate overall summary
@@ -2275,9 +2296,31 @@ async function processUploadedVideo(analysisId: string, file: any) {
     
     const topics = await analyzeTranscriptForTopics(transcript);
     
+    // Ensure topics is valid JSON before saving
+    let validTopics;
+    try {
+      if (typeof topics === 'string') {
+        validTopics = JSON.parse(topics);
+      } else {
+        validTopics = topics;
+      }
+      
+      // Validate that it's an array
+      if (!Array.isArray(validTopics)) {
+        console.error('❌ Topics is not an array:', validTopics);
+        validTopics = [];
+      }
+      
+      console.log(`✅ Topics validated: ${validTopics.length} topics`);
+    } catch (parseError) {
+      console.error('❌ Failed to parse topics JSON:', parseError);
+      console.error('❌ Raw topics response:', topics);
+      validTopics = [];
+    }
+    
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 80, 
-      topics: topics
+      topics: validTopics
     });
 
     // Step 4: Generate overall summary
