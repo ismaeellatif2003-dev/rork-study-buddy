@@ -836,8 +836,21 @@ export class DatabaseService {
       status: updates.status
     });
 
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
+    // Convert arrays/objects to JSON strings for JSONB fields
+    const processedUpdates = { ...updates };
+    if (processedUpdates.topics && Array.isArray(processedUpdates.topics)) {
+      processedUpdates.topics = JSON.stringify(processedUpdates.topics);
+      console.log(`📝 Converting topics to JSON string: ${processedUpdates.topics.length} characters`);
+    }
+    if (processedUpdates.notes && Array.isArray(processedUpdates.notes)) {
+      processedUpdates.notes = JSON.stringify(processedUpdates.notes);
+    }
+    if (processedUpdates.flashcards && Array.isArray(processedUpdates.flashcards)) {
+      processedUpdates.flashcards = JSON.stringify(processedUpdates.flashcards);
+    }
+
+    const fields = Object.keys(processedUpdates);
+    const values = Object.values(processedUpdates);
     const setClause = fields.map((field, index) => `${field} = $${index + 2}`).join(', ');
     
     const query = `
