@@ -577,6 +577,17 @@ export class DatabaseService {
     return results;
   }
 
+  async deleteFlashcardSet(userId: string | number, setId: string): Promise<{ deletedCount: number }> {
+    if (!this.pool) {
+      throw new Error('Database not available');
+    }
+
+    const query = 'DELETE FROM flashcards WHERE user_id = $1 AND set_id = $2';
+    const result = await this.executeQuery(query, [userId, setId]);
+    
+    return { deletedCount: result.rowCount || 0 };
+  }
+
   // Essays management
   async getUserEssays(userId: number): Promise<Essay[]> {
     const query = 'SELECT * FROM essays WHERE user_id = $1 ORDER BY created_at DESC';

@@ -1538,6 +1538,44 @@ app.post("/flashcards/sync", async (c) => {
   }
 });
 
+// Delete flashcard set endpoint
+app.delete("/flashcards/:setId", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = jwtService.verifyToken(token);
+    } catch (jwtError) {
+      return c.json({ error: "Invalid or expired token" }, 401);
+    }
+
+    const setId = c.req.param("setId");
+    if (!setId) {
+      return c.json({ error: "Set ID is required" }, 400);
+    }
+
+    console.log(`🗑️ Deleting flashcard set ${setId} for user ${decoded.userId}`);
+
+    const result = await databaseService.deleteFlashcardSet(decoded.userId, setId);
+    
+    console.log(`✅ Deleted ${result.deletedCount} flashcards from set ${setId}`);
+
+    return c.json({ 
+      success: true, 
+      deletedCount: result.deletedCount,
+      setId 
+    });
+  } catch (error: any) {
+    console.error("Delete flashcard set error:", error);
+    return c.json({ error: "Failed to delete flashcard set" }, 500);
+  }
+});
+
 // ==================== ESSAYS ENDPOINTS ====================
 
 app.get("/essays", async (c) => {

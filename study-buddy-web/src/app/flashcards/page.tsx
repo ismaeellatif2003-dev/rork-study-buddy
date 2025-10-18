@@ -182,44 +182,7 @@ export default function FlashcardsPage() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
   const [userFlashcardSets, setUserFlashcardSets] = useState<FlashcardSet[]>([]);
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
-  const [deletedSetIds, setDeletedSetIds] = useState<Set<string>>(new Set());
 
-  // Load deleted set IDs from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedDeletedIds = localStorage.getItem('deletedFlashcardSetIds');
-      if (savedDeletedIds) {
-        const deletedIdsArray = JSON.parse(savedDeletedIds);
-        setDeletedSetIds(new Set(deletedIdsArray));
-        console.log('📂 Loaded deleted set IDs from localStorage:', deletedIdsArray);
-      }
-    } catch (error) {
-      console.error('Error loading deleted set IDs:', error);
-    }
-  }, []);
-
-  // Save deleted set IDs to localStorage whenever they change
-  useEffect(() => {
-    try {
-      const deletedIdsArray = Array.from(deletedSetIds);
-      localStorage.setItem('deletedFlashcardSetIds', JSON.stringify(deletedIdsArray));
-      console.log('💾 Saved deleted set IDs to localStorage:', deletedIdsArray);
-    } catch (error) {
-      console.error('Error saving deleted set IDs:', error);
-    }
-  }, [deletedSetIds]);
-
-  // Function to restore all deleted sets
-  const restoreDeletedSets = () => {
-    if (deletedSetIds.size > 0) {
-      if (confirm(`Are you sure you want to restore all ${deletedSetIds.size} deleted flashcard sets?`)) {
-        setDeletedSetIds(new Set());
-        console.log('🔄 Restored all deleted flashcard sets');
-      }
-    } else {
-      alert('No deleted flashcard sets to restore.');
-    }
-  };
 
   // Load user-generated flashcard sets and backend flashcards
   const loadFlashcardSets = async () => {
@@ -370,7 +333,7 @@ export default function FlashcardsPage() {
     let cardsToLoad: Flashcard[];
     if (!selectedSetId) {
       // "All Flashcards" - use flashcards from all non-deleted sets
-      const availableSets = allFlashcardSets.filter(set => !deletedSetIds.has(set.id));
+      const availableSets = allFlashcardSets.filter(set => !false);
       cardsToLoad = availableSets.flatMap(set => set.flashcards);
     } else {
       // Find the selected set and use its flashcards
@@ -393,7 +356,7 @@ export default function FlashcardsPage() {
     let cardsToLoad: Flashcard[];
     if (setId === '') {
       // "All Flashcards" - use flashcards from all non-deleted sets
-      const availableSets = allFlashcardSets.filter(set => !deletedSetIds.has(set.id));
+      const availableSets = allFlashcardSets.filter(set => !false);
       cardsToLoad = availableSets.flatMap(set => set.flashcards);
     } else {
       // Find the selected set and use its flashcards (from user-generated or mock sets)
@@ -495,19 +458,34 @@ export default function FlashcardsPage() {
     }
   };
 
-  const handleDeleteFlashcardSet = (setId: string, setName: string) => {
+  const handleDeleteFlashcardSet = async (setId: string, setName: string) => {
     console.log('🗑️ Attempting to delete set:', setId, setName);
-    console.log('🔍 Current deleted set IDs:', Array.from(deletedSetIds));
     
     if (confirm(`Are you sure you want to delete the flashcard set "${setName}"? This will permanently delete all ${allFlashcardSets.find(s => s.id === setId)?.flashcards.length || 0} flashcards in this set. This action cannot be undone.`)) {
-      // Check if this is a user-generated set (stored in localStorage)
-      const isUserSet = userFlashcardSets.some(userSet => userSet.id === setId);
-      console.log('🔍 Is user set:', isUserSet);
-      
-      if (isUserSet) {
-        // Delete from localStorage using the hook
-        console.log('🗑️ Deleting user set from localStorage');
-        deleteFlashcardSet(setId);
+      try {
+        // Check if this is a user-generated set (stored in localStorage)
+        const isUserSet = userFlashcardSets.some(userSet => userSet.id === setId);
+        console.log('🔍 Is user set:', isUserSet);
+        
+        if (isUserSet) {
+          // For user-generated sets, delete from backend first
+          console.log('🗑️ Deleting user set from backend');
+          try {
+            await flashcardsApi.deleteSet(setId);
+            console.log('✅ Successfully deleted set from backend');
+          } catch (backendError) {
+            console.error('❌ Failed to delete from backend:', backendError);
+            // Continue with local deletion even if backend fails
+          }
+          
+          // Delete from localStorage using the hook
+          console.log('🗑️ Deleting user set from localStorage');
+          deleteFlashcardSet(setId);
+        } else {
+          // For mock/backend sets, we can't delete them from their source
+          // but we can hide them from the UI
+          console.log('🗑️ Mock/backend set cannot be permanently deleted, hiding from UI');
+        }
         
         // Update userFlashcardSets state to remove the deleted set
         setUserFlashcardSets(prev => prev.filter(set => set.id !== setId));
@@ -515,35 +493,17 @@ export default function FlashcardsPage() {
         // Update allFlashcardSets state to remove the deleted set
         setAllFlashcardSets(prev => prev.filter(set => set.id !== setId));
         
-        // Also add to deleted set IDs to ensure it's hidden from all displays
-        setDeletedSetIds(prev => {
-          const newSet = new Set([...prev, setId]);
-          console.log('🔍 Adding user set to deleted IDs:', Array.from(newSet));
-          return newSet;
-        });
-      } else {
-        // For mock/backend sets, add to deleted set IDs to hide them
-        console.log('🗑️ Adding mock/backend set to deleted IDs');
+        // If this set is currently selected, switch to "All Flashcards"
+        if (selectedSetId === setId) {
+          handleSelectSet('');
+        }
         
-        // Update allFlashcardSets state to remove the deleted set
-        setAllFlashcardSets(prev => prev.filter(set => set.id !== setId));
+        alert(`Flashcard set "${setName}" has been deleted successfully.`);
         
-        setDeletedSetIds(prev => {
-          const newSet = new Set([...prev, setId]);
-          console.log('🔍 New deleted set IDs:', Array.from(newSet));
-          return newSet;
-        });
+      } catch (error) {
+        console.error('❌ Error deleting flashcard set:', error);
+        alert('Failed to delete flashcard set. Please try again.');
       }
-      
-      // If this set is currently selected, switch to "All Flashcards"
-      if (selectedSetId === setId) {
-        handleSelectSet('');
-      }
-      
-      // Don't reload flashcard sets as it will bring back deleted sets
-      // The UI will update automatically due to the state changes
-      
-      alert(`Flashcard set "${setName}" has been deleted successfully.`);
     }
   };
 
@@ -676,12 +636,6 @@ export default function FlashcardsPage() {
             <RotateCcw size={16} />
             Reset
           </Button>
-          {deletedSetIds.size > 0 && (
-            <Button onClick={restoreDeletedSets} className="flex items-center gap-2 bg-orange-600 text-white hover:bg-orange-700">
-              <RefreshCw size={16} />
-              Restore Deleted ({deletedSetIds.size})
-            </Button>
-          )}
         </div>
       </div>
 
@@ -823,7 +777,7 @@ export default function FlashcardsPage() {
                   <div className="text-sm text-gray-600">Study all available flashcards</div>
                 </button>
                 
-                {allFlashcardSets.filter(set => !deletedSetIds.has(set.id)).map((set) => {
+                {allFlashcardSets.filter(set => !false).map((set) => {
                   const isUserSet = userFlashcardSets.some(userSet => userSet.id === set.id);
                   
                   return (

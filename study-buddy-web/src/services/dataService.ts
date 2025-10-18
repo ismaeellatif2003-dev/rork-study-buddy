@@ -174,6 +174,12 @@ export const flashcardsApi = {
       body: JSON.stringify({ platform, flashcards }),
     });
   },
+
+  async deleteSet(setId: string) {
+    return authFetch(`/flashcards/${setId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // ==================== ESSAYS API ====================
