@@ -184,6 +184,43 @@ export default function FlashcardsPage() {
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
   const [deletedSetIds, setDeletedSetIds] = useState<Set<string>>(new Set());
 
+  // Load deleted set IDs from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedDeletedIds = localStorage.getItem('deletedFlashcardSetIds');
+      if (savedDeletedIds) {
+        const deletedIdsArray = JSON.parse(savedDeletedIds);
+        setDeletedSetIds(new Set(deletedIdsArray));
+        console.log('📂 Loaded deleted set IDs from localStorage:', deletedIdsArray);
+      }
+    } catch (error) {
+      console.error('Error loading deleted set IDs:', error);
+    }
+  }, []);
+
+  // Save deleted set IDs to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const deletedIdsArray = Array.from(deletedSetIds);
+      localStorage.setItem('deletedFlashcardSetIds', JSON.stringify(deletedIdsArray));
+      console.log('💾 Saved deleted set IDs to localStorage:', deletedIdsArray);
+    } catch (error) {
+      console.error('Error saving deleted set IDs:', error);
+    }
+  }, [deletedSetIds]);
+
+  // Function to restore all deleted sets
+  const restoreDeletedSets = () => {
+    if (deletedSetIds.size > 0) {
+      if (confirm(`Are you sure you want to restore all ${deletedSetIds.size} deleted flashcard sets?`)) {
+        setDeletedSetIds(new Set());
+        console.log('🔄 Restored all deleted flashcard sets');
+      }
+    } else {
+      alert('No deleted flashcard sets to restore.');
+    }
+  };
+
   // Load user-generated flashcard sets and backend flashcards
   const loadFlashcardSets = async () => {
       // Load local flashcard sets
@@ -639,6 +676,12 @@ export default function FlashcardsPage() {
             <RotateCcw size={16} />
             Reset
           </Button>
+          {deletedSetIds.size > 0 && (
+            <Button onClick={restoreDeletedSets} className="flex items-center gap-2 bg-orange-600 text-white hover:bg-orange-700">
+              <RefreshCw size={16} />
+              Restore Deleted ({deletedSetIds.size})
+            </Button>
+          )}
         </div>
       </div>
 
