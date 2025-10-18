@@ -182,29 +182,37 @@ export default function NotesPage() {
         messages: [
           {
             role: 'system',
-            content: `You are an expert educator and study specialist. Create high-quality, detailed flashcards from the given note content. 
+            content: `You are an expert educator and study specialist. Create high-quality, detailed flashcards that are SPECIFICALLY based on the given note content.
 
-IMPORTANT GUIDELINES:
-- Create 5-7 comprehensive flashcards that cover the most important concepts from the note
-- Each question should be specific, clear, and test understanding rather than just memorization
-- Each answer should be detailed (2-4 sentences) and provide comprehensive explanations
-- Focus on key concepts, definitions, processes, relationships, and practical applications
-- Make questions that require critical thinking and understanding of the material
-- Ensure answers include context, examples, and connections to the broader topic
-- Avoid overly simple yes/no questions or basic recall questions
-- Create questions that help with deep learning and retention
+CRITICAL REQUIREMENTS:
+- Create 5-7 flashcards that are DIRECTLY related to the specific content in this note
+- Questions must reference specific facts, concepts, and details from the note content
+- Answers must be based ONLY on the information provided in the note
+- Do not create generic questions that could apply to any topic
+- Focus on the most important and specific information from this particular note
+- Make questions that test understanding of the specific material in this note
+- Ensure answers include specific details and examples from the note content
+- Avoid generic educational questions - make them specific to this note's content
 
-Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and educational.`
+CONTENT-SPECIFIC GUIDELINES:
+- Extract key facts, concepts, and details from the note content
+- Create questions that test understanding of these specific elements
+- Reference specific names, dates, processes, or concepts mentioned in the note
+- Ask about relationships, causes, effects, or implications specific to this note
+- Include specific examples or details mentioned in the note
+- Make questions that require analysis of the specific information in this note
+
+Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and directly reference the note content.`
           },
           {
             role: 'user',
-            content: `Create detailed, educational flashcards from this note. Make them comprehensive and thought-provoking:
+            content: `Create detailed, educational flashcards that are SPECIFICALLY based on this exact note content. Generate questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this note. Do not create generic questions - make them specific to what is actually written in this note:
 
 Title: ${note.title}
 
 Content: ${note.content}
 
-Generate 5-7 high-quality flashcards that will help with deep understanding and retention of this material.`
+Generate 5-7 high-quality flashcards that test understanding of the specific concepts, facts, and details mentioned in this particular note. Focus on the most important and specific information from this note content.`
           }
         ],
         type: 'flashcards',

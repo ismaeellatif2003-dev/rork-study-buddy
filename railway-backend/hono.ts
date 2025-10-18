@@ -169,20 +169,32 @@ app.post("/ai/generate", async (c) => {
 
     switch (type) {
       case 'flashcards':
-        systemPrompt = `You are an expert educator and study specialist. Generate high-quality, detailed flashcards from the provided content.
+        systemPrompt = `You are an expert educator and study specialist. Generate high-quality, detailed flashcards that are SPECIFICALLY based on the provided content.
 
-IMPORTANT GUIDELINES:
-- Create 5-7 comprehensive flashcards that cover the most important concepts
-- Each question should be specific, clear, and test understanding rather than just memorization
-- Each answer should be detailed (2-4 sentences) and provide comprehensive explanations
-- Focus on key concepts, definitions, processes, relationships, and practical applications
-- Make questions that require critical thinking and understanding of the material
-- Ensure answers include context, examples, and connections to the broader topic
-- Avoid overly simple yes/no questions or basic recall questions
-- Create questions that help with deep learning and retention
+CRITICAL REQUIREMENTS:
+- Create 5-7 flashcards that are DIRECTLY related to the specific content provided
+- Questions must reference specific facts, concepts, and details from the content
+- Answers must be based ONLY on the information provided in the content
+- Do not create generic questions that could apply to any topic
+- Focus on the most important and specific information from this particular content
+- Make questions that test understanding of the specific material provided
+- Ensure answers include specific details and examples from the content
+- Avoid generic educational questions - make them specific to this content
 
-Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and educational (up to 500 characters).`;
-        userPrompt = `Generate detailed, educational flashcards from this content: ${userPrompt}`;
+CONTENT-SPECIFIC GUIDELINES:
+- Extract key facts, concepts, and details from the provided content
+- Create questions that test understanding of these specific elements
+- Reference specific names, dates, processes, or concepts mentioned in the content
+- Ask about relationships, causes, effects, or implications specific to this content
+- Include specific examples or details mentioned in the content
+- Make questions that require analysis of the specific information provided
+
+Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and directly reference the content (up to 500 characters).`;
+        userPrompt = `Generate detailed, educational flashcards that are SPECIFICALLY based on this exact content. Create questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this content. Do not create generic questions - make them specific to what is actually written here:
+
+${userPrompt}
+
+Focus on the most important and specific information from this content. Create questions that test understanding of the particular concepts, facts, and details mentioned in this specific material.`;
         break;
       case 'summary':
         systemPrompt = 'You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.';
@@ -295,42 +307,52 @@ app.post("/ai/flashcards", async (c) => {
       messages: [
         { 
           role: 'system', 
-          content: `You are an expert educator and study specialist specializing in creating high-quality, detailed educational flashcards. 
+          content: `You are an expert educator and study specialist specializing in creating high-quality, detailed educational flashcards from specific content.
 
 CRITICAL REQUIREMENTS:
 1. You MUST generate EXACTLY ${count} flashcards - no more, no less
 2. Each flashcard must have a "question" and "answer" field
-3. Questions should be specific, clear, and test deep understanding rather than just memorization
-4. Answers should be comprehensive (2-4 sentences) and provide detailed explanations with context
-5. Focus on key concepts, definitions, processes, relationships, and practical applications
-6. Make questions that require critical thinking and understanding of the material
-7. Ensure answers include context, examples, and connections to the broader topic
-8. Avoid overly simple yes/no questions or basic recall questions
-9. Cover different aspects of the content (definitions, examples, processes, relationships, applications)
-10. Use ONLY the content provided - do not make up information
+3. Questions must be DIRECTLY related to the specific content provided - not generic
+4. Answers must be based ONLY on the content provided - do not add external information
+5. Questions should test understanding of the specific concepts, facts, and details in the content
+6. Answers should be comprehensive (2-4 sentences) and directly reference the content
+7. Focus on the most important and specific information from the provided content
+8. Make questions that require understanding of the specific material, not general knowledge
+9. Ensure answers include specific details, examples, and context from the content
+10. Avoid generic questions that could apply to any topic
 11. Return ONLY a valid JSON array with exactly ${count} flashcards
 
-DETAILED GUIDELINES:
-- Questions should be thought-provoking and test comprehension
-- Answers should be substantial and educational (up to 500 characters each)
-- Include specific examples and context in answers
-- Make connections between different concepts
-- Focus on understanding rather than rote memorization
+CONTENT-SPECIFIC GUIDELINES:
+- Extract key facts, concepts, and details from the provided content
+- Create questions that test understanding of these specific elements
+- Reference specific names, dates, processes, or concepts mentioned in the content
+- Ask about relationships, causes, effects, or implications specific to this content
+- Include specific examples or details mentioned in the content
+- Make questions that require analysis of the specific information provided
+
+QUESTION TYPES TO USE:
+- "According to the content, what is [specific concept] and how does it work?"
+- "What does the content say about [specific topic] and why is it important?"
+- "How does [specific element A] relate to [specific element B] according to the content?"
+- "What are the key characteristics of [specific concept] mentioned in the content?"
+- "What does the content explain about [specific process or phenomenon]?"
 
 JSON FORMAT (exactly ${count} items):
 [
-  {"question": "What is... and how does it work?", "answer": "Detailed explanation with context, examples, and connections to broader concepts..."},
-  {"question": "How does... relate to... and why is this important?", "answer": "Comprehensive answer explaining the relationship, significance, and practical applications..."},
-  {"question": "Why is... significant and what are its implications?", "answer": "Detailed explanation of importance, implications, and real-world applications..."},
-  {"question": "When and how does... occur, and what factors influence it?", "answer": "Comprehensive answer covering timing, process, and influencing factors..."},
-  {"question": "What are the key differences between... and how do they impact...?", "answer": "Detailed comparison with analysis of differences and their practical implications..."}
+  {"question": "According to the content, what is [specific concept] and how does it work?", "answer": "Based on the content, [specific concept] is... The content explains that it works by... This is important because..."},
+  {"question": "What does the content say about [specific topic] and why is it significant?", "answer": "The content states that [specific topic]... It is significant because... The content specifically mentions..."},
+  {"question": "How does [element A] relate to [element B] according to the content?", "answer": "The content explains that [element A] relates to [element B] by... This relationship is important because... The content specifically states..."}
 ]
 
-IMPORTANT: You must return exactly ${count} flashcards in valid JSON format with detailed, educational answers.` 
+IMPORTANT: Create questions and answers that are SPECIFIC to the provided content, not generic educational questions.` 
         },
         { 
           role: 'user', 
-          content: `Generate ${count} detailed, high-quality flashcards from this content: ${content}` 
+          content: `Generate ${count} detailed, high-quality flashcards that are SPECIFICALLY based on this exact content. Create questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this content. Do not create generic questions - make them specific to what is actually written here:
+
+${content}
+
+Focus on the most important and specific information from this content. Create questions that test understanding of the particular concepts, facts, and details mentioned in this specific material.`
         }
       ],
       max_tokens: 2000,
