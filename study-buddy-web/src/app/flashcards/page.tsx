@@ -471,9 +471,26 @@ export default function FlashcardsPage() {
         // Delete from localStorage using the hook
         console.log('🗑️ Deleting user set from localStorage');
         deleteFlashcardSet(setId);
+        
+        // Update userFlashcardSets state to remove the deleted set
+        setUserFlashcardSets(prev => prev.filter(set => set.id !== setId));
+        
+        // Update allFlashcardSets state to remove the deleted set
+        setAllFlashcardSets(prev => prev.filter(set => set.id !== setId));
+        
+        // Also add to deleted set IDs to ensure it's hidden from all displays
+        setDeletedSetIds(prev => {
+          const newSet = new Set([...prev, setId]);
+          console.log('🔍 Adding user set to deleted IDs:', Array.from(newSet));
+          return newSet;
+        });
       } else {
         // For mock/backend sets, add to deleted set IDs to hide them
         console.log('🗑️ Adding mock/backend set to deleted IDs');
+        
+        // Update allFlashcardSets state to remove the deleted set
+        setAllFlashcardSets(prev => prev.filter(set => set.id !== setId));
+        
         setDeletedSetIds(prev => {
           const newSet = new Set([...prev, setId]);
           console.log('🔍 New deleted set IDs:', Array.from(newSet));
@@ -486,8 +503,8 @@ export default function FlashcardsPage() {
         handleSelectSet('');
       }
       
-      // Reload the flashcard sets to reflect the deletion
-      loadFlashcardSets();
+      // Don't reload flashcard sets as it will bring back deleted sets
+      // The UI will update automatically due to the state changes
       
       alert(`Flashcard set "${setName}" has been deleted successfully.`);
     }
