@@ -223,6 +223,51 @@ export default function VideoAnalyzerPage() {
 
 
 
+  const handleGenerateTranscriptSummary = async () => {
+    if (!analysisResult?.transcript) {
+      toast.error('No transcript available to generate summary.');
+      return;
+    }
+    
+    toast.info('Generating summary from transcript...');
+    try {
+      const response = await VideoAnalysisService.generateSummary(analysisResult.id, 'overall');
+      setAnalysisResult(prev => prev ? { ...prev, overallSummary: response.summary } : null);
+      toast.success('Summary generated from transcript!');
+    } catch (_error) {
+      toast.error('Failed to generate summary. Please try again.');
+    }
+  };
+
+  const handleSaveTranscriptSummary = async () => {
+    if (!analysisResult?.overallSummary) {
+      toast.error('No summary available to save.');
+      return;
+    }
+    
+    try {
+      console.log('🎯 Starting to save transcript summary as note...');
+      
+      // Create note from transcript summary
+      const note = {
+        title: `Summary: ${analysisResult.title}`,
+        content: analysisResult.overallSummary,
+      };
+      
+      console.log('📝 Creating note from transcript summary:', note.title);
+      
+      // Add note using useNotes hook
+      addNote(note);
+      
+      toast.success('Transcript summary saved as note!');
+      console.log('🎉 Transcript summary saved as note successfully!');
+      
+    } catch (error) {
+      console.error('❌ Error saving transcript summary as note:', error);
+      toast.error('Failed to save transcript summary as note. Please try again.');
+    }
+  };
+
   const handleSaveNotes = async () => {
     if (!analysisResult?.topics || analysisResult.topics.length === 0) {
       toast.error('No topics to save as notes.');
@@ -485,6 +530,13 @@ export default function VideoAnalyzerPage() {
                             <Button 
                               size="sm" 
                               variant="outline"
+                              onClick={handleGenerateTranscriptSummary}
+                            >
+                              <FileText className="mr-1" size={14} /> Generate Summary
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
                               onClick={() => setActiveTab('topics')}
                             >
                               <BookOpen className="mr-1" size={14} /> View Topics
@@ -533,13 +585,22 @@ export default function VideoAnalyzerPage() {
                       {analysisResult.overallSummary ? (
                         <div>
                           <p className="text-gray-700 dark:text-gray-300 mb-3">{analysisResult.overallSummary}</p>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => copyToClipboard(analysisResult.overallSummary || '')}
-                          >
-                            <ClipboardCopy className="mr-1" size={14} /> Copy
-                          </Button>
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => copyToClipboard(analysisResult.overallSummary || '')}
+                            >
+                              <ClipboardCopy className="mr-1" size={14} /> Copy
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={handleSaveTranscriptSummary}
+                            >
+                              <BookOpen className="mr-1" size={14} /> Save as Note
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div>
