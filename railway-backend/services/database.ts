@@ -541,7 +541,7 @@ export class DatabaseService {
     return result.rows;
   }
 
-  async createFlashcards(userId: number, flashcards: Array<{
+  async createFlashcards(userId: string | number, flashcards: Array<{
     set_id: string;
     set_name: string;
     set_description?: string;

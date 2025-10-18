@@ -148,7 +148,7 @@ export class VideoAnalysisService {
 
   // Save analysis to notes
   static async saveNotes(analysisId: string): Promise<{ success: boolean; notesCreated: number }> {
-    return authFetch('/video/save-notes', {
+    return videoFetch('/video/save-notes', {
       method: 'POST',
       body: JSON.stringify({ analysisId }),
     });
@@ -156,7 +156,7 @@ export class VideoAnalysisService {
 
   // Save analysis to flashcards
   static async saveFlashcards(analysisId: string): Promise<{ success: boolean; flashcardsCreated: number }> {
-    return authFetch('/video/save-flashcards', {
+    return videoFetch('/video/save-flashcards', {
       method: 'POST',
       body: JSON.stringify({ analysisId }),
     });

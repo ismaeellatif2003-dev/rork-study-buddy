@@ -1877,7 +1877,7 @@ app.post("/video/save-notes", async (c) => {
     const notes = analysis.topics.map((topic: any) => ({
       title: topic.title,
       content: topic.content,
-      userId: analysis.userId,
+      userId: analysis.user_id, // Use user_id from analysis
       source: 'video_analysis',
       sourceId: analysisId
     }));
@@ -1914,11 +1914,11 @@ app.post("/video/save-flashcards", async (c) => {
       front: card.front,
       back: card.back,
       difficulty: 'medium',
-      userId: analysis.userId
+      userId: analysis.user_id // Use user_id from analysis
     }));
 
     // Save flashcards to database
-    await databaseService.createFlashcards(analysis.userId, flashcards);
+    await databaseService.createFlashcards(analysis.user_id, flashcards);
 
     return c.json({ success: true, flashcardsCreated: flashcards.length });
   } catch (error: any) {
