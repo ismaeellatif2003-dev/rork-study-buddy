@@ -46,7 +46,17 @@ const videoFetch = async (endpoint: string, options: RequestInit = {}) => {
     }
 
     const result = await response.json();
-    console.log('✅ Video analysis request successful:', result);
+    console.log('✅ Video analysis request successful:', {
+      id: result.id,
+      title: result.title,
+      status: result.status,
+      hasTranscript: !!result.transcript,
+      transcriptLength: result.transcript?.length || 0,
+      hasTopics: !!result.topics,
+      topicsCount: result.topics?.length || 0,
+      hasSummary: !!result.overallSummary,
+      summaryLength: result.overallSummary?.length || 0
+    });
     return result;
   } catch (error) {
     console.error('🚨 Video analysis network error:', error);

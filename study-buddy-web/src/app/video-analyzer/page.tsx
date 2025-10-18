@@ -128,16 +128,40 @@ export default function VideoAnalyzerPage() {
           result = await VideoAnalysisService.analyzeVideoFile(input as File, userEmail);
         }
 
+      console.log('🎥 Initial analysis result:', {
+        id: result.id,
+        title: result.title,
+        status: result.status,
+        hasTranscript: !!result.transcript,
+        transcriptLength: result.transcript?.length || 0
+      });
       setAnalysisResult(result);
 
       // Poll for completion
       const finalResult = await VideoAnalysisService.pollAnalysisStatus(
         result.id,
         (progressResult) => {
+          console.log('🔄 Progress update:', {
+            id: progressResult.id,
+            title: progressResult.title,
+            status: progressResult.status,
+            progress: progressResult.progress,
+            hasTranscript: !!progressResult.transcript,
+            transcriptLength: progressResult.transcript?.length || 0
+          });
           setAnalysisResult(progressResult);
         }
       );
 
+      console.log('✅ Final analysis result:', {
+        id: finalResult.id,
+        title: finalResult.title,
+        status: finalResult.status,
+        hasTranscript: !!finalResult.transcript,
+        transcriptLength: finalResult.transcript?.length || 0,
+        hasTopics: !!finalResult.topics,
+        topicsCount: finalResult.topics?.length || 0
+      });
       setAnalysisResult(finalResult);
       setIsAnalyzing(false);
       
