@@ -182,7 +182,44 @@ export default function FlashcardsPage() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
   const [userFlashcardSets, setUserFlashcardSets] = useState<FlashcardSet[]>([]);
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
+  const [deletedMockSetIds, setDeletedMockSetIds] = useState<Set<string>>(new Set());
 
+  // Load deleted mock set IDs from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedDeletedMockIds = localStorage.getItem('deletedMockFlashcardSetIds');
+      if (savedDeletedMockIds) {
+        const deletedMockIdsArray = JSON.parse(savedDeletedMockIds);
+        setDeletedMockSetIds(new Set(deletedMockIdsArray));
+        console.log('📂 Loaded deleted mock set IDs from localStorage:', deletedMockIdsArray);
+      }
+    } catch (error) {
+      console.error('Error loading deleted mock set IDs:', error);
+    }
+  }, []);
+
+  // Save deleted mock set IDs to localStorage whenever they change
+  useEffect(() => {
+    try {
+      const deletedMockIdsArray = Array.from(deletedMockSetIds);
+      localStorage.setItem('deletedMockFlashcardSetIds', JSON.stringify(deletedMockIdsArray));
+      console.log('💾 Saved deleted mock set IDs to localStorage:', deletedMockIdsArray);
+    } catch (error) {
+      console.error('Error saving deleted mock set IDs:', error);
+    }
+  }, [deletedMockSetIds]);
+
+  // Function to restore all deleted mock sets
+  const restoreDeletedMockSets = () => {
+    if (deletedMockSetIds.size > 0) {
+      if (confirm(`Are you sure you want to restore all ${deletedMockSetIds.size} deleted mock flashcard sets?`)) {
+        setDeletedMockSetIds(new Set());
+        console.log('🔄 Restored all deleted mock flashcard sets');
+      }
+    } else {
+      alert('No deleted mock flashcard sets to restore.');
+    }
+  };
 
   // Load user-generated flashcard sets and backend flashcards
   const loadFlashcardSets = async () => {
@@ -256,7 +293,9 @@ export default function FlashcardsPage() {
       // Normalize all sets to ensure consistent format
       const normalizedBackendSets = backendSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'backend'));
       const normalizedUserSets = userSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'user'));
-      const normalizedMockSets = mockFlashcardSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'mock'));
+      const normalizedMockSets = mockFlashcardSets
+        .filter(set => !deletedMockSetIds.has(set.id)) // Filter out deleted mock sets
+        .map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'mock'));
       
       const allSets = [...normalizedBackendSets, ...normalizedUserSets, ...normalizedMockSets];
       console.log('🔍 Setting user flashcard sets:', normalizedUserSets);
@@ -268,7 +307,7 @@ export default function FlashcardsPage() {
   // Load flashcards on component mount and when authentication changes
   useEffect(() => {
     loadFlashcardSets();
-  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, deletedMockSetIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh flashcards when page becomes visible (user switches back from mobile app)
   useEffect(() => {
@@ -502,9 +541,31 @@ export default function FlashcardsPage() {
             console.log('🔍 Sets remaining in localStorage after deletion:', remainingSets.map(s => ({ id: s.id, name: s.name })));
           }, 100);
         } else {
-          // For mock/backend sets, we can't delete them from their source
-          // but we can hide them from the UI
-          console.log('🗑️ Mock/backend set cannot be permanently deleted, hiding from UI');
+          // For mock/backend sets, try to delete them from their source
+          console.log('🗑️ Attempting to delete mock/backend set');
+          
+          // Check if it's a backend set (has 'backend-' prefix)
+          if (setId.startsWith('backend-')) {
+            const originalId = setId.substring(8); // Remove 'backend-' prefix
+            console.log('🗑️ Deleting backend set from database, originalId:', originalId);
+            try {
+              await flashcardsApi.deleteSet(originalId);
+              console.log('✅ Successfully deleted backend set from database');
+            } catch (backendError) {
+              console.error('❌ Failed to delete backend set from database:', backendError);
+              // Continue with UI removal even if backend fails
+            }
+          } else if (setId.startsWith('mock-')) {
+            // For mock sets, we can't delete them from their source since they're hardcoded
+            // But we can add them to the deleted set IDs to hide them permanently
+            const originalId = setId.substring(5); // Remove 'mock-' prefix
+            console.log('🗑️ Adding mock set to deleted IDs, originalId:', originalId);
+            setDeletedMockSetIds(prev => {
+              const newSet = new Set([...prev, originalId]);
+              console.log('🔍 New deleted mock set IDs:', Array.from(newSet));
+              return newSet;
+            });
+          }
         }
         
         // Update userFlashcardSets state to remove the deleted set
@@ -656,6 +717,12 @@ export default function FlashcardsPage() {
             <RotateCcw size={16} />
             Reset
           </Button>
+          {deletedMockSetIds.size > 0 && (
+            <Button onClick={restoreDeletedMockSets} className="flex items-center gap-2 bg-orange-600 text-white hover:bg-orange-700">
+              <RefreshCw size={16} />
+              Restore Mock Sets ({deletedMockSetIds.size})
+            </Button>
+          )}
         </div>
       </div>
 
