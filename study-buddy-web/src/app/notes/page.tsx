@@ -246,27 +246,9 @@ Generate 5-7 high-quality flashcards that test understanding of the specific con
         flashcards: transformedFlashcards,
       };
       
-      // Add the flashcard set to local storage
+      // Add the flashcard set to local storage only
+      // The flashcards page will handle backend sync when needed
       addFlashcardSet(flashcardSet);
-      
-      // Also save to backend if authenticated
-      if (isAuthenticated) {
-        try {
-          const flashcardsForBackend = transformedFlashcards.map((card: Record<string, unknown>) => ({
-            set_id: flashcardSet.id,
-            set_name: flashcardSet.name,
-            set_description: flashcardSet.description,
-            front: card.front as string,
-            back: card.back as string,
-            difficulty: 'medium',
-          }));
-          
-          await flashcardsApi.sync('web', flashcardsForBackend);
-        } catch (backendError) {
-          console.error('Failed to sync flashcards to backend:', backendError);
-          // Don't fail the whole operation if backend sync fails
-        }
-      }
       
       // Update user stats for flashcard generation
       updateUserStats('flashcards', aiResponse.flashcards.length);
