@@ -2420,9 +2420,13 @@ async function analyzeTranscriptForTopics(transcript: string): Promise<any[]> {
   try {
     console.log(`🤖 Analyzing transcript for topics using AI`);
     
-    const prompt = `Analyze the following video transcript and break it down into logical topics. Return a JSON array of topics, each with:
+    const prompt = `Analyze the following video transcript and break it down into logical topics. 
+
+CRITICAL: Return ONLY a valid JSON array. No markdown, no explanations, no additional text. Just the JSON array.
+
+Each topic should have:
 - id: unique identifier (string)
-- title: descriptive title for the topic (string)
+- title: descriptive title for the topic (string)  
 - startTime: start time in seconds (number, estimate based on content position)
 - endTime: end time in seconds (number, estimate based on content position)
 - content: the relevant text content for this topic (string)
@@ -2430,14 +2434,14 @@ async function analyzeTranscriptForTopics(transcript: string): Promise<any[]> {
 Transcript:
 ${transcript.substring(0, 3000)}...
 
-Return only the JSON array, no other text. Make sure the JSON is valid.`;
+Return only the JSON array. Ensure all quotes are properly escaped.`;
 
     const response = await openai.chat.completions.create({
       model: 'openai/gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert at analyzing educational content and breaking it down into logical topics. Return only valid JSON arrays with proper data types.'
+          content: 'You are an expert at analyzing educational content and breaking it down into logical topics. You MUST return only valid JSON arrays with proper data types. Do not include any markdown formatting, explanations, or additional text. Just the JSON array.'
         },
         {
           role: 'user',
@@ -2452,8 +2456,21 @@ Return only the JSON array, no other text. Make sure the JSON is valid.`;
     console.log(`📄 AI response: ${responseText.substring(0, 200)}...`);
     
     try {
-      // Clean the response text
-      const cleanedText = responseText.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      // Clean the response text more thoroughly
+      let cleanedText = responseText.trim();
+      
+      // Remove markdown code blocks
+      cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      cleanedText = cleanedText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      
+      // Try to find JSON array in the response
+      const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanedText = jsonMatch[0];
+      }
+      
+      console.log(`🔍 Attempting to parse cleaned text: ${cleanedText.substring(0, 200)}...`);
+      
       const topics = JSON.parse(cleanedText);
       
       // Validate the topics array
@@ -2466,6 +2483,7 @@ Return only the JSON array, no other text. Make sure the JSON is valid.`;
     } catch (parseError) {
       console.error('❌ Failed to parse AI response:', parseError);
       console.error('❌ Raw AI response text:', responseText);
+      console.error('❌ Parse error details:', parseError.message);
       console.log('🔄 Using fallback topic extraction');
       return createFallbackTopics(transcript);
     }
