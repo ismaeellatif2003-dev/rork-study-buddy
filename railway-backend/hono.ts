@@ -2189,23 +2189,57 @@ async function processUploadedVideo(analysisId: string, file: any) {
     await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
 
     // For uploaded files, we'll use a mock transcript for now
-    // In a real implementation, you would:
-    // 1. Extract audio from the uploaded video
-    // 2. Use speech-to-text to get transcript
-    // 3. Analyze with AI
+    // TODO: In a real implementation, you would:
+    // 1. Extract audio from the uploaded video using ffmpeg
+    // 2. Use speech-to-text service (OpenAI Whisper, Google Speech-to-Text, etc.)
+    // 3. Analyze the transcript with AI
     
     console.log(`📝 Processing uploaded file: ${file.name}`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
     
-    // Mock transcript for uploaded video
+    // Generate a more realistic mock transcript based on the file name
+    const fileName = file.name.toLowerCase();
+    let subjectArea = 'general education';
+    
+    if (fileName.includes('math') || fileName.includes('calculus') || fileName.includes('algebra')) {
+      subjectArea = 'mathematics';
+    } else if (fileName.includes('science') || fileName.includes('biology') || fileName.includes('chemistry') || fileName.includes('physics')) {
+      subjectArea = 'science';
+    } else if (fileName.includes('history') || fileName.includes('social')) {
+      subjectArea = 'history';
+    } else if (fileName.includes('language') || fileName.includes('english') || fileName.includes('literature')) {
+      subjectArea = 'language arts';
+    } else if (fileName.includes('programming') || fileName.includes('coding') || fileName.includes('computer')) {
+      subjectArea = 'computer science';
+    }
+    
     const transcript = `
-      This is a transcript from the uploaded video file: ${file.name}. 
+      Welcome to this educational video on ${subjectArea}. This content has been extracted from the uploaded video file: ${file.name}.
 
-      The video contains educational content that has been processed and analyzed. The content covers various topics and concepts that are now available for study and learning.
+      Introduction to Key Concepts:
+      In this video, we explore fundamental concepts in ${subjectArea}. The material is structured to provide a comprehensive understanding of the subject matter, starting with basic principles and building toward more advanced topics.
 
-      The video includes detailed explanations, examples, and practical applications of the concepts being discussed. Each section builds upon the previous one to provide a comprehensive understanding of the subject matter.
+      Main Topics Covered:
+      1. Core Principles: The video begins by establishing the foundational principles that govern ${subjectArea}. These principles form the basis for all subsequent learning and application.
 
-      Key points and important information are highlighted throughout the video, making it an excellent resource for learning and study purposes.
+      2. Practical Applications: Throughout the video, we examine real-world applications of the concepts being discussed. This helps connect theoretical knowledge with practical understanding.
+
+      3. Examples and Case Studies: The content includes numerous examples and case studies that illustrate how the concepts work in practice. These examples are carefully chosen to demonstrate key points and common scenarios.
+
+      4. Problem-Solving Techniques: The video demonstrates various problem-solving approaches and methodologies specific to ${subjectArea}. These techniques are essential for applying the knowledge effectively.
+
+      5. Advanced Topics: As the video progresses, we delve into more complex and advanced topics that build upon the foundational concepts introduced earlier.
+
+      Key Takeaways:
+      - Understanding the fundamental principles is crucial for mastery of ${subjectArea}
+      - Practical application helps solidify theoretical knowledge
+      - Problem-solving skills are developed through practice and examples
+      - Advanced concepts build upon basic principles
+
+      Conclusion:
+      This video provides a comprehensive overview of ${subjectArea}, covering both theoretical foundations and practical applications. The content is designed to enhance understanding and provide valuable learning material for students and professionals alike.
+
+      Note: This is a mock transcript generated for demonstration purposes. In a production environment, this would be replaced with actual speech-to-text transcription of the uploaded video content.
     `;
     
     await databaseService.updateVideoAnalysis(analysisId, { 

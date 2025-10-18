@@ -108,14 +108,66 @@ export class VideoAnalysisService {
 
   // Analyze uploaded video file
   static async analyzeVideoFile(file: File, userEmail: string): Promise<VideoAnalysisResult> {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://rork-study-buddy-production-eeeb.up.railway.app';
+    
+    console.log('🎥 Making video file upload request:', {
+      endpoint: '/video/analyze-file',
+      url: `${API_BASE}/video/analyze-file`,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      userEmail
+    });
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('userEmail', userEmail);
 
-    return videoFetch('/video/analyze-file', {
-      method: 'POST',
-      body: formData,
-    });
+    try {
+      const response = await fetch(`${API_BASE}/video/analyze-file`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header for FormData - browser will set it with boundary
+      });
+
+      console.log('📡 Video file upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Request failed';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+          console.log('📄 Video file upload error response:', error);
+        } catch (parseError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+            console.log('📄 Video file upload text error response:', errorText);
+          } catch (textError) {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            console.log('📄 Could not parse video file upload error response:', textError);
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('✅ Video file upload request successful:', {
+        id: result.id,
+        title: result.title,
+        status: result.status,
+        progress: result.progress
+      });
+      return result;
+    } catch (error) {
+      console.error('🚨 Video file upload network error:', error);
+      throw error;
+    }
   }
 
   // Get analysis status
