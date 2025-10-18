@@ -282,15 +282,40 @@ export default function VideoAnalyzerPage() {
       return;
     }
     
-    // Add notes locally first for immediate display
-    analysisResult.topics.forEach(topic => {
-      addNote({
-        title: `${analysisResult.title} - ${topic.title}`,
-        content: topic.content,
+    try {
+      console.log('🎯 Starting to save notes locally...');
+      console.log('📝 Topics to save:', analysisResult.topics.length);
+      
+      // Create all notes first
+      const notesToAdd = analysisResult.topics.map((topic, index) => {
+        console.log(`📝 Creating note ${index + 1}:`, topic.title);
+        return {
+          title: `${analysisResult.title} - ${topic.title}`,
+          content: topic.content,
+        };
       });
-    });
-    
-    toast.success(`${analysisResult.topics.length} notes saved successfully!`);
+      
+      // Add notes one by one with a small delay to avoid state conflicts
+      for (let i = 0; i < notesToAdd.length; i++) {
+        const note = notesToAdd[i];
+        console.log(`📝 Adding note ${i + 1}:`, note.title);
+        addNote(note);
+        console.log(`✅ Note ${i + 1} added successfully`);
+        
+        // Small delay to avoid state update conflicts
+        if (i < notesToAdd.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+      
+      toast.success(`${analysisResult.topics.length} notes saved successfully!`);
+      console.log('🎉 All notes saved locally successfully!');
+      
+    } catch (error) {
+      console.error('❌ Error saving notes locally:', error);
+      toast.error('Failed to save notes locally. Please try again.');
+      return;
+    }
     
     // Try to save to backend as well (but don't block on it)
     try {
