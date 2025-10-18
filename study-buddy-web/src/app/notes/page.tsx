@@ -19,8 +19,8 @@ import type { Note } from '@/types/study';
 
 export default function NotesPage() {
   const { isAuthenticated } = useAuth();
-  const { notes, addNote, updateNote, deleteNote } = useNotes();
-  const { addFlashcardSet } = useFlashcardSets();
+  const { notes, addNote, updateNote, deleteNote, mounted: notesMounted } = useNotes();
+  const { addFlashcardSet, mounted: flashcardsMounted } = useFlashcardSets();
   const [isLoading, setIsLoading] = useState(true);
   const [showAddNote, setShowAddNote] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -36,9 +36,11 @@ export default function NotesPage() {
 
   // Load notes from local storage on mount
   useEffect(() => {
-    // Notes are automatically loaded by useNotes hook from localStorage
-    setIsLoading(false);
-  }, []);
+    // Wait for both hooks to be mounted before showing content
+    if (notesMounted && flashcardsMounted) {
+      setIsLoading(false);
+    }
+  }, [notesMounted, flashcardsMounted]);
 
   // Listen for subscription updates
   useEffect(() => {

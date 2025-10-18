@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { generateUniqueId } from '@/utils/flashcardSets';
 
 export interface Flashcard {
@@ -24,17 +24,21 @@ export interface FlashcardSet {
 const STORAGE_KEY = 'studyBuddyFlashcardSets';
 
 export const useFlashcardSets = () => {
-  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>(() => {
-    if (typeof window === 'undefined') return [];
-    
+  const [flashcardSets, setFlashcardSets] = useState<FlashcardSet[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  // Load flashcard sets from localStorage after hydration
+  useEffect(() => {
     try {
       const savedSets = localStorage.getItem(STORAGE_KEY);
-      return savedSets ? JSON.parse(savedSets) : [];
+      if (savedSets) {
+        setFlashcardSets(JSON.parse(savedSets));
+      }
     } catch (error) {
       console.error('Error loading flashcard sets:', error);
-      return [];
     }
-  });
+    setMounted(true);
+  }, []);
 
   const saveFlashcardSets = useCallback((newSets: FlashcardSet[]) => {
     setFlashcardSets(newSets);
@@ -80,5 +84,6 @@ export const useFlashcardSets = () => {
     addFlashcardSet,
     updateFlashcardSet,
     deleteFlashcardSet,
+    mounted,
   };
 };

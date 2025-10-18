@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface Note {
   id: string;
@@ -11,17 +11,21 @@ export interface Note {
 const STORAGE_KEY = 'studyBuddyNotes';
 
 export const useNotes = () => {
-  const [notes, setNotes] = useState<Note[]>(() => {
-    if (typeof window === 'undefined') return [];
-    
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  // Load notes from localStorage after hydration
+  useEffect(() => {
     try {
       const savedNotes = localStorage.getItem(STORAGE_KEY);
-      return savedNotes ? JSON.parse(savedNotes) : [];
+      if (savedNotes) {
+        setNotes(JSON.parse(savedNotes));
+      }
     } catch (error) {
       console.error('Error loading notes:', error);
-      return [];
     }
-  });
+    setMounted(true);
+  }, []);
 
   const saveNotes = useCallback((newNotes: Note[]) => {
     setNotes(newNotes);
@@ -67,5 +71,6 @@ export const useNotes = () => {
     updateNote,
     deleteNote,
     saveNotes,
+    mounted,
   };
 };
