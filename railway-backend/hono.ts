@@ -437,7 +437,25 @@ Focus on the most important and specific information from this content. Create q
 
     let flashcards;
     try {
-      flashcards = JSON.parse(aiResponse);
+      // Clean the response text to remove markdown formatting
+      let cleanedResponse = aiResponse.trim();
+      
+      // Remove markdown code blocks
+      cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      
+      // Remove any leading/trailing text that's not JSON
+      cleanedResponse = cleanedResponse.replace(/^[^{[]*/, '').replace(/[^}\]]*$/, '');
+      
+      // Try to find JSON array in the response
+      const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0];
+      }
+      
+      console.log(`🔍 Attempting to parse cleaned flashcard response: ${cleanedResponse.substring(0, 200)}...`);
+      
+      flashcards = JSON.parse(cleanedResponse);
       if (!Array.isArray(flashcards)) {
         throw new Error('Response is not an array');
       }
