@@ -187,6 +187,7 @@ export default function FlashcardsPage() {
   const loadFlashcardSets = async () => {
       // Load local flashcard sets
       const userSets = getFlashcardSets();
+      console.log('🔍 Loaded user sets from localStorage:', userSets);
       let backendSets: FlashcardSet[] = [];
       
       // Load from backend if authenticated
@@ -257,6 +258,8 @@ export default function FlashcardsPage() {
       const normalizedMockSets = mockFlashcardSets.map(set => normalizeFlashcardSet(set as unknown as Record<string, unknown>, 'mock'));
       
       const allSets = [...normalizedBackendSets, ...normalizedUserSets, ...normalizedMockSets];
+      console.log('🔍 Setting user flashcard sets:', normalizedUserSets);
+      console.log('🔍 Setting all flashcard sets:', allSets);
       setUserFlashcardSets(normalizedUserSets);
       setAllFlashcardSets(allSets);
     };
@@ -780,6 +783,10 @@ export default function FlashcardsPage() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Select Cards to Study</h2>
+                {/* Debug info */}
+                <div className="text-xs text-gray-500">
+                  User sets: {userFlashcardSets.length} | All sets: {allFlashcardSets.length}
+                </div>
                 <button
                   onClick={() => setShowCardSelector(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -825,6 +832,9 @@ export default function FlashcardsPage() {
                     !(setContainingCard as any).source // If no source, assume it's user-generated
                   );
                   
+                  // TEMPORARY: Show delete for all cards to test UI
+                  const canDeleteTest = true;
+                  
                   return (
                     <div
                       key={card.id}
@@ -851,13 +861,13 @@ export default function FlashcardsPage() {
                               <div className="text-sm font-medium text-gray-900">
                                 Card {index + 1}
                               </div>
-                              {canDelete && (
+                              {canDeleteTest && (
                                 <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                                  Can Delete
+                                  Can Delete (TEST)
                                 </span>
                               )}
                             </div>
-                            {canDelete && (
+                            {canDeleteTest && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation(); // Prevent card selection when clicking delete
@@ -867,7 +877,7 @@ export default function FlashcardsPage() {
                                 title="Delete this flashcard"
                               >
                                 <Trash2 size={14} />
-                                <span className="text-xs">Delete</span>
+                                <span className="text-xs">Delete (TEST)</span>
                               </button>
                             )}
                           </div>
