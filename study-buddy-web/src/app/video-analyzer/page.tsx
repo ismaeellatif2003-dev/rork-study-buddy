@@ -203,10 +203,10 @@ export default function VideoAnalyzerPage() {
     
     try {
       console.log('🧪 Testing backend connection...');
-      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app');
-      const data = await response.text();
-      console.log('✅ Backend connection successful:', { status: response.status, data: data.substring(0, 100) });
-      toast.success('Backend connection successful!');
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/test');
+      const data = await response.json();
+      console.log('✅ Backend connection successful:', data);
+      toast.success(`Backend connection successful! Database: ${data.hasDatabase ? 'Connected' : 'Not Connected'}, Transcript API: ${data.hasTranscriptApiKey ? 'Available' : 'Not Available'}`);
     } catch (error) {
       console.error('❌ Backend connection failed:', error);
       setError(`Backend connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

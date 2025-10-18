@@ -44,6 +44,18 @@ app.get("/test-api-key", async (c) => {
   });
 });
 
+// Test endpoint for frontend connectivity
+app.get("/test", (c) => {
+  return c.json({
+    status: "ok",
+    message: "Frontend can reach backend",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    hasDatabase: !!databaseService.pool,
+    hasTranscriptApiKey: !!process.env.TRANSCRIPT_API_KEY
+  });
+});
+
 // Enable CORS for all routes
 app.use("*", cors());
 
