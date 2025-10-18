@@ -56,6 +56,33 @@ app.get("/test", (c) => {
   });
 });
 
+// Test endpoint to debug video analysis
+app.get("/test-video-analysis/:id", async (c) => {
+  try {
+    const analysisId = c.req.param('id');
+    const analysis = await databaseService.getVideoAnalysis(analysisId);
+    
+    if (!analysis) {
+      return c.json({ error: "Analysis not found" }, 404);
+    }
+
+    return c.json({
+      id: analysis.id,
+      status: analysis.status,
+      progress: analysis.progress,
+      hasTranscript: !!analysis.transcript,
+      transcriptLength: analysis.transcript ? analysis.transcript.length : 0,
+      hasTopics: !!analysis.topics,
+      hasSummary: !!analysis.overall_summary,
+      error: analysis.error,
+      transcriptPreview: analysis.transcript ? analysis.transcript.substring(0, 200) + '...' : null
+    });
+  } catch (error: any) {
+    console.error("Test video analysis error:", error);
+    return c.json({ error: "Failed to get analysis status" }, 500);
+  }
+});
+
 // Enable CORS for all routes
 app.use("*", cors());
 
@@ -2338,6 +2365,11 @@ async function processUploadedVideo(analysisId: string, file: any) {
     console.log(`✅ Uploaded video analysis completed for ${analysisId}`);
   } catch (error) {
     console.error(`❌ Uploaded video analysis failed for ${analysisId}:`, error);
+    console.error(`❌ Error details:`, {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      analysisId: analysisId
+    });
     await databaseService.updateVideoAnalysis(analysisId, { 
       status: 'failed', 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -2449,11 +2481,16 @@ Return only the JSON array, no other text. Make sure the JSON is valid.`;
       }
     } catch (parseError) {
       console.error('❌ Failed to parse AI response:', parseError);
+      console.error('❌ Raw AI response text:', responseText);
       console.log('🔄 Using fallback topic extraction');
       return createFallbackTopics(transcript);
     }
   } catch (error) {
     console.error('❌ Topic analysis failed:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     console.log('🔄 Using fallback topic extraction');
     return createFallbackTopics(transcript);
   }
