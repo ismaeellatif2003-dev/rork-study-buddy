@@ -306,11 +306,13 @@ export default function VideoAnalyzerPage() {
         console.log(`📝 Note content preview:`, note.content.substring(0, 100) + '...');
         
         try {
+          console.log(`🔍 About to call addNote with:`, note);
           const result = addNote(note);
           console.log(`✅ Note ${i + 1} added successfully:`, result);
         } catch (addError) {
           console.error(`❌ Failed to add note ${i + 1}:`, addError);
           console.error(`❌ Error details:`, addError);
+          console.error(`❌ Error stack:`, addError.stack);
           throw addError;
         }
       }
@@ -324,17 +326,8 @@ export default function VideoAnalyzerPage() {
       return;
     }
     
-    // Try to save to backend as well (but don't block on it)
-    // Use setTimeout to make this completely non-blocking
-    setTimeout(() => {
-      VideoAnalysisService.saveNotes(analysisResult.id)
-        .then(response => {
-          console.log('✅ Backend save result:', response);
-        })
-        .catch(error => {
-          console.log('⚠️ Backend save failed (but notes are saved locally):', error);
-        });
-    }, 0);
+    // Backend save disabled for now - focus on local saving
+    console.log('📝 Notes saved locally successfully! Backend sync disabled.');
   };
 
   const handleSaveFlashcards = async () => {
@@ -360,16 +353,8 @@ export default function VideoAnalyzerPage() {
     
     toast.success(`${analysisResult.flashcards.length} flashcards saved successfully!`);
     
-    // Try to save to backend as well (but don't block on it)
-    setTimeout(() => {
-      VideoAnalysisService.saveFlashcards(analysisResult.id)
-        .then(response => {
-          console.log('✅ Backend save result:', response);
-        })
-        .catch(error => {
-          console.log('⚠️ Backend save failed (but flashcards are saved locally):', error);
-        });
-    }, 0);
+    // Backend save disabled for now - focus on local saving
+    console.log('📝 Flashcards saved locally successfully! Backend sync disabled.');
   };
 
   const copyToClipboard = (text: string) => {
