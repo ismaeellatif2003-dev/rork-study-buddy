@@ -30,7 +30,7 @@ import VideoAnalysisService, { VideoAnalysisResult, VideoTopic } from '@/service
 export default function VideoAnalyzerPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { addNote } = useNotes();
+  const { addNote, notes } = useNotes();
   const { addFlashcardSet } = useFlashcardSets();
 
   const [videoUrl, setVideoUrl] = useState('');
@@ -290,21 +290,28 @@ export default function VideoAnalyzerPage() {
       const notesToAdd = analysisResult.topics.map((topic, index) => {
         console.log(`📝 Creating note ${index + 1}:`, topic.title);
         return {
-          title: `${analysisResult.title} - ${topic.title}`,
-          content: topic.content,
+          title: topic.title, // Use topic title directly as note title
+          content: topic.content, // Use topic content directly as note content
         };
       });
       
-      // Add notes one by one with a small delay to avoid state conflicts
+      // Add all notes at once to avoid state update conflicts
+      console.log(`📝 Current notes count: ${notes.length}`);
+      console.log(`📝 Adding ${notesToAdd.length} new notes...`);
+      
+      // Add each note individually but with proper error handling
       for (let i = 0; i < notesToAdd.length; i++) {
         const note = notesToAdd[i];
         console.log(`📝 Adding note ${i + 1}:`, note.title);
-        addNote(note);
-        console.log(`✅ Note ${i + 1} added successfully`);
+        console.log(`📝 Note content preview:`, note.content.substring(0, 100) + '...');
         
-        // Small delay to avoid state update conflicts
-        if (i < notesToAdd.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 10));
+        try {
+          const result = addNote(note);
+          console.log(`✅ Note ${i + 1} added successfully:`, result);
+        } catch (addError) {
+          console.error(`❌ Failed to add note ${i + 1}:`, addError);
+          console.error(`❌ Error details:`, addError);
+          throw addError;
         }
       }
       
