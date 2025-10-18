@@ -8,7 +8,8 @@ dotenv.config();
 let pool: Pool | null = null;
 
 // Initialize database connection only if DATABASE_URL is available
-if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+if (process.env.DATABASE_URL) {
+  console.log('🔗 Initializing database connection with DATABASE_URL');
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
@@ -16,8 +17,9 @@ if (process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
   });
+  console.log('✅ Database connection pool initialized');
 } else {
-  console.log('🔧 Running in development mode with mock database');
+  console.log('🔧 Running in development mode with mock database - no DATABASE_URL found');
 }
 
 // Types for database operations
