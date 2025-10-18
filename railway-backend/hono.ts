@@ -2701,7 +2701,7 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
       const uploadResponse = await axios.post(`${baseUrl}/v2/upload`, audioBuffer, { headers });
       uploadUrl = uploadResponse.data.upload_url;
       console.log(`✅ Audio uploaded to AssemblyAI: ${uploadUrl}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error from '/upload' request:", error.response?.data || error.response || error);
       throw new Error(`AssemblyAI upload failed: ${error.response?.data?.error || error.message}`);
     }
@@ -2725,7 +2725,7 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
       const transcriptResponse = await axios.post(url, data, { headers });
       transcriptId = transcriptResponse.data.id;
       console.log(`✅ Transcription started with ID: ${transcriptId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error from POST '/transcript' request:", error.response?.data?.error || error);
       throw new Error(`AssemblyAI transcription start failed: ${error.response?.data?.error || error.message}`);
     }
@@ -2755,7 +2755,7 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
         } else if (transcriptionResult.status === "error") {
           throw new Error(`AssemblyAI transcription failed: ${transcriptionResult.error}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Error polling transcription status:`, error.response?.data || error);
         if (attempts >= maxAttempts) {
           throw new Error(`AssemblyAI polling failed: ${error.response?.data?.error || error.message}`);
