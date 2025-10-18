@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, RotateCcw, Shuffle, CheckCircle, XCircle, Zap, BookOpen, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw, Shuffle, CheckCircle, XCircle, Zap, BookOpen, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { mockFlashcards } from '@/data/mockData';
@@ -9,6 +9,7 @@ import { updateUserStats } from '@/utils/userStats';
 import { getFlashcardSets, normalizeFlashcardSet } from '@/utils/flashcardSets';
 import { flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
+import { useFlashcardSets } from '@/hooks/useFlashcardSets';
 import type { Flashcard } from '@/types/study';
 import type { FlashcardSet } from '@/utils/flashcardSets';
 
@@ -167,6 +168,7 @@ const mockFlashcardSets = [
 
 export default function FlashcardsPage() {
   const { isAuthenticated } = useAuth();
+  const { deleteFlashcardFromSet } = useFlashcardSets();
   const [flashcards] = useState<Flashcard[]>(mockFlashcards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -407,6 +409,51 @@ export default function FlashcardsPage() {
 
   const getSelectedCardsCount = () => {
     return selectedCardIds.size;
+  };
+
+  const handleDeleteFlashcard = (cardId: string) => {
+    if (!selectedSetId) {
+      alert('Cannot delete cards from "All Flashcards" view. Please select a specific flashcard set first.');
+      return;
+    }
+
+    if (confirm('Are you sure you want to delete this flashcard? This action cannot be undone.')) {
+      // Find which set this card belongs to
+      const setContainingCard = allFlashcardSets.find(set => 
+        set.flashcards.some(card => card.id === cardId)
+      );
+      
+      if (setContainingCard) {
+        // Only allow deletion from user-generated sets, not mock sets
+        if (userFlashcardSets.some(userSet => userSet.id === setContainingCard.id)) {
+          deleteFlashcardFromSet(setContainingCard.id, cardId);
+          
+          // Remove the card from current study session if it's selected
+          setSelectedCardIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(cardId);
+            return newSet;
+          });
+          
+          // If this card is currently being studied, move to next card
+          if (currentCard && currentCard.id === cardId) {
+            if (shuffledCards.length > 1) {
+              const currentCardIndex = shuffledCards.findIndex(card => card.id === cardId);
+              if (currentCardIndex < shuffledCards.length - 1) {
+                setCurrentIndex(currentCardIndex);
+              } else {
+                setCurrentIndex(Math.max(0, currentCardIndex - 1));
+              }
+            }
+          }
+          
+          // Reload the flashcard sets to reflect the deletion
+          loadFlashcardSets();
+        } else {
+          alert('Cannot delete cards from default flashcard sets. You can only delete cards from sets you created.');
+        }
+      }
+    }
   };
 
   const handleCorrect = () => {
@@ -762,40 +809,62 @@ export default function FlashcardsPage() {
               </div>
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {shuffledCards.map((card, index) => (
-                  <div
-                    key={card.id}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                      selectedCardIds.has(card.id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => handleCardSelection(card.id)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 ${
+                {shuffledCards.map((card, index) => {
+                  // Check if this card belongs to a user-generated set
+                  const setContainingCard = allFlashcardSets.find(set => 
+                    set.flashcards.some(c => c.id === card.id)
+                  );
+                  const canDelete = setContainingCard && userFlashcardSets.some(userSet => userSet.id === setContainingCard.id);
+                  
+                  return (
+                    <div
+                      key={card.id}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                         selectedCardIds.has(card.id)
-                          ? 'border-green-500 bg-green-500'
-                          : 'border-gray-300'
-                      }`}>
-                        {selectedCardIds.has(card.id) && (
-                          <CheckCircle size={12} className="text-white" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 mb-1">
-                          Card {index + 1}
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleCardSelection(card.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 ${
+                          selectedCardIds.has(card.id)
+                            ? 'border-green-500 bg-green-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedCardIds.has(card.id) && (
+                            <CheckCircle size={12} className="text-white" />
+                          )}
                         </div>
-                        <div className="text-sm text-gray-700 mb-2">
-                          <strong>Q:</strong> {card.front}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          <strong>A:</strong> {card.back}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="text-sm font-medium text-gray-900">
+                              Card {index + 1}
+                            </div>
+                            {canDelete && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent card selection when clicking delete
+                                  handleDeleteFlashcard(card.id);
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1 rounded"
+                                title="Delete this flashcard"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-700 mb-2">
+                            <strong>Q:</strong> {card.front}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <strong>A:</strong> {card.back}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
               <div className="mt-6 flex justify-between">

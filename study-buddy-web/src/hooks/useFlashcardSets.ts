@@ -79,11 +79,27 @@ export const useFlashcardSets = () => {
     saveFlashcardSets(updatedSets);
   }, [flashcardSets, saveFlashcardSets]);
 
+  const deleteFlashcardFromSet = useCallback((setId: string, cardId: string) => {
+    const updatedSets = flashcardSets.map(set => {
+      if (set.id === setId) {
+        const updatedFlashcards = set.flashcards.filter(card => card.id !== cardId);
+        return {
+          ...set,
+          flashcards: updatedFlashcards,
+          cardCount: updatedFlashcards.length
+        };
+      }
+      return set;
+    });
+    saveFlashcardSets(updatedSets);
+  }, [flashcardSets, saveFlashcardSets]);
+
   return {
     flashcardSets,
     addFlashcardSet,
     updateFlashcardSet,
     deleteFlashcardSet,
+    deleteFlashcardFromSet,
     mounted,
   };
 };
