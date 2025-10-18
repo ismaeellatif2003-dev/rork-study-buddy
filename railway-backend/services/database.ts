@@ -803,7 +803,23 @@ export class DatabaseService {
 
     const query = 'SELECT * FROM video_analyses WHERE id = $1';
     const result = await this.executeQuery(query, [analysisId]);
-    return result.rows[0] || null;
+    const analysis = result.rows[0] || null;
+    
+    if (analysis) {
+      console.log(`📊 Retrieved video analysis from database:`, {
+        id: analysis.id,
+        status: analysis.status,
+        progress: analysis.progress,
+        hasTranscript: !!analysis.transcript,
+        transcriptLength: analysis.transcript ? analysis.transcript.length : 0,
+        hasTopics: !!analysis.topics,
+        hasSummary: !!analysis.overall_summary
+      });
+    } else {
+      console.log(`❌ No video analysis found for ID: ${analysisId}`);
+    }
+    
+    return analysis;
   }
 
   async updateVideoAnalysis(analysisId: string, updates: any): Promise<void> {
@@ -811,6 +827,14 @@ export class DatabaseService {
       console.log('Mock: Updating video analysis:', analysisId, updates);
       return;
     }
+
+    console.log(`📝 Updating video analysis ${analysisId}:`, {
+      updateFields: Object.keys(updates),
+      hasTranscript: 'transcript' in updates,
+      transcriptLength: updates.transcript ? updates.transcript.length : 0,
+      progress: updates.progress,
+      status: updates.status
+    });
 
     const fields = Object.keys(updates);
     const values = Object.values(updates);
@@ -822,6 +846,8 @@ export class DatabaseService {
       WHERE id = $1
     `;
     await this.executeQuery(query, [analysisId, ...values]);
+    
+    console.log(`✅ Video analysis ${analysisId} updated successfully`);
   }
 
   async updateVideoAnalysisTopic(analysisId: string, topicId: string, updates: any): Promise<void> {

@@ -2259,10 +2259,15 @@ async function processUploadedVideo(analysisId: string, file: any) {
       `;
     }
     
-    await databaseService.updateVideoAnalysis(analysisId, { 
-      progress: 60, 
-      transcript: transcript.trim()
-    });
+            await databaseService.updateVideoAnalysis(analysisId, { 
+              progress: 60, 
+              transcript: transcript.trim()
+            });
+            
+            console.log(`✅ Transcript saved to database for ${analysisId}:`, {
+              transcriptLength: transcript.trim().length,
+              transcriptPreview: transcript.trim().substring(0, 200) + '...'
+            });
 
     // Step 3: Analyze transcript for topics using AI
     console.log(`🤖 Analyzing transcript for topics`);
