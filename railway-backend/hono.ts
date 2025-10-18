@@ -2483,7 +2483,7 @@ Return only the JSON array. Ensure all quotes are properly escaped.`;
     } catch (parseError) {
       console.error('❌ Failed to parse AI response:', parseError);
       console.error('❌ Raw AI response text:', responseText);
-      console.error('❌ Parse error details:', parseError.message);
+      console.error('❌ Parse error details:', parseError instanceof Error ? parseError.message : 'Unknown parse error');
       console.log('🔄 Using fallback topic extraction');
       return createFallbackTopics(transcript);
     }
