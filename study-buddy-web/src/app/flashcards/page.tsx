@@ -168,7 +168,7 @@ const mockFlashcardSets = [
 
 export default function FlashcardsPage() {
   const { isAuthenticated } = useAuth();
-  const { deleteFlashcardFromSet } = useFlashcardSets();
+  const { deleteFlashcardFromSet, deleteFlashcardSet } = useFlashcardSets();
   const [flashcards] = useState<Flashcard[]>(mockFlashcards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -459,6 +459,27 @@ export default function FlashcardsPage() {
     }
   };
 
+  const handleDeleteFlashcardSet = (setId: string, setName: string) => {
+    if (confirm(`Are you sure you want to delete the flashcard set "${setName}"? This will permanently delete all ${allFlashcardSets.find(s => s.id === setId)?.flashcards.length || 0} flashcards in this set. This action cannot be undone.`)) {
+      // Only allow deletion of user-generated sets
+      if (userFlashcardSets.some(userSet => userSet.id === setId)) {
+        deleteFlashcardSet(setId);
+        
+        // If this set is currently selected, switch to "All Flashcards"
+        if (selectedSetId === setId) {
+          handleSelectSet('');
+        }
+        
+        // Reload the flashcard sets to reflect the deletion
+        loadFlashcardSets();
+        
+        alert(`Flashcard set "${setName}" has been deleted successfully.`);
+      } else {
+        alert('Cannot delete default flashcard sets. You can only delete sets you created.');
+      }
+    }
+  };
+
   const handleCorrect = () => {
     setCorrectAnswers(prev => new Set([...prev, currentCard.id]));
     setIncorrectAnswers(prev => {
@@ -729,38 +750,60 @@ export default function FlashcardsPage() {
                   <div className="text-sm text-gray-600">Study all available flashcards</div>
                 </button>
                 
-                {allFlashcardSets.map((set) => (
-                  <button
-                    key={set.id}
-                    onClick={() => handleSelectSet(set.id)}
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-colors ${
-                      selectedSetId === set.id 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <div className="font-medium text-gray-900">{set.name}</div>
-                          {userFlashcardSets.some(userSet => userSet.id === set.id) && (
-                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                              Your Set
-                            </span>
+                {allFlashcardSets.map((set) => {
+                  const isUserSet = userFlashcardSets.some(userSet => userSet.id === set.id);
+                  
+                  return (
+                    <div
+                      key={set.id}
+                      className={`w-full p-4 rounded-lg border-2 transition-colors ${
+                        selectedSetId === set.id 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <button
+                          onClick={() => handleSelectSet(set.id)}
+                          className="flex-1 text-left"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium text-gray-900">{set.name}</div>
+                              {isUserSet && (
+                                <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                  Your Set
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1">{set.description}</div>
+                            <div className="text-xs text-gray-500 mt-2">
+                              {set.flashcards.length} cards • Created {new Date(set.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-2 ml-4">
+                          <div className="flex items-center gap-1">
+                            <BookOpen size={16} className="text-gray-400" />
+                            <span className="text-sm text-gray-500">{set.flashcards.length}</span>
+                          </div>
+                          {isUserSet && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteFlashcardSet(set.id, set.name);
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1 rounded"
+                              title={`Delete flashcard set "${set.name}"`}
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">{set.description}</div>
-                        <div className="text-xs text-gray-500 mt-2">
-                          {set.flashcards.length} cards • Created {new Date(set.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <BookOpen size={16} className="text-gray-400" />
-                        <span className="text-sm text-gray-500">{set.flashcards.length}</span>
                       </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
               
               <div className="mt-6 flex justify-end">
