@@ -2679,6 +2679,8 @@ async function extractAudioFromVideo(videoFile: any): Promise<Buffer> {
 
 // Transcribe audio using AssemblyAI API
 async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: string): Promise<string> {
+  const axios = require('axios');
+  
   try {
     const assemblyAIKey = process.env.ASSEMBLYAI_API_KEY;
     if (!assemblyAIKey) {
@@ -2687,87 +2689,77 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
     
     console.log(`🎤 Transcribing audio with AssemblyAI, size: ${audioBuffer.length} bytes`);
     
+    const baseUrl = "https://api.assemblyai.com";
+    const headers = {
+      authorization: assemblyAIKey,
+    };
+    
     // Step 1: Upload audio file to AssemblyAI
-    const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': assemblyAIKey,
-        'Content-Type': 'application/octet-stream'
-      },
-      body: audioBuffer
-    });
-    
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error(`❌ AssemblyAI upload error: ${uploadResponse.status} - ${errorText}`);
-      throw new Error(`AssemblyAI upload error: ${uploadResponse.status} - ${errorText}`);
+    let uploadUrl;
+    try {
+      console.log(`📤 Uploading audio to AssemblyAI...`);
+      const uploadResponse = await axios.post(`${baseUrl}/v2/upload`, audioBuffer, { headers });
+      uploadUrl = uploadResponse.data.upload_url;
+      console.log(`✅ Audio uploaded to AssemblyAI: ${uploadUrl}`);
+    } catch (error) {
+      console.error("❌ Error from '/upload' request:", error.response?.data || error.response || error);
+      throw new Error(`AssemblyAI upload failed: ${error.response?.data?.error || error.message}`);
     }
-    
-    const uploadResult = await uploadResponse.json() as { upload_url: string };
-    const audioUrl = uploadResult.upload_url;
-    console.log(`✅ Audio uploaded to AssemblyAI: ${audioUrl}`);
     
     // Step 2: Start transcription
-    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
-      method: 'POST',
-      headers: {
-        'Authorization': assemblyAIKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        audio_url: audioUrl,
-        language_code: 'en_us',
-        punctuate: true,
-        format_text: true,
-        auto_highlights: true,
-        sentiment_analysis: false,
-        entity_detection: false
-      })
-    });
+    const data = {
+      audio_url: uploadUrl,
+      language_code: 'en_us',
+      punctuate: true,
+      format_text: true,
+      auto_highlights: true,
+      sentiment_analysis: false,
+      entity_detection: false
+    };
     
-    if (!transcriptResponse.ok) {
-      const errorText = await transcriptResponse.text();
-      console.error(`❌ AssemblyAI transcript start error: ${transcriptResponse.status} - ${errorText}`);
-      throw new Error(`AssemblyAI transcript start error: ${transcriptResponse.status} - ${errorText}`);
+    const url = `${baseUrl}/v2/transcript`;
+    let transcriptId;
+    
+    try {
+      console.log(`🎬 Starting transcription...`);
+      const transcriptResponse = await axios.post(url, data, { headers });
+      transcriptId = transcriptResponse.data.id;
+      console.log(`✅ Transcription started with ID: ${transcriptId}`);
+    } catch (error) {
+      console.error("❌ Error from POST '/transcript' request:", error.response?.data?.error || error);
+      throw new Error(`AssemblyAI transcription start failed: ${error.response?.data?.error || error.message}`);
     }
     
-    const transcriptResult = await transcriptResponse.json() as { id: string };
-    const transcriptId = transcriptResult.id;
-    console.log(`✅ Transcription started with ID: ${transcriptId}`);
-    
     // Step 3: Poll for completion
+    const pollingEndpoint = `${baseUrl}/v2/transcript/${transcriptId}`;
     let attempts = 0;
     const maxAttempts = 60; // 5 minutes max
-    const pollInterval = 5000; // 5 seconds
     
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 second intervals like your example
       attempts++;
       
-      const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
-        headers: {
-          'Authorization': assemblyAIKey
+      try {
+        const pollingResponse = await axios.get(pollingEndpoint, { headers });
+        const transcriptionResult = pollingResponse.data;
+        
+        console.log(`🔄 Transcription status: ${transcriptionResult.status} (attempt ${attempts}/${maxAttempts})`);
+        
+        if (transcriptionResult.status === "completed") {
+          const transcript = transcriptionResult.text;
+          if (!transcript) {
+            throw new Error('AssemblyAI transcription completed but no text returned');
+          }
+          console.log(`✅ AssemblyAI transcription completed, length: ${transcript.length} characters`);
+          return transcript.trim();
+        } else if (transcriptionResult.status === "error") {
+          throw new Error(`AssemblyAI transcription failed: ${transcriptionResult.error}`);
         }
-      });
-      
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text();
-        console.error(`❌ AssemblyAI status check error: ${statusResponse.status} - ${errorText}`);
-        throw new Error(`AssemblyAI status check error: ${statusResponse.status} - ${errorText}`);
-      }
-      
-      const statusResult = await statusResponse.json() as { status: string; text?: string; error?: string };
-      console.log(`🔄 Transcription status: ${statusResult.status} (attempt ${attempts}/${maxAttempts})`);
-      
-      if (statusResult.status === 'completed') {
-        const transcript = statusResult.text;
-        if (!transcript) {
-          throw new Error('AssemblyAI transcription completed but no text returned');
+      } catch (error) {
+        console.error(`❌ Error polling transcription status:`, error.response?.data || error);
+        if (attempts >= maxAttempts) {
+          throw new Error(`AssemblyAI polling failed: ${error.response?.data?.error || error.message}`);
         }
-        console.log(`✅ AssemblyAI transcription completed, length: ${transcript.length} characters`);
-        return transcript.trim();
-      } else if (statusResult.status === 'error') {
-        throw new Error(`AssemblyAI transcription failed: ${statusResult.error || 'Unknown error'}`);
       }
     }
     
