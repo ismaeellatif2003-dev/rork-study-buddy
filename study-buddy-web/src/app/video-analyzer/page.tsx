@@ -38,7 +38,7 @@ export default function VideoAnalyzerPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'topics' | 'summary' | 'flashcards'>('topics');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'topics' | 'summary' | 'flashcards'>('transcript');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function VideoAnalyzerPage() {
     setIsAnalyzing(true);
     setError(null);
     setAnalysisResult(null);
-    setActiveTab('topics');
+    setActiveTab('transcript');
 
     try {
       let result: VideoAnalysisResult;
@@ -482,6 +482,12 @@ export default function VideoAnalyzerPage() {
               <CardContent>
                 <div className="flex space-x-2 mb-4">
                   <Button 
+                    variant={activeTab === 'transcript' ? 'primary' : 'outline'} 
+                    onClick={() => setActiveTab('transcript')}
+                  >
+                    <FileText className="mr-2" size={16} /> Transcript
+                  </Button>
+                  <Button 
                     variant={activeTab === 'topics' ? 'primary' : 'outline'} 
                     onClick={() => setActiveTab('topics')}
                   >
@@ -500,6 +506,43 @@ export default function VideoAnalyzerPage() {
                     <Zap className="mr-2" size={16} /> Flashcards ({analysisResult.flashcards?.length || 0})
                   </Button>
                 </div>
+
+                {activeTab === 'transcript' && (
+                  <div className="space-y-4">
+                    <Card className="p-4">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Video Transcript</h4>
+                      {analysisResult.transcript ? (
+                        <div>
+                          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-3 max-h-96 overflow-y-auto">
+                            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+                              {analysisResult.transcript}
+                            </pre>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => copyToClipboard(analysisResult.transcript || '')}
+                            >
+                              <ClipboardCopy className="mr-1" size={14} /> Copy Transcript
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => setActiveTab('topics')}
+                            >
+                              <BookOpen className="mr-1" size={14} /> View Topics
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 mb-3">No transcript available.</p>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                )}
 
                 {activeTab === 'topics' && (
                   <div className="space-y-4">
