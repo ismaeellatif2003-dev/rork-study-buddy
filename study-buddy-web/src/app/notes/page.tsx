@@ -120,10 +120,12 @@ export default function NotesPage() {
   };
 
   const handleGenerateSummary = async (note: Note) => {
+    console.log('🎯 Starting summary generation for note:', note.title);
     setIsGenerating(note.id);
     
     try {
       // Generate summary using AI service
+      console.log('📡 Calling aiService.generateSummary...');
       const aiResponse = await aiService.generateSummary({
         messages: [
           {
@@ -139,13 +141,18 @@ export default function NotesPage() {
         model: 'openai/gpt-4o'
       });
 
-      if (!aiResponse.success || !aiResponse.summary) {
+      console.log('📄 AI Response received:', aiResponse);
+
+      if (!aiResponse.success || !aiResponse.response) {
+        console.error('❌ AI Response failed:', aiResponse);
         throw new Error(aiResponse.error || 'Failed to generate summary');
       }
 
+      console.log('✅ Summary generated successfully:', aiResponse.response);
+
       // Update the note with the generated summary
       updateNote(note.id, {
-        summary: aiResponse.summary
+        summary: aiResponse.response
       });
       
       // Update user stats for summary generation

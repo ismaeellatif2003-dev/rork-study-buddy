@@ -70,6 +70,9 @@ export interface AIResponse {
 class AIService {
   private async makeRequest(endpoint: string, data: AIRequest): Promise<AIResponse> {
     try {
+      console.log(`🌐 Making request to: ${API_BASE_URL}${endpoint}`);
+      console.log('📤 Request data:', data);
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -78,11 +81,16 @@ class AIService {
         body: JSON.stringify(data),
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ HTTP Error Response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('📥 Response data:', result);
       return result;
     } catch (error) {
       console.error(`AI Service Error (${endpoint}):`, error);
@@ -122,6 +130,8 @@ class AIService {
 
   // Summary generation
   async generateSummary(request: AIRequest): Promise<AIResponse> {
+    console.log('🎯 aiService.generateSummary called with:', request);
+    
     // Transform the request to match backend expectations
     let transformedRequest: AIRequest;
     
@@ -143,6 +153,7 @@ class AIService {
       };
     }
     
+    console.log('📡 Sending transformed request to backend:', transformedRequest);
     return this.makeRequest('/ai/generate', transformedRequest);
   }
 
