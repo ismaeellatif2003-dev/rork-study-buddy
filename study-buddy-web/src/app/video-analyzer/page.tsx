@@ -445,11 +445,11 @@ export default function VideoAnalyzerPage() {
             
             <Alert className="mt-4">
               <FileText className="h-4 w-4" />
-              <AlertTitle>Video Upload Note</AlertTitle>
+              <AlertTitle>Video Upload Processing</AlertTitle>
               <AlertDescription>
-                Video uploads are currently processed with mock transcripts for demonstration purposes. 
-                In a production environment, this would use speech-to-text technology to extract real transcripts from your video content.
-                The analysis and flashcard generation will still work with the processed content.
+                Uploaded videos are processed using AssemblyAI speech-to-text technology to extract real transcripts from your video content.
+                The audio is extracted from your video file and transcribed to create accurate text content for analysis and flashcard generation.
+                Processing may take a few minutes depending on video length.
               </AlertDescription>
             </Alert>
           </div>

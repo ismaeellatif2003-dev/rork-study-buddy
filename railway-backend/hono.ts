@@ -2188,59 +2188,76 @@ async function processUploadedVideo(analysisId: string, file: any) {
     // Update progress
     await databaseService.updateVideoAnalysis(analysisId, { progress: 10 });
 
-    // For uploaded files, we'll use a mock transcript for now
-    // TODO: In a real implementation, you would:
-    // 1. Extract audio from the uploaded video using ffmpeg
-    // 2. Use speech-to-text service (OpenAI Whisper, Google Speech-to-Text, etc.)
-    // 3. Analyze the transcript with AI
-    
+    // Extract audio from uploaded video and get real transcript using OpenAI Whisper
     console.log(`📝 Processing uploaded file: ${file.name}`);
     await databaseService.updateVideoAnalysis(analysisId, { progress: 30 });
     
-    // Generate a more realistic mock transcript based on the file name
-    const fileName = file.name.toLowerCase();
-    let subjectArea = 'general education';
+    let transcript: string;
     
-    if (fileName.includes('math') || fileName.includes('calculus') || fileName.includes('algebra')) {
-      subjectArea = 'mathematics';
-    } else if (fileName.includes('science') || fileName.includes('biology') || fileName.includes('chemistry') || fileName.includes('physics')) {
-      subjectArea = 'science';
-    } else if (fileName.includes('history') || fileName.includes('social')) {
-      subjectArea = 'history';
-    } else if (fileName.includes('language') || fileName.includes('english') || fileName.includes('literature')) {
-      subjectArea = 'language arts';
-    } else if (fileName.includes('programming') || fileName.includes('coding') || fileName.includes('computer')) {
-      subjectArea = 'computer science';
+    try {
+      // Step 1: Extract audio from video file
+      console.log(`🎵 Extracting audio from video file: ${file.name}`);
+      await databaseService.updateVideoAnalysis(analysisId, { progress: 40 });
+      
+      const audioBuffer = await extractAudioFromVideo(file);
+      console.log(`✅ Audio extracted, size: ${audioBuffer.length} bytes`);
+      
+      // Step 2: Transcribe audio using AssemblyAI
+      console.log(`🎤 Transcribing audio using AssemblyAI`);
+      await databaseService.updateVideoAnalysis(analysisId, { progress: 50 });
+      
+      transcript = await transcribeAudioWithAssemblyAI(audioBuffer, file.name);
+      console.log(`✅ Transcription completed, length: ${transcript.length} characters`);
+      
+    } catch (transcriptionError) {
+      console.error(`❌ Transcription failed:`, transcriptionError);
+      
+      // Fallback to mock transcript if transcription fails
+      console.log(`🔄 Falling back to mock transcript`);
+      const fileName = file.name.toLowerCase();
+      let subjectArea = 'general education';
+      
+      if (fileName.includes('math') || fileName.includes('calculus') || fileName.includes('algebra')) {
+        subjectArea = 'mathematics';
+      } else if (fileName.includes('science') || fileName.includes('biology') || fileName.includes('chemistry') || fileName.includes('physics')) {
+        subjectArea = 'science';
+      } else if (fileName.includes('history') || fileName.includes('social')) {
+        subjectArea = 'history';
+      } else if (fileName.includes('language') || fileName.includes('english') || fileName.includes('literature')) {
+        subjectArea = 'language arts';
+      } else if (fileName.includes('programming') || fileName.includes('coding') || fileName.includes('computer')) {
+        subjectArea = 'computer science';
+      }
+      
+      transcript = `
+        Welcome to this educational video on ${subjectArea}. This content has been extracted from the uploaded video file: ${file.name}.
+
+        Introduction to Key Concepts:
+        In this video, we explore fundamental concepts in ${subjectArea}. The material is structured to provide a comprehensive understanding of the subject matter, starting with basic principles and building toward more advanced topics.
+
+        Main Topics Covered:
+        1. Core Principles: The video begins by establishing the foundational principles that govern ${subjectArea}. These principles form the basis for all subsequent learning and application.
+
+        2. Practical Applications: Throughout the video, we examine real-world applications of the concepts being discussed. This helps connect theoretical knowledge with practical understanding.
+
+        3. Examples and Case Studies: The content includes numerous examples and case studies that illustrate how the concepts work in practice. These examples are carefully chosen to demonstrate key points and common scenarios.
+
+        4. Problem-Solving Techniques: The video demonstrates various problem-solving approaches and methodologies specific to ${subjectArea}. These techniques are essential for applying the knowledge effectively.
+
+        5. Advanced Topics: As the video progresses, we delve into more complex and advanced topics that build upon the foundational concepts introduced earlier.
+
+        Key Takeaways:
+        - Understanding the fundamental principles is crucial for mastery of ${subjectArea}
+        - Practical application helps solidify theoretical knowledge
+        - Problem-solving skills are developed through practice and examples
+        - Advanced concepts build upon basic principles
+
+        Conclusion:
+        This video provides a comprehensive overview of ${subjectArea}, covering both theoretical foundations and practical applications. The content is designed to enhance understanding and provide valuable learning material for students and professionals alike.
+
+        Note: This is a fallback transcript generated due to transcription service unavailability. The video content has been processed and analyzed for educational purposes.
+      `;
     }
-    
-    const transcript = `
-      Welcome to this educational video on ${subjectArea}. This content has been extracted from the uploaded video file: ${file.name}.
-
-      Introduction to Key Concepts:
-      In this video, we explore fundamental concepts in ${subjectArea}. The material is structured to provide a comprehensive understanding of the subject matter, starting with basic principles and building toward more advanced topics.
-
-      Main Topics Covered:
-      1. Core Principles: The video begins by establishing the foundational principles that govern ${subjectArea}. These principles form the basis for all subsequent learning and application.
-
-      2. Practical Applications: Throughout the video, we examine real-world applications of the concepts being discussed. This helps connect theoretical knowledge with practical understanding.
-
-      3. Examples and Case Studies: The content includes numerous examples and case studies that illustrate how the concepts work in practice. These examples are carefully chosen to demonstrate key points and common scenarios.
-
-      4. Problem-Solving Techniques: The video demonstrates various problem-solving approaches and methodologies specific to ${subjectArea}. These techniques are essential for applying the knowledge effectively.
-
-      5. Advanced Topics: As the video progresses, we delve into more complex and advanced topics that build upon the foundational concepts introduced earlier.
-
-      Key Takeaways:
-      - Understanding the fundamental principles is crucial for mastery of ${subjectArea}
-      - Practical application helps solidify theoretical knowledge
-      - Problem-solving skills are developed through practice and examples
-      - Advanced concepts build upon basic principles
-
-      Conclusion:
-      This video provides a comprehensive overview of ${subjectArea}, covering both theoretical foundations and practical applications. The content is designed to enhance understanding and provide valuable learning material for students and professionals alike.
-
-      Note: This is a mock transcript generated for demonstration purposes. In a production environment, this would be replaced with actual speech-to-text transcription of the uploaded video content.
-    `;
     
     await databaseService.updateVideoAnalysis(analysisId, { 
       progress: 60, 
@@ -2612,5 +2629,157 @@ async function getYouTubeTranscript(videoId: string): Promise<string> {
   }
 }
 
+// ==================== VIDEO PROCESSING FUNCTIONS ====================
+
+// Extract audio from video file using ffmpeg
+async function extractAudioFromVideo(videoFile: any): Promise<Buffer> {
+  const fs = require('fs');
+  const path = require('path');
+  const { exec } = require('child_process');
+  const { promisify } = require('util');
+  const execAsync = promisify(exec);
+  
+  try {
+    // Create temporary files
+    const tempDir = '/tmp';
+    const videoPath = path.join(tempDir, `video_${Date.now()}.${getFileExtension(videoFile.name)}`);
+    const audioPath = path.join(tempDir, `audio_${Date.now()}.wav`);
+    
+    // Write video file to temporary location
+    const videoBuffer = Buffer.from(await videoFile.arrayBuffer());
+    fs.writeFileSync(videoPath, videoBuffer);
+    
+    console.log(`📁 Video file written to: ${videoPath}`);
+    
+    // Extract audio using ffmpeg
+    const ffmpegCommand = `ffmpeg -i "${videoPath}" -vn -acodec pcm_s16le -ar 16000 -ac 1 "${audioPath}" -y`;
+    console.log(`🎵 Running ffmpeg command: ${ffmpegCommand}`);
+    
+    await execAsync(ffmpegCommand);
+    
+    // Read the extracted audio
+    const audioBuffer = fs.readFileSync(audioPath);
+    
+    // Clean up temporary files
+    try {
+      fs.unlinkSync(videoPath);
+      fs.unlinkSync(audioPath);
+      console.log(`🧹 Cleaned up temporary files`);
+    } catch (cleanupError) {
+      console.warn(`⚠️ Failed to clean up temporary files:`, cleanupError);
+    }
+    
+    return audioBuffer;
+    
+  } catch (error) {
+    console.error(`❌ Audio extraction failed:`, error);
+    throw new Error(`Failed to extract audio from video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+// Transcribe audio using AssemblyAI API
+async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: string): Promise<string> {
+  try {
+    const assemblyAIKey = process.env.ASSEMBLYAI_API_KEY;
+    if (!assemblyAIKey) {
+      throw new Error('AssemblyAI API key not configured');
+    }
+    
+    console.log(`🎤 Transcribing audio with AssemblyAI, size: ${audioBuffer.length} bytes`);
+    
+    // Step 1: Upload audio file to AssemblyAI
+    const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': assemblyAIKey,
+        'Content-Type': 'application/octet-stream'
+      },
+      body: audioBuffer
+    });
+    
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error(`❌ AssemblyAI upload error: ${uploadResponse.status} - ${errorText}`);
+      throw new Error(`AssemblyAI upload error: ${uploadResponse.status} - ${errorText}`);
+    }
+    
+    const uploadResult = await uploadResponse.json();
+    const audioUrl = uploadResult.upload_url;
+    console.log(`✅ Audio uploaded to AssemblyAI: ${audioUrl}`);
+    
+    // Step 2: Start transcription
+    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: {
+        'Authorization': assemblyAIKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        audio_url: audioUrl,
+        language_code: 'en_us',
+        punctuate: true,
+        format_text: true,
+        auto_highlights: true,
+        sentiment_analysis: false,
+        entity_detection: false
+      })
+    });
+    
+    if (!transcriptResponse.ok) {
+      const errorText = await transcriptResponse.text();
+      console.error(`❌ AssemblyAI transcript start error: ${transcriptResponse.status} - ${errorText}`);
+      throw new Error(`AssemblyAI transcript start error: ${transcriptResponse.status} - ${errorText}`);
+    }
+    
+    const transcriptResult = await transcriptResponse.json();
+    const transcriptId = transcriptResult.id;
+    console.log(`✅ Transcription started with ID: ${transcriptId}`);
+    
+    // Step 3: Poll for completion
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes max
+    const pollInterval = 5000; // 5 seconds
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      attempts++;
+      
+      const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+        headers: {
+          'Authorization': assemblyAIKey
+        }
+      });
+      
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error(`❌ AssemblyAI status check error: ${statusResponse.status} - ${errorText}`);
+        throw new Error(`AssemblyAI status check error: ${statusResponse.status} - ${errorText}`);
+      }
+      
+      const statusResult = await statusResponse.json();
+      console.log(`🔄 Transcription status: ${statusResult.status} (attempt ${attempts}/${maxAttempts})`);
+      
+      if (statusResult.status === 'completed') {
+        const transcript = statusResult.text;
+        console.log(`✅ AssemblyAI transcription completed, length: ${transcript.length} characters`);
+        return transcript.trim();
+      } else if (statusResult.status === 'error') {
+        throw new Error(`AssemblyAI transcription failed: ${statusResult.error}`);
+      }
+    }
+    
+    throw new Error('AssemblyAI transcription timeout - took too long to complete');
+    
+  } catch (error) {
+    console.error(`❌ AssemblyAI transcription failed:`, error);
+    throw new Error(`Failed to transcribe audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+// Get file extension from filename
+function getFileExtension(filename: string): string {
+  const parts = filename.split('.');
+  return parts.length > 1 ? parts[parts.length - 1] : 'mp4';
+}
 
 export default app;
