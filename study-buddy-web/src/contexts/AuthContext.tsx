@@ -119,10 +119,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!session?.backendToken) return;
 
     try {
+      console.log('🔄 Loading subscription from backend...');
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/auth/subscription-status`);
-      setSubscription(response.data);
+      console.log('📄 Backend subscription response:', response.data);
+      
+      if (response.data) {
+        setSubscription(response.data);
+        // Also save to localStorage as cache
+        localStorage.setItem('studyBuddySubscription', JSON.stringify(response.data));
+        console.log('✅ Backend subscription loaded and cached');
+      }
     } catch (error) {
-      console.error('Failed to fetch subscription:', error);
+      console.error('❌ Failed to fetch subscription from backend:', error);
+      // Fall back to localStorage
+      const cachedSubscription = localStorage.getItem('studyBuddySubscription');
+      if (cachedSubscription) {
+        setSubscription(JSON.parse(cachedSubscription));
+        console.log('📱 Subscription loaded from localStorage cache');
+      }
     }
   };
 

@@ -173,7 +173,7 @@ export const getRemainingUsage = (type: keyof UserSubscription['usage']): number
   return Math.max(0, limit - subscription.usage[type]);
 };
 
-export const upgradeToPro = (planId: string = 'pro-monthly') => {
+export const upgradeToPro = async (planId: string = 'pro-monthly') => {
   if (typeof window === 'undefined') return;
 
   const selectedPlan = SUBSCRIPTION_PLANS.find(plan => plan.id === planId) || SUBSCRIPTION_PLANS[1];
@@ -186,13 +186,37 @@ export const upgradeToPro = (planId: string = 'pro-monthly') => {
     usage: getCurrentSubscription().usage // Keep current usage
   };
 
+  // Save to localStorage immediately
   localStorage.setItem(STORAGE_KEY_SUBSCRIPTION, JSON.stringify(proSubscription));
+  
+  // Sync to backend if authenticated
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subscription/upgrade`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('backendToken')}`
+      },
+      body: JSON.stringify({
+        planId,
+        billingPeriod: selectedPlan.billingPeriod,
+        expiresAt: proSubscription.expiresAt
+      })
+    });
+    
+    if (response.ok) {
+      console.log('✅ Subscription upgrade synced to backend');
+    }
+  } catch (error) {
+    console.error('❌ Failed to sync subscription upgrade to backend:', error);
+    // Don't fail the operation if backend sync fails
+  }
   
   // Dispatch event for real-time updates
   window.dispatchEvent(new CustomEvent('subscriptionUpdated', { detail: proSubscription }));
 };
 
-export const downgradeToFree = () => {
+export const downgradeToFree = async () => {
   if (typeof window === 'undefined') return;
 
   const freeSubscription: UserSubscription = {
@@ -202,7 +226,30 @@ export const downgradeToFree = () => {
     usage: getCurrentSubscription().usage // Keep current usage
   };
 
+  // Save to localStorage immediately
   localStorage.setItem(STORAGE_KEY_SUBSCRIPTION, JSON.stringify(freeSubscription));
+  
+  // Sync to backend if authenticated
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subscription/downgrade`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('backendToken')}`
+      },
+      body: JSON.stringify({
+        planId: 'free',
+        expiresAt: null
+      })
+    });
+    
+    if (response.ok) {
+      console.log('✅ Subscription downgrade synced to backend');
+    }
+  } catch (error) {
+    console.error('❌ Failed to sync subscription downgrade to backend:', error);
+    // Don't fail the operation if backend sync fails
+  }
   
   // Dispatch event for real-time updates
   window.dispatchEvent(new CustomEvent('subscriptionUpdated', { detail: freeSubscription }));

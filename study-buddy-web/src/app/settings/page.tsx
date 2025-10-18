@@ -58,15 +58,19 @@ export default function SettingsPage() {
 
   // Load user profile on component mount (client-side only)
   useEffect(() => {
-    const profile = getUserProfile();
-    setUserProfile(profile);
-    setEditForm({
-      name: profile.name,
-      email: profile.email,
-      age: profile.age?.toString() || '',
-      educationLevel: profile.educationLevel,
-    });
-    setIsProfileLoaded(true);
+    const loadProfile = async () => {
+      const profile = await getUserProfile();
+      setUserProfile(profile);
+      setEditForm({
+        name: profile.name,
+        email: profile.email,
+        age: profile.age?.toString() || '',
+        educationLevel: profile.educationLevel,
+      });
+      setIsProfileLoaded(true);
+    };
+    
+    loadProfile();
   }, []);
 
   // Load profile from backend when authenticated
@@ -176,7 +180,7 @@ export default function SettingsPage() {
       isOnboardingComplete: isOnboardingComplete,
     };
     
-    updateUserProfile(updatedProfile);
+    await updateUserProfile(updatedProfile);
     setIsEditingProfile(false);
     
     // Sync to backend if authenticated

@@ -21,17 +21,27 @@ export default function SubscriptionPage() {
 
   const isProUser = subscription.plan.id === 'pro-monthly' || subscription.plan.id === 'pro-yearly';
 
-  const handleUpgrade = (planId: string) => {
-    upgradeToPro(planId);
-    const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-    const billingPeriod = plan?.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
-    alert(`Successfully upgraded to Pro ${billingPeriod}! You now have unlimited access to all features.`);
+  const handleUpgrade = async (planId: string) => {
+    try {
+      await upgradeToPro(planId);
+      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+      const billingPeriod = plan?.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+      alert(`Successfully upgraded to Pro ${billingPeriod}! You now have unlimited access to all features.`);
+    } catch (error) {
+      console.error('Upgrade error:', error);
+      alert('Failed to upgrade subscription. Please try again.');
+    }
   };
 
-  const handleDowngrade = () => {
+  const handleDowngrade = async () => {
     if (confirm('Are you sure you want to downgrade to the Free plan? You will lose unlimited access to all features and be limited to 5 notes, 25 flashcards, 10 AI questions, and 1 essay.')) {
-      downgradeToFree();
-      alert('Successfully downgraded to Free plan. You now have limited access to features.');
+      try {
+        await downgradeToFree();
+        alert('Successfully downgraded to Free plan. You now have limited access to features.');
+      } catch (error) {
+        console.error('Downgrade error:', error);
+        alert('Failed to downgrade subscription. Please try again.');
+      }
     }
   };
 

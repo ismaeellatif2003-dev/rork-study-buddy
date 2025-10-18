@@ -12,7 +12,7 @@ export interface UserProfile {
 
 const STORAGE_KEY = 'studyBuddyUserProfile';
 
-export const getUserProfile = (): UserProfile => {
+export const getUserProfile = async (): Promise<UserProfile> => {
   if (typeof window === 'undefined') {
     return {
       name: 'John Doe',
@@ -24,8 +24,45 @@ export const getUserProfile = (): UserProfile => {
     };
   }
   
+  // Try to load from backend first if authenticated
+  const backendToken = localStorage.getItem('backendToken');
+  if (backendToken) {
+    try {
+      console.log('🔄 Loading user profile from backend...');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${backendToken}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.profile) {
+          const backendProfile: UserProfile = {
+            name: data.profile.name || 'User',
+            email: data.profile.email || '',
+            age: data.profile.age,
+            educationLevel: data.profile.educationLevel || '',
+            accountType: data.profile.accountType || 'Free Plan',
+            isOnboardingComplete: data.profile.isOnboardingComplete || false
+          };
+          
+          // Save to localStorage as cache
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(backendProfile));
+          console.log('✅ User profile loaded from backend and cached');
+          return backendProfile;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to load user profile from backend:', error);
+      // Fall back to localStorage
+    }
+  }
+  
+  // Load from localStorage as fallback
   const savedProfile = localStorage.getItem(STORAGE_KEY);
   if (savedProfile) {
+    console.log('📱 User profile loaded from localStorage cache');
     return JSON.parse(savedProfile);
   }
   
@@ -43,10 +80,10 @@ export const getUserProfile = (): UserProfile => {
   return defaultProfile;
 };
 
-export const updateUserProfile = (updates: Partial<UserProfile>): void => {
+export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<void> => {
   if (typeof window === 'undefined') return;
   
-  const currentProfile = getUserProfile();
+  const currentProfile = await getUserProfile();
   const updatedProfile = { ...currentProfile, ...updates };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProfile));
   
