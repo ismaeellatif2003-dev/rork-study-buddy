@@ -2426,8 +2426,24 @@ Return only the JSON array, no other text. Make sure the JSON is valid.`;
       
       // Validate the topics array
       if (Array.isArray(topics) && topics.length > 0) {
-        console.log(`✅ Topic analysis completed: ${topics.length} topics found`);
-        return topics;
+        // Clean and validate each topic to prevent JSON errors
+        const cleanedTopics = topics.map((topic, index) => {
+          if (!topic || typeof topic !== 'object') {
+            console.error(`❌ Invalid topic at index ${index}:`, topic);
+            return null;
+          }
+          
+          return {
+            id: topic.id || `topic-${index + 1}`,
+            title: String(topic.title || `Topic ${index + 1}`).replace(/"/g, '\\"'),
+            startTime: Number(topic.startTime) || 0,
+            endTime: Number(topic.endTime) || 60,
+            content: String(topic.content || '').replace(/"/g, '\\"').replace(/\n/g, ' ').trim()
+          };
+        }).filter(topic => topic !== null);
+        
+        console.log(`✅ Topic analysis completed: ${cleanedTopics.length} topics found`);
+        return cleanedTopics;
       } else {
         throw new Error('Invalid topics array format');
       }
