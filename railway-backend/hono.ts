@@ -2703,7 +2703,7 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
       throw new Error(`AssemblyAI upload error: ${uploadResponse.status} - ${errorText}`);
     }
     
-    const uploadResult = await uploadResponse.json();
+    const uploadResult = await uploadResponse.json() as { upload_url: string };
     const audioUrl = uploadResult.upload_url;
     console.log(`✅ Audio uploaded to AssemblyAI: ${audioUrl}`);
     
@@ -2731,7 +2731,7 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
       throw new Error(`AssemblyAI transcript start error: ${transcriptResponse.status} - ${errorText}`);
     }
     
-    const transcriptResult = await transcriptResponse.json();
+    const transcriptResult = await transcriptResponse.json() as { id: string };
     const transcriptId = transcriptResult.id;
     console.log(`✅ Transcription started with ID: ${transcriptId}`);
     
@@ -2756,15 +2756,18 @@ async function transcribeAudioWithAssemblyAI(audioBuffer: Buffer, fileName: stri
         throw new Error(`AssemblyAI status check error: ${statusResponse.status} - ${errorText}`);
       }
       
-      const statusResult = await statusResponse.json();
+      const statusResult = await statusResponse.json() as { status: string; text?: string; error?: string };
       console.log(`🔄 Transcription status: ${statusResult.status} (attempt ${attempts}/${maxAttempts})`);
       
       if (statusResult.status === 'completed') {
         const transcript = statusResult.text;
+        if (!transcript) {
+          throw new Error('AssemblyAI transcription completed but no text returned');
+        }
         console.log(`✅ AssemblyAI transcription completed, length: ${transcript.length} characters`);
         return transcript.trim();
       } else if (statusResult.status === 'error') {
-        throw new Error(`AssemblyAI transcription failed: ${statusResult.error}`);
+        throw new Error(`AssemblyAI transcription failed: ${statusResult.error || 'Unknown error'}`);
       }
     }
     
