@@ -29,6 +29,7 @@ export default function NotesPage() {
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrResult, setOcrResult] = useState<string>('');
   const [subscription, setSubscription] = useState(getCurrentSubscription());
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load notes from local storage on mount
@@ -100,6 +101,18 @@ export default function NotesPage() {
         alert('Failed to delete note. Please try again.');
       }
     }
+  };
+
+  const toggleNoteExpansion = (noteId: string) => {
+    setExpandedNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
   };
 
   const handleGenerateSummary = async (note: Note) => {
@@ -436,7 +449,20 @@ export default function NotesPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 mb-4 line-clamp-3">{note.content}</p>
+                <p className={`text-gray-700 mb-4 ${expandedNotes.has(note.id) ? '' : 'line-clamp-3'}`}>
+                  {note.content}
+                </p>
+                
+                {note.content.length > 200 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleNoteExpansion(note.id)}
+                    className="mb-4"
+                  >
+                    {expandedNotes.has(note.id) ? 'Show Less' : 'View More'}
+                  </Button>
+                )}
                 
                 {note.summary && (
                   <div className="bg-blue-50 p-3 rounded-lg mb-4">
