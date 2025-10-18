@@ -325,12 +325,16 @@ export default function VideoAnalyzerPage() {
     }
     
     // Try to save to backend as well (but don't block on it)
-    try {
-      const response = await VideoAnalysisService.saveNotes(analysisResult.id);
-      console.log('Backend save result:', response);
-    } catch (error) {
-      console.log('Backend save failed (but notes are saved locally):', error);
-    }
+    // Use setTimeout to make this completely non-blocking
+    setTimeout(() => {
+      VideoAnalysisService.saveNotes(analysisResult.id)
+        .then(response => {
+          console.log('✅ Backend save result:', response);
+        })
+        .catch(error => {
+          console.log('⚠️ Backend save failed (but notes are saved locally):', error);
+        });
+    }, 0);
   };
 
   const handleSaveFlashcards = async () => {
@@ -357,12 +361,15 @@ export default function VideoAnalyzerPage() {
     toast.success(`${analysisResult.flashcards.length} flashcards saved successfully!`);
     
     // Try to save to backend as well (but don't block on it)
-    try {
-      const response = await VideoAnalysisService.saveFlashcards(analysisResult.id);
-      console.log('Backend save result:', response);
-    } catch (error) {
-      console.log('Backend save failed (but flashcards are saved locally):', error);
-    }
+    setTimeout(() => {
+      VideoAnalysisService.saveFlashcards(analysisResult.id)
+        .then(response => {
+          console.log('✅ Backend save result:', response);
+        })
+        .catch(error => {
+          console.log('⚠️ Backend save failed (but flashcards are saved locally):', error);
+        });
+    }, 0);
   };
 
   const copyToClipboard = (text: string) => {
