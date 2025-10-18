@@ -32,6 +32,7 @@ export interface AIRequest {
 export interface AIResponse {
   success: boolean;
   response?: string;
+  summary?: string;
   flashcards?: Array<{ front: string; back: string }>;
   outlineId?: string;
   thesis?: string;
@@ -117,6 +118,32 @@ class AIService {
     }
     
     return this.makeRequest('/ai/flashcards', transformedRequest);
+  }
+
+  // Summary generation
+  async generateSummary(request: AIRequest): Promise<AIResponse> {
+    // Transform the request to match backend expectations
+    let transformedRequest: AIRequest;
+    
+    if (request.messages && request.messages.length > 0) {
+      // Extract content from messages array
+      const userMessage = request.messages.find(msg => msg.role === 'user');
+      const content = userMessage?.content as string || '';
+      transformedRequest = {
+        content,
+        type: 'summary',
+        model: request.model || 'openai/gpt-3.5-turbo',
+        messages: request.messages
+      };
+    } else {
+      // Use the request as-is if it already has content
+      transformedRequest = {
+        ...request,
+        type: 'summary'
+      };
+    }
+    
+    return this.makeRequest('/ai/generate', transformedRequest);
   }
 
   // OCR text extraction
