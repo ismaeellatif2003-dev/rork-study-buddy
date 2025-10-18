@@ -83,6 +83,50 @@ app.get("/test-video-analysis/:id", async (c) => {
   }
 });
 
+// Test OpenRouter API connectivity
+app.get("/test-openrouter", async (c) => {
+  try {
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return c.json({ 
+        success: false, 
+        error: "No OpenRouter API key configured",
+        hasApiKey: false
+      });
+    }
+
+    // Test with a simple request
+    const testResponse = await openai.chat.completions.create({
+      model: 'openai/gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant. Return only valid JSON.' },
+        { role: 'user', content: 'Return a simple JSON object with a "test" field set to "success".' }
+      ],
+      max_tokens: 50,
+      temperature: 0.1
+    });
+
+    const responseText = testResponse.choices[0]?.message?.content || '';
+    
+    return c.json({
+      success: true,
+      hasApiKey: true,
+      apiKeyLength: openRouterKey.length,
+      testResponse: responseText,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error: any) {
+    console.error("OpenRouter test error:", error);
+    return c.json({
+      success: false,
+      error: error.message,
+      hasApiKey: !!process.env.OPENROUTER_API_KEY,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Enable CORS for all routes
 app.use("*", cors());
 
