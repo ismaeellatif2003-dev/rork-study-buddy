@@ -66,5 +66,6 @@ export const useNotes = () => {
     addNote,
     updateNote,
     deleteNote,
+    saveNotes,
   };
 };
