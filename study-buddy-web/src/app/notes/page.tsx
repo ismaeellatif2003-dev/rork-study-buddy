@@ -8,17 +8,19 @@ import { Modal } from '@/components/ui/Modal';
 import { Input, Textarea } from '@/components/ui/Input';
 import { mockNotes } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
-import { addFlashcardSet, generateUniqueId } from '@/utils/flashcardSets';
+import { generateUniqueId } from '@/utils/flashcardSets';
 import { canUseFeature, updateUsage, getRemainingUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
 import { notesApi, flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes } from '@/hooks/useNotes';
+import { useFlashcardSets } from '@/hooks/useFlashcardSets';
 import type { Note } from '@/types/study';
 
 export default function NotesPage() {
   const { isAuthenticated } = useAuth();
   const { notes, addNote, updateNote, deleteNote } = useNotes();
+  const { addFlashcardSet } = useFlashcardSets();
   const [isLoading, setIsLoading] = useState(true);
   const [showAddNote, setShowAddNote] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -118,24 +120,42 @@ export default function NotesPage() {
   const handleGenerateSummary = async (note: Note) => {
     setIsGenerating(note.id);
     
-    // Simulate AI generation with more detailed summaries
-    setTimeout(() => {
-      const summaries = [
-        `This note covers key concepts about ${note.title.toLowerCase()}. The main points include: ${note.content.substring(0, 80)}... The content provides a comprehensive overview of the topic with practical examples and detailed explanations.`,
-        `Summary: ${note.title} discusses important aspects of the subject matter. Key takeaways include: ${note.content.substring(0, 90)}... This material is essential for understanding the broader context and applications.`,
-        `Overview: The note on ${note.title} presents fundamental concepts and principles. Main topics covered: ${note.content.substring(0, 85)}... This summary highlights the most important points for study and review.`,
-        `Key Points: ${note.title} explores various aspects of the topic. Essential information includes: ${note.content.substring(0, 95)}... This summary distills the content into digestible, study-friendly format.`
-      ];
+    try {
+      // Generate summary using AI service
+      const aiResponse = await aiService.generateSummary({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert educator. Create a concise, informative summary of the given note content. Focus on the key points, main concepts, and important information. Make it easy to understand and study-friendly.'
+          },
+          {
+            role: 'user',
+            content: `Create a summary of this note:\n\nTitle: ${note.title}\n\nContent: ${note.content}`
+          }
+        ],
+        type: 'summary',
+        model: 'openai/gpt-4o'
+      });
+
+      if (!aiResponse.success || !aiResponse.summary) {
+        throw new Error(aiResponse.error || 'Failed to generate summary');
+      }
+
+      // Update the note with the generated summary
+      updateNote(note.id, {
+        summary: aiResponse.summary
+      });
       
-      const randomSummary = summaries[Math.floor(Math.random() * summaries.length)];
+      // Update user stats for summary generation
+      updateUserStats('summaries', 1);
+      updateUsage('summaries', 1);
       
-      setNotes(prev => prev.map(n => 
-        n.id === note.id 
-          ? { ...n, summary: randomSummary, updatedAt: new Date().toISOString() }
-          : n
-      ));
       setIsGenerating(null);
-    }, 2000);
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
+      alert('Failed to generate summary. Please try again.');
+      setIsGenerating(null);
+    }
   };
 
   const handleGenerateFlashcards = async (note: Note) => {
