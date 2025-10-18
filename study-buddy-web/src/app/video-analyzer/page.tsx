@@ -11,7 +11,6 @@ import {
   Youtube, 
   Loader2, 
   BookOpen, 
-  Zap, 
   CheckCircle, 
   XCircle, 
   FileText, 
@@ -23,7 +22,6 @@ import { Input } from '@/components/ui/Input';
 import { Progress } from '@/components/ui/Progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { useNotes } from '@/hooks/useNotes';
-import { useFlashcardSets } from '@/hooks/useFlashcardSets';
 import { toast } from 'sonner';
 import VideoAnalysisService, { VideoAnalysisResult, VideoTopic } from '@/services/videoAnalysisService';
 
@@ -31,14 +29,13 @@ export default function VideoAnalyzerPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const { addNote, notes, saveNotes } = useNotes();
-  const { addFlashcardSet } = useFlashcardSets();
 
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<VideoAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'topics' | 'summary' | 'flashcards'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'topics' | 'summary'>('transcript');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
@@ -223,58 +220,8 @@ export default function VideoAnalyzerPage() {
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
 
-  const handleGenerateTopicSummary = async (topic: VideoTopic) => {
-    if (!analysisResult) return;
-    
-    toast.info(`Generating summary for topic: "${topic.title}"...`);
-    try {
-      const response = await VideoAnalysisService.generateSummary(analysisResult.id, 'topic', topic.id);
-      
-      if (analysisResult && analysisResult.topics) {
-        const updatedTopics = analysisResult.topics.map(t => 
-          t.id === topic.id ? { ...t, summary: response.summary } : t
-        );
-        setAnalysisResult(prev => prev ? { ...prev, topics: updatedTopics } : null);
-      }
-      toast.success(`Summary generated for "${topic.title}"!`);
-    } catch (_error) {
-      toast.error('Failed to generate summary. Please try again.');
-    }
-  };
 
-  const handleGenerateOverallSummary = async () => {
-    if (!analysisResult?.transcript) {
-      toast.error('No transcript available to generate overall summary.');
-      return;
-    }
-    
-    toast.info('Generating overall summary...');
-    try {
-      const response = await VideoAnalysisService.generateSummary(analysisResult.id, 'overall');
-      setAnalysisResult(prev => prev ? { ...prev, overallSummary: response.summary } : null);
-      toast.success('Overall summary generated!');
-    } catch (_error) {
-      toast.error('Failed to generate overall summary. Please try again.');
-    }
-  };
 
-  const handleGenerateTopicFlashcards = async (topic: VideoTopic) => {
-    if (!analysisResult) return;
-    
-    toast.info(`Generating flashcards for topic: "${topic.title}"...`);
-    try {
-      const response = await VideoAnalysisService.generateFlashcards(analysisResult.id, topic.id);
-      if (analysisResult) {
-        setAnalysisResult(prev => prev ? { 
-          ...prev, 
-          flashcards: [...(prev.flashcards || []), ...response.flashcards] 
-        } : null);
-      }
-      toast.success(`Flashcards generated for "${topic.title}"!`);
-    } catch (_error) {
-      toast.error('Failed to generate flashcards. Please try again.');
-    }
-  };
 
   const handleSaveNotes = async () => {
     if (!analysisResult?.topics || analysisResult.topics.length === 0) {
@@ -332,32 +279,6 @@ export default function VideoAnalyzerPage() {
     console.log('📝 Notes saved locally successfully! Backend sync disabled.');
   };
 
-  const handleSaveFlashcards = async () => {
-    if (!analysisResult?.flashcards || analysisResult.flashcards.length === 0) {
-      toast.error('No flashcards to save.');
-      return;
-    }
-    
-    // Add flashcards locally first for immediate display
-    addFlashcardSet({
-      name: `Video: ${analysisResult.title}`,
-      description: `Flashcards generated from video analysis of "${analysisResult.title}"`,
-      cardCount: analysisResult.flashcards.length,
-      flashcards: analysisResult.flashcards.map(card => ({
-        id: card.id,
-        front: card.front,
-        back: card.back,
-        category: 'Video Analysis',
-        difficulty: 'Medium',
-        createdAt: new Date().toISOString(),
-      })),
-    });
-    
-    toast.success(`${analysisResult.flashcards.length} flashcards saved successfully!`);
-    
-    // Backend save disabled for now - focus on local saving
-    console.log('📝 Flashcards saved locally successfully! Backend sync disabled.');
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -540,12 +461,6 @@ export default function VideoAnalyzerPage() {
                   >
                     <FileText className="mr-2" size={16} /> Summary
                   </Button>
-                  <Button 
-                    variant={activeTab === 'flashcards' ? 'primary' : 'outline'} 
-                    onClick={() => setActiveTab('flashcards')}
-                  >
-                    <Zap className="mr-2" size={16} /> Flashcards ({analysisResult.flashcards?.length || 0})
-                  </Button>
                 </div>
 
                 {activeTab === 'transcript' && (
@@ -601,25 +516,6 @@ export default function VideoAnalyzerPage() {
                             <p className="text-sm text-gray-700 dark:text-gray-300">{topic.summary}</p>
                           </div>
                         )}
-                        <div className="flex space-x-2 mt-3">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleGenerateTopicSummary(topic)}
-                            disabled={!!topic.summary}
-                          >
-                            <FileText className="mr-1" size={14} />
-                            {topic.summary ? 'Summary Generated' : 'Generate Summary'}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleGenerateTopicFlashcards(topic)}
-                          >
-                            <Zap className="mr-1" size={14} />
-                            Generate Flashcards
-                          </Button>
-                        </div>
                       </Card>
                     ))}
                     <div className="flex space-x-2">
@@ -647,57 +543,13 @@ export default function VideoAnalyzerPage() {
                         </div>
                       ) : (
                         <div>
-                          <p className="text-gray-500 dark:text-gray-400 mb-3">No overall summary generated yet.</p>
-                          <Button onClick={handleGenerateOverallSummary}>
-                            <FileText className="mr-2" size={16} /> Generate Overall Summary
-                          </Button>
+                          <p className="text-gray-500 dark:text-gray-400 mb-3">No overall summary available.</p>
                         </div>
                       )}
                     </Card>
                   </div>
                 )}
 
-                {activeTab === 'flashcards' && (
-                  <div className="space-y-4">
-                    {analysisResult.flashcards && analysisResult.flashcards.length > 0 ? (
-                      <>
-                        {analysisResult.flashcards.map((card, index) => (
-                          <Card key={card.id} className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">Card {index + 1}</span>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => copyToClipboard(`${card.front}\n\n${card.back}`)}
-                              >
-                                <ClipboardCopy className="mr-1" size={14} /> Copy
-                              </Button>
-                            </div>
-                            <div className="space-y-2">
-                              <div>
-                                <strong className="text-gray-900 dark:text-white">Q:</strong> {card.front}
-                              </div>
-                              <div>
-                                <strong className="text-gray-900 dark:text-white">A:</strong> {card.back}
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                        <Button onClick={handleSaveFlashcards} className="w-full">
-                          <Zap className="mr-2" size={16} /> Save All Flashcards
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="text-center py-8">
-                        <Zap className="mx-auto text-gray-400 dark:text-gray-500 mb-2" size={48} />
-                        <p className="text-gray-500 dark:text-gray-400">No flashcards generated yet.</p>
-                        <p className="text-sm text-gray-400 dark:text-gray-500">
-                          Generate flashcards for individual topics to see them here.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
