@@ -182,16 +182,34 @@ export default function NotesPage() {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert educator. Create educational flashcards from the given note content. Each flashcard should have a clear question on the front and a detailed answer on the back. Focus on key concepts, definitions, and important information.'
+            content: `You are an expert educator and study specialist. Create high-quality, detailed flashcards from the given note content. 
+
+IMPORTANT GUIDELINES:
+- Create 5-7 comprehensive flashcards that cover the most important concepts from the note
+- Each question should be specific, clear, and test understanding rather than just memorization
+- Each answer should be detailed (2-4 sentences) and provide comprehensive explanations
+- Focus on key concepts, definitions, processes, relationships, and practical applications
+- Make questions that require critical thinking and understanding of the material
+- Ensure answers include context, examples, and connections to the broader topic
+- Avoid overly simple yes/no questions or basic recall questions
+- Create questions that help with deep learning and retention
+
+Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and educational.`
           },
           {
             role: 'user',
-            content: `Create flashcards from this note:\n\nTitle: ${note.title}\n\nContent: ${note.content}`
+            content: `Create detailed, educational flashcards from this note. Make them comprehensive and thought-provoking:
+
+Title: ${note.title}
+
+Content: ${note.content}
+
+Generate 5-7 high-quality flashcards that will help with deep understanding and retention of this material.`
           }
         ],
         type: 'flashcards',
         model: 'openai/gpt-4o',
-        count: 5
+        count: 7
       });
 
       if (!aiResponse.success || !aiResponse.flashcards) {

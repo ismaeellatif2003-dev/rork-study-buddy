@@ -169,8 +169,20 @@ app.post("/ai/generate", async (c) => {
 
     switch (type) {
       case 'flashcards':
-        systemPrompt = 'You are an expert study assistant. Generate comprehensive flashcards from the provided content. Return ONLY a valid JSON array with "question" and "answer" fields. Keep questions under 100 characters and answers under 200 characters.';
-        userPrompt = `Generate flashcards from this content: ${userPrompt}`;
+        systemPrompt = `You are an expert educator and study specialist. Generate high-quality, detailed flashcards from the provided content.
+
+IMPORTANT GUIDELINES:
+- Create 5-7 comprehensive flashcards that cover the most important concepts
+- Each question should be specific, clear, and test understanding rather than just memorization
+- Each answer should be detailed (2-4 sentences) and provide comprehensive explanations
+- Focus on key concepts, definitions, processes, relationships, and practical applications
+- Make questions that require critical thinking and understanding of the material
+- Ensure answers include context, examples, and connections to the broader topic
+- Avoid overly simple yes/no questions or basic recall questions
+- Create questions that help with deep learning and retention
+
+Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and educational (up to 500 characters).`;
+        userPrompt = `Generate detailed, educational flashcards from this content: ${userPrompt}`;
         break;
       case 'summary':
         systemPrompt = 'You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.';
@@ -187,7 +199,7 @@ app.post("/ai/generate", async (c) => {
         { role: 'system', content: systemPrompt },
         ...messages
       ],
-      max_tokens: type === 'flashcards' ? 1000 : 500,
+      max_tokens: type === 'flashcards' ? 2000 : 500,
       temperature: 0.7
     });
 
@@ -283,27 +295,38 @@ app.post("/ai/flashcards", async (c) => {
       messages: [
         { 
           role: 'system', 
-          content: `You are an expert study assistant specializing in creating high-quality educational flashcards. 
+          content: `You are an expert educator and study specialist specializing in creating high-quality, detailed educational flashcards. 
 
 CRITICAL REQUIREMENTS:
 1. You MUST generate EXACTLY ${count} flashcards - no more, no less
 2. Each flashcard must have a "question" and "answer" field
-3. Questions should be clear, specific, and test understanding
-4. Answers should be detailed, educational, and explain concepts clearly
-5. Cover different aspects of the content (definitions, examples, processes, relationships)
-6. Use ONLY the content provided - do not make up information
-7. Return ONLY a valid JSON array with exactly ${count} flashcards
+3. Questions should be specific, clear, and test deep understanding rather than just memorization
+4. Answers should be comprehensive (2-4 sentences) and provide detailed explanations with context
+5. Focus on key concepts, definitions, processes, relationships, and practical applications
+6. Make questions that require critical thinking and understanding of the material
+7. Ensure answers include context, examples, and connections to the broader topic
+8. Avoid overly simple yes/no questions or basic recall questions
+9. Cover different aspects of the content (definitions, examples, processes, relationships, applications)
+10. Use ONLY the content provided - do not make up information
+11. Return ONLY a valid JSON array with exactly ${count} flashcards
+
+DETAILED GUIDELINES:
+- Questions should be thought-provoking and test comprehension
+- Answers should be substantial and educational (up to 500 characters each)
+- Include specific examples and context in answers
+- Make connections between different concepts
+- Focus on understanding rather than rote memorization
 
 JSON FORMAT (exactly ${count} items):
 [
-  {"question": "What is...?", "answer": "Detailed explanation..."},
-  {"question": "How does...?", "answer": "Comprehensive answer..."},
-  {"question": "Why is...?", "answer": "Detailed explanation..."},
-  {"question": "When does...?", "answer": "Comprehensive answer..."},
-  {"question": "Where is...?", "answer": "Detailed explanation..."}
+  {"question": "What is... and how does it work?", "answer": "Detailed explanation with context, examples, and connections to broader concepts..."},
+  {"question": "How does... relate to... and why is this important?", "answer": "Comprehensive answer explaining the relationship, significance, and practical applications..."},
+  {"question": "Why is... significant and what are its implications?", "answer": "Detailed explanation of importance, implications, and real-world applications..."},
+  {"question": "When and how does... occur, and what factors influence it?", "answer": "Comprehensive answer covering timing, process, and influencing factors..."},
+  {"question": "What are the key differences between... and how do they impact...?", "answer": "Detailed comparison with analysis of differences and their practical implications..."}
 ]
 
-IMPORTANT: You must return exactly ${count} flashcards in valid JSON format.` 
+IMPORTANT: You must return exactly ${count} flashcards in valid JSON format with detailed, educational answers.` 
         },
         { 
           role: 'user', 
