@@ -13,11 +13,12 @@ import { canUseFeature, updateUsage, getRemainingUsage, getCurrentSubscription }
 import { aiService } from '@/services/aiService';
 import { notesApi, flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotes } from '@/hooks/useNotes';
 import type { Note } from '@/types/study';
 
 export default function NotesPage() {
   const { isAuthenticated } = useAuth();
-  const [notes, setNotes] = useState<Note[]>([]);
+  const { notes, addNote, updateNote, deleteNote } = useNotes();
   const [isLoading, setIsLoading] = useState(true);
   const [showAddNote, setShowAddNote] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -30,40 +31,11 @@ export default function NotesPage() {
   const [subscription, setSubscription] = useState(getCurrentSubscription());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load notes from backend on mount
+  // Load notes from local storage on mount
   useEffect(() => {
-    const loadNotes = async () => {
-      // Always set loading to false initially with mock data
-      setNotes(mockNotes);
-      setIsLoading(false);
-      
-      // Only try to load from backend if authenticated
-      if (!isAuthenticated) {
-        return;
-      }
-
-      try {
-        const response = await notesApi.getAll();
-        if (response.success && response.notes) {
-          // Convert database notes to frontend format
-          const formattedNotes = response.notes.map((note: Record<string, unknown>) => ({
-            id: (note.id as number).toString(),
-            title: note.title as string,
-            content: note.content as string,
-            summary: note.summary as string,
-            createdAt: note.created_at as string,
-            updatedAt: note.updated_at as string,
-          }));
-          setNotes(formattedNotes);
-        }
-      } catch (error) {
-        console.error('Failed to load notes:', error);
-        // Keep mock data on error
-      }
-    };
-
-    loadNotes();
-  }, [isAuthenticated]);
+    // Notes are automatically loaded by useNotes hook from localStorage
+    setIsLoading(false);
+  }, []);
 
   // Listen for subscription updates
   useEffect(() => {
@@ -86,57 +58,17 @@ export default function NotesPage() {
 
     try {
       if (editingNote) {
-        // Update existing note
-        if (isAuthenticated) {
-          const response = await notesApi.update(parseInt(editingNote.id), {
-            title: newNote.title,
-            content: newNote.content,
-          });
-          
-          if (response.success) {
-            setNotes(prev => prev.map(note => 
-              note.id === editingNote.id 
-                ? { ...note, title: newNote.title, content: newNote.content, updatedAt: new Date().toISOString() }
-                : note
-            ));
-          }
-        } else {
-          // Local update for non-authenticated users
-          setNotes(prev => prev.map(note => 
-            note.id === editingNote.id 
-              ? { ...note, title: newNote.title, content: newNote.content, updatedAt: new Date().toISOString() }
-              : note
-          ));
-        }
+        // Update existing note using useNotes hook
+        updateNote(editingNote.id, {
+          title: newNote.title,
+          content: newNote.content,
+        });
       } else {
-        // Create new note
-        if (isAuthenticated) {
-          const response = await notesApi.create({
-            title: newNote.title,
-            content: newNote.content,
-          });
-          
-          if (response.success && response.note) {
-            const note: Note = {
-              id: response.note.id.toString(),
-              title: response.note.title,
-              content: response.note.content,
-              createdAt: response.note.created_at,
-              updatedAt: response.note.updated_at,
-            };
-            setNotes(prev => [note, ...prev]);
-          }
-        } else {
-          // Local creation for non-authenticated users
-          const note: Note = {
-            id: Date.now().toString(),
-            title: newNote.title,
-            content: newNote.content,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          setNotes(prev => [note, ...prev]);
-        }
+        // Create new note using useNotes hook
+        addNote({
+          title: newNote.title,
+          content: newNote.content,
+        });
         
         // Update user stats for new note creation
         updateUserStats('notes', 1);
@@ -161,15 +93,8 @@ export default function NotesPage() {
   const handleDeleteNote = async (noteId: string) => {
     if (confirm('Are you sure you want to delete this note?')) {
       try {
-        if (isAuthenticated) {
-          const response = await notesApi.delete(parseInt(noteId));
-          if (response.success) {
-            setNotes(prev => prev.filter(note => note.id !== noteId));
-          }
-        } else {
-          // Local delete for non-authenticated users
-          setNotes(prev => prev.filter(note => note.id !== noteId));
-        }
+        // Delete note using useNotes hook
+        deleteNote(noteId);
       } catch (error) {
         console.error('Failed to delete note:', error);
         alert('Failed to delete note. Please try again.');
