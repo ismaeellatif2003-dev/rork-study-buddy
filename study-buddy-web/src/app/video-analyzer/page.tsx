@@ -58,26 +58,7 @@ export default function VideoAnalyzerPage() {
       return;
     }
     
-    // Test backend connectivity first
-    console.log('🧪 Testing backend connectivity...');
-    try {
-      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app');
-      const data = await response.text();
-      console.log('🧪 Backend connectivity test:', { status: response.status, data: data.substring(0, 100) });
-    } catch (error) {
-      console.error('🧪 Backend connectivity test failed:', error);
-    }
-    
-    // Test authentication
-    console.log('🧪 Testing authentication...');
-    try {
-      const response = await fetch('/api/auth/session');
-      const sessionData = await response.json();
-      console.log('🧪 Session data:', sessionData);
-    } catch (error) {
-      console.error('🧪 Session test failed:', error);
-    }
-    
+    console.log('🎥 Starting video analysis for URL:', videoUrl);
     await analyzeVideo('url', videoUrl);
   };
 
@@ -112,6 +93,8 @@ export default function VideoAnalyzerPage() {
     // Use session email if available, otherwise use a default for testing
     const userEmail = session?.user?.email || 'test@example.com';
 
+    console.log('🎬 Starting analyzeVideo function with:', { type, userEmail });
+    
     setIsAnalyzing(true);
     setError(null);
     setAnalysisResult(null);
@@ -120,13 +103,17 @@ export default function VideoAnalyzerPage() {
     try {
       let result: VideoAnalysisResult;
       
-        console.log('🎥 Starting video analysis with:', { type, input: type === 'url' ? input : (input as File).name, email: userEmail });
-        
-        if (type === 'url') {
-          result = await VideoAnalysisService.analyzeYouTubeUrl(input as string, userEmail);
-        } else {
-          result = await VideoAnalysisService.analyzeVideoFile(input as File, userEmail);
-        }
+      console.log('🎥 Starting video analysis with:', { type, input: type === 'url' ? input : (input as File).name, email: userEmail });
+      
+      if (type === 'url') {
+        console.log('📡 Calling VideoAnalysisService.analyzeYouTubeUrl...');
+        result = await VideoAnalysisService.analyzeYouTubeUrl(input as string, userEmail);
+        console.log('✅ VideoAnalysisService.analyzeYouTubeUrl completed');
+      } else {
+        console.log('📡 Calling VideoAnalysisService.analyzeVideoFile...');
+        result = await VideoAnalysisService.analyzeVideoFile(input as File, userEmail);
+        console.log('✅ VideoAnalysisService.analyzeVideoFile completed');
+      }
 
       console.log('🎥 Initial analysis result:', {
         id: result.id,
