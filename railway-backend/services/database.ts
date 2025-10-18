@@ -704,8 +704,8 @@ export class DatabaseService {
     source: string;
     sourceId: string;
   }>): Promise<void> {
-    if (this.isDevelopmentMode()) {
-      return; // Mock implementation - do nothing in development
+    if (!this.pool) {
+      throw new Error('Database not available');
     }
 
     const query = `
