@@ -188,7 +188,7 @@ export default function FlashcardsPage() {
   const loadFlashcardSets = async () => {
       // Load local flashcard sets
       const userSets = getFlashcardSets();
-      console.log('🔍 Loaded user sets from localStorage:', userSets);
+      console.log('🔍 Loaded user sets from localStorage:', userSets.map(s => ({ id: s.id, name: s.name })));
       let backendSets: FlashcardSet[] = [];
       
       // Load from backend if authenticated
@@ -464,23 +464,43 @@ export default function FlashcardsPage() {
     if (confirm(`Are you sure you want to delete the flashcard set "${setName}"? This will permanently delete all ${allFlashcardSets.find(s => s.id === setId)?.flashcards.length || 0} flashcards in this set. This action cannot be undone.`)) {
       try {
         // Check if this is a user-generated set (stored in localStorage)
-        const isUserSet = userFlashcardSets.some(userSet => userSet.id === setId);
+        // Note: setId might be normalized (prefixed with 'user-'), so we need to check both
+        const isUserSet = userFlashcardSets.some(userSet => userSet.id === setId || userSet.id === `user-${setId}`);
         console.log('🔍 Is user set:', isUserSet);
+        console.log('🔍 SetId to delete:', setId);
+        console.log('🔍 Available user set IDs:', userFlashcardSets.map(s => s.id));
         
         if (isUserSet) {
+          // Find the actual user set to get the correct ID for deletion
+          const userSet = userFlashcardSets.find(userSet => userSet.id === setId || userSet.id === `user-${setId}`);
+          if (!userSet) {
+            console.error('❌ Could not find user set to delete');
+            return;
+          }
+          
+          // Extract the original ID (remove 'user-' prefix if present)
+          const originalId = userSet.id.startsWith('user-') ? userSet.id.substring(5) : userSet.id;
+          
           // For user-generated sets, delete from backend first
-          console.log('🗑️ Deleting user set from backend');
+          console.log('🗑️ Deleting user set from backend, originalId:', originalId);
           try {
-            await flashcardsApi.deleteSet(setId);
+            await flashcardsApi.deleteSet(originalId);
             console.log('✅ Successfully deleted set from backend');
           } catch (backendError) {
             console.error('❌ Failed to delete from backend:', backendError);
             // Continue with local deletion even if backend fails
           }
           
-          // Delete from localStorage using the hook
-          console.log('🗑️ Deleting user set from localStorage');
-          deleteFlashcardSet(setId);
+          // Delete from localStorage using the hook with the original ID
+          console.log('🗑️ Deleting user set from localStorage, originalId:', originalId);
+          console.log('🔍 User sets before deletion:', userFlashcardSets.map(s => ({ id: s.id, name: s.name })));
+          deleteFlashcardSet(originalId);
+          
+          // Verify deletion by checking localStorage directly
+          setTimeout(() => {
+            const remainingSets = getFlashcardSets();
+            console.log('🔍 Sets remaining in localStorage after deletion:', remainingSets.map(s => ({ id: s.id, name: s.name })));
+          }, 100);
         } else {
           // For mock/backend sets, we can't delete them from their source
           // but we can hide them from the UI
