@@ -153,6 +153,11 @@ export class DatabaseService {
     return !this.pool;
   }
 
+  // Public method to check if database is available
+  public hasDatabase(): boolean {
+    return !!this.pool;
+  }
+
   private async executeQuery(query: string, params: any[] = []): Promise<any> {
     if (this.isDevelopmentMode()) {
       throw new Error('Database queries not available in development mode');

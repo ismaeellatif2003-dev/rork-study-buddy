@@ -51,7 +51,7 @@ app.get("/test", (c) => {
     message: "Frontend can reach backend",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    hasDatabase: !!databaseService.pool,
+    hasDatabase: databaseService.hasDatabase(),
     hasTranscriptApiKey: !!process.env.TRANSCRIPT_API_KEY
   });
 });
