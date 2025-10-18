@@ -182,6 +182,7 @@ export default function FlashcardsPage() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
   const [userFlashcardSets, setUserFlashcardSets] = useState<FlashcardSet[]>([]);
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
+  const [deletedSetIds, setDeletedSetIds] = useState<Set<string>>(new Set());
 
   // Load user-generated flashcard sets and backend flashcards
   const loadFlashcardSets = async () => {
@@ -331,12 +332,13 @@ export default function FlashcardsPage() {
     // Reset to the original set of flashcards for the selected set
     let cardsToLoad: Flashcard[];
     if (!selectedSetId) {
-      // "All Flashcards" - use the original mock flashcards
-      cardsToLoad = mockFlashcards;
+      // "All Flashcards" - use flashcards from all non-deleted sets
+      const availableSets = allFlashcardSets.filter(set => !deletedSetIds.has(set.id));
+      cardsToLoad = availableSets.flatMap(set => set.flashcards);
     } else {
       // Find the selected set and use its flashcards
       const selectedSet = allFlashcardSets.find(set => set.id === selectedSetId);
-      cardsToLoad = selectedSet ? selectedSet.flashcards : mockFlashcards;
+      cardsToLoad = selectedSet ? selectedSet.flashcards : [];
     }
     
     setShuffledCards(cardsToLoad);
@@ -353,12 +355,13 @@ export default function FlashcardsPage() {
     // Load flashcards based on selected set
     let cardsToLoad: Flashcard[];
     if (setId === '') {
-      // "All Flashcards" - use the original mock flashcards
-      cardsToLoad = mockFlashcards;
+      // "All Flashcards" - use flashcards from all non-deleted sets
+      const availableSets = allFlashcardSets.filter(set => !deletedSetIds.has(set.id));
+      cardsToLoad = availableSets.flatMap(set => set.flashcards);
     } else {
       // Find the selected set and use its flashcards (from user-generated or mock sets)
       const selectedSet = allFlashcardSets.find(set => set.id === setId);
-      cardsToLoad = selectedSet ? selectedSet.flashcards : mockFlashcards;
+      cardsToLoad = selectedSet ? selectedSet.flashcards : [];
     }
     
     setShuffledCards(cardsToLoad);
@@ -456,9 +459,27 @@ export default function FlashcardsPage() {
   };
 
   const handleDeleteFlashcardSet = (setId: string, setName: string) => {
+    console.log('🗑️ Attempting to delete set:', setId, setName);
+    console.log('🔍 Current deleted set IDs:', Array.from(deletedSetIds));
+    
     if (confirm(`Are you sure you want to delete the flashcard set "${setName}"? This will permanently delete all ${allFlashcardSets.find(s => s.id === setId)?.flashcards.length || 0} flashcards in this set. This action cannot be undone.`)) {
-      // Allow deletion of any flashcard set
-      deleteFlashcardSet(setId);
+      // Check if this is a user-generated set (stored in localStorage)
+      const isUserSet = userFlashcardSets.some(userSet => userSet.id === setId);
+      console.log('🔍 Is user set:', isUserSet);
+      
+      if (isUserSet) {
+        // Delete from localStorage using the hook
+        console.log('🗑️ Deleting user set from localStorage');
+        deleteFlashcardSet(setId);
+      } else {
+        // For mock/backend sets, add to deleted set IDs to hide them
+        console.log('🗑️ Adding mock/backend set to deleted IDs');
+        setDeletedSetIds(prev => {
+          const newSet = new Set([...prev, setId]);
+          console.log('🔍 New deleted set IDs:', Array.from(newSet));
+          return newSet;
+        });
+      }
       
       // If this set is currently selected, switch to "All Flashcards"
       if (selectedSetId === setId) {
@@ -742,7 +763,7 @@ export default function FlashcardsPage() {
                   <div className="text-sm text-gray-600">Study all available flashcards</div>
                 </button>
                 
-                {allFlashcardSets.map((set) => {
+                {allFlashcardSets.filter(set => !deletedSetIds.has(set.id)).map((set) => {
                   const isUserSet = userFlashcardSets.some(userSet => userSet.id === set.id);
                   
                   return (
