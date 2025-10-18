@@ -427,56 +427,48 @@ export default function FlashcardsPage() {
       );
       
       if (setContainingCard) {
-        // Only allow deletion from user-generated sets, not mock sets
-        if (userFlashcardSets.some(userSet => userSet.id === setContainingCard.id)) {
-          deleteFlashcardFromSet(setContainingCard.id, cardId);
-          
-          // Remove the card from current study session if it's selected
-          setSelectedCardIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(cardId);
-            return newSet;
-          });
-          
-          // If this card is currently being studied, move to next card
-          if (currentCard && currentCard.id === cardId) {
-            if (shuffledCards.length > 1) {
-              const currentCardIndex = shuffledCards.findIndex(card => card.id === cardId);
-              if (currentCardIndex < shuffledCards.length - 1) {
-                setCurrentIndex(currentCardIndex);
-              } else {
-                setCurrentIndex(Math.max(0, currentCardIndex - 1));
-              }
+        // Allow deletion from any flashcard set
+        deleteFlashcardFromSet(setContainingCard.id, cardId);
+        
+        // Remove the card from current study session if it's selected
+        setSelectedCardIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(cardId);
+          return newSet;
+        });
+        
+        // If this card is currently being studied, move to next card
+        if (currentCard && currentCard.id === cardId) {
+          if (shuffledCards.length > 1) {
+            const currentCardIndex = shuffledCards.findIndex(card => card.id === cardId);
+            if (currentCardIndex < shuffledCards.length - 1) {
+              setCurrentIndex(currentCardIndex);
+            } else {
+              setCurrentIndex(Math.max(0, currentCardIndex - 1));
             }
           }
-          
-          // Reload the flashcard sets to reflect the deletion
-          loadFlashcardSets();
-        } else {
-          alert('Cannot delete cards from default flashcard sets. You can only delete cards from sets you created.');
         }
+        
+        // Reload the flashcard sets to reflect the deletion
+        loadFlashcardSets();
       }
     }
   };
 
   const handleDeleteFlashcardSet = (setId: string, setName: string) => {
     if (confirm(`Are you sure you want to delete the flashcard set "${setName}"? This will permanently delete all ${allFlashcardSets.find(s => s.id === setId)?.flashcards.length || 0} flashcards in this set. This action cannot be undone.`)) {
-      // Only allow deletion of user-generated sets
-      if (userFlashcardSets.some(userSet => userSet.id === setId)) {
-        deleteFlashcardSet(setId);
-        
-        // If this set is currently selected, switch to "All Flashcards"
-        if (selectedSetId === setId) {
-          handleSelectSet('');
-        }
-        
-        // Reload the flashcard sets to reflect the deletion
-        loadFlashcardSets();
-        
-        alert(`Flashcard set "${setName}" has been deleted successfully.`);
-      } else {
-        alert('Cannot delete default flashcard sets. You can only delete sets you created.');
+      // Allow deletion of any flashcard set
+      deleteFlashcardSet(setId);
+      
+      // If this set is currently selected, switch to "All Flashcards"
+      if (selectedSetId === setId) {
+        handleSelectSet('');
       }
+      
+      // Reload the flashcard sets to reflect the deletion
+      loadFlashcardSets();
+      
+      alert(`Flashcard set "${setName}" has been deleted successfully.`);
     }
   };
 
@@ -787,18 +779,16 @@ export default function FlashcardsPage() {
                             <BookOpen size={16} className="text-gray-400" />
                             <span className="text-sm text-gray-500">{set.flashcards.length}</span>
                           </div>
-                          {isUserSet && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFlashcardSet(set.id, set.name);
-                              }}
-                              className="text-red-500 hover:text-red-700 p-1 rounded"
-                              title={`Delete flashcard set "${set.name}"`}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFlashcardSet(set.id, set.name);
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1 rounded"
+                            title={`Delete flashcard set "${set.name}"`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -868,15 +858,8 @@ export default function FlashcardsPage() {
                   // Debug logging
                   console.log('Card:', card.id, 'Set containing card:', setContainingCard?.id, 'User sets:', userFlashcardSets.map(s => s.id));
                   
-                  // Check if this is a user-generated set (not mock or backend)
-                  const canDelete = setContainingCard && (
-                    userFlashcardSets.some(userSet => userSet.id === setContainingCard.id) ||
-                    (setContainingCard as any).source === 'user' ||
-                    !(setContainingCard as any).source // If no source, assume it's user-generated
-                  );
-                  
-                  // TEMPORARY: Show delete for all cards to test UI
-                  const canDeleteTest = true;
+                  // Allow deletion of any flashcard
+                  const canDelete = true;
                   
                   return (
                     <div
@@ -904,13 +887,13 @@ export default function FlashcardsPage() {
                               <div className="text-sm font-medium text-gray-900">
                                 Card {index + 1}
                               </div>
-                              {canDeleteTest && (
+                              {canDelete && (
                                 <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                                  Can Delete (TEST)
+                                  Can Delete
                                 </span>
                               )}
                             </div>
-                            {canDeleteTest && (
+                            {canDelete && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation(); // Prevent card selection when clicking delete
@@ -920,7 +903,7 @@ export default function FlashcardsPage() {
                                 title="Delete this flashcard"
                               >
                                 <Trash2 size={14} />
-                                <span className="text-xs">Delete (TEST)</span>
+                                <span className="text-xs">Delete</span>
                               </button>
                             )}
                           </div>
