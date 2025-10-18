@@ -30,7 +30,7 @@ import VideoAnalysisService, { VideoAnalysisResult, VideoTopic } from '@/service
 export default function VideoAnalyzerPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { addNote, notes } = useNotes();
+  const { addNote, notes, saveNotes } = useNotes();
   const { addFlashcardSet } = useFlashcardSets();
 
   const [videoUrl, setVideoUrl] = useState('');
@@ -299,23 +299,25 @@ export default function VideoAnalyzerPage() {
       console.log(`📝 Current notes count: ${notes.length}`);
       console.log(`📝 Adding ${notesToAdd.length} new notes...`);
       
-      // Add each note individually but with proper error handling
-      for (let i = 0; i < notesToAdd.length; i++) {
-        const note = notesToAdd[i];
-        console.log(`📝 Adding note ${i + 1}:`, note.title);
-        console.log(`📝 Note content preview:`, note.content.substring(0, 100) + '...');
-        
-        try {
-          console.log(`🔍 About to call addNote with:`, note);
-          const result = addNote(note);
-          console.log(`✅ Note ${i + 1} added successfully:`, result);
-        } catch (addError) {
-          console.error(`❌ Failed to add note ${i + 1}:`, addError);
-          console.error(`❌ Error details:`, addError);
-          console.error(`❌ Error stack:`, addError.stack);
-          throw addError;
-        }
-      }
+      // Add all notes at once by directly manipulating the notes array
+      const allNewNotes = notesToAdd.map((note, index) => {
+        console.log(`📝 Creating note ${index + 1}:`, note.title);
+        return {
+          ...note,
+          id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      
+      // Add all notes to the existing notes array
+      const updatedNotes = [...notes, ...allNewNotes];
+      console.log(`📝 Total notes after adding: ${updatedNotes.length}`);
+      
+      // Use the saveNotes function directly to update all notes at once
+      saveNotes(updatedNotes);
+      
+      console.log(`✅ All ${notesToAdd.length} notes added successfully!`);
       
       toast.success(`${analysisResult.topics.length} notes saved successfully!`);
       console.log('🎉 All notes saved locally successfully!');
