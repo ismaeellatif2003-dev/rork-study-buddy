@@ -33,10 +33,7 @@ const nextConfig: NextConfig = {
     ];
   },
   
-  // Turbopack configuration
-  turbopack: {
-    root: '/Users/ishy/rork-study-buddy/study-buddy-web',
-  },
+  // Turbopack configuration - let Railway handle the root path
   
   // Experimental features for better performance
   experimental: {

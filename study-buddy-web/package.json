@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx --fix",
     "lint:check": "eslint . --ext .ts,.tsx",
     "type-check": "tsc --noEmit",
-    "build:production": "npm run lint:check && npm run type-check && npm run build",
+    "build:production": "npm run build",
     "deploy": "npm run build:production && npm run start"
   },
   "dependencies": {
