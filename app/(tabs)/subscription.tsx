@@ -253,6 +253,14 @@ export default function SubscriptionScreen() {
               <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
             </TouchableOpacity>
           )}
+
+          {isProUser && subscription?.status === 'cancelled' && (
+            <View style={[styles.cancelButton, { backgroundColor: '#FFA500' }]}>
+              <Text style={styles.cancelButtonText}>
+                Subscription Cancelled - Active until {subscription.endDate.toLocaleDateString()}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomSpacing} />

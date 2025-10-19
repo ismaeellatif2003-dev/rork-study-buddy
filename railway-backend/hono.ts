@@ -1814,6 +1814,49 @@ app.post("/subscription/downgrade", async (c) => {
   }
 });
 
+app.post("/subscription/cancel", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    
+    console.log(`🔄 Cancelling subscription for user ${decoded.userId}`);
+    
+    // Cancel subscription (set auto_renew to false but keep active until expiry)
+    const cancelledSubscription = await databaseService.cancelSubscription(decoded.userId);
+    
+    if (!cancelledSubscription) {
+      return c.json({ error: "No active subscription found to cancel" }, 404);
+    }
+    
+    // Log subscription change
+    await databaseService.createSyncEvent({
+      userId: decoded.userId,
+      eventType: 'subscription_cancelled',
+      data: {
+        planId: cancelledSubscription.plan_id,
+        expiresAt: cancelledSubscription.expires_at,
+        autoRenew: false
+      },
+      platform: 'web'
+    });
+    
+    console.log(`✅ Subscription cancelled successfully for user ${decoded.userId}`);
+    return c.json({ 
+      success: true, 
+      subscription: cancelledSubscription,
+      message: "Subscription cancelled. You will retain access until the end of your billing period."
+    });
+  } catch (error: any) {
+    console.error("Subscription cancellation error:", error);
+    return c.json({ error: "Failed to cancel subscription" }, 500);
+  }
+});
+
 // ==================== CHAT HISTORY ENDPOINTS ====================
 
 app.get("/chat/history", async (c) => {
@@ -1872,10 +1915,11 @@ app.get("/", (c) => {
         subscriptionStatus: "/auth/subscription-status",
         sync: "/auth/sync"
       },
-      subscription: {
-        upgrade: "POST /subscription/upgrade",
-        downgrade: "POST /subscription/downgrade"
-      },
+        subscription: {
+          upgrade: "POST /subscription/upgrade",
+          downgrade: "POST /subscription/downgrade",
+          cancel: "POST /subscription/cancel"
+        },
       usage: {
         update: "/usage/update"
       },

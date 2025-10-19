@@ -394,6 +394,41 @@ export class DatabaseService {
     return result.rows[0] || null;
   }
 
+  // Cancel subscription (set auto_renew to false but keep active until expiry)
+  async cancelSubscription(userId: number): Promise<UserSubscription | null> {
+    const query = `
+      UPDATE subscriptions 
+      SET auto_renew = false, updated_at = NOW()
+      WHERE user_id = $1 AND is_active = true AND plan_id != 'free'
+      RETURNING *
+    `;
+    const result = await this.executeQuery(query, [userId]);
+    return result.rows[0] || null;
+  }
+
+  // Check and handle expired subscriptions
+  async checkExpiredSubscriptions(): Promise<void> {
+    const query = `
+      UPDATE subscriptions 
+      SET is_active = false, updated_at = NOW()
+      WHERE is_active = true 
+        AND expires_at IS NOT NULL 
+        AND expires_at < NOW()
+        AND plan_id != 'free'
+    `;
+    await this.executeQuery(query, []);
+    console.log('🕐 Checked for expired subscriptions');
+  }
+
+  // Get subscription with expiration check
+  async getUserSubscriptionWithExpirationCheck(userId: number): Promise<UserSubscription | null> {
+    // First check for expired subscriptions
+    await this.checkExpiredSubscriptions();
+    
+    // Then get the user's subscription
+    return await this.getUserSubscription(userId);
+  }
+
   // Session management
   async createUserSession(sessionData: {
     userId: number;

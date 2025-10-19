@@ -133,7 +133,7 @@ export class AuthService {
       const decoded = this.jwtService.verifyToken(token);
       const userId = decoded.userId;
 
-      const subscription = await this.databaseService.getUserSubscription(userId);
+      const subscription = await this.databaseService.getUserSubscriptionWithExpirationCheck(userId);
       const usage = await this.databaseService.getUserUsageStats(userId);
 
       // If no subscription found, return default free plan

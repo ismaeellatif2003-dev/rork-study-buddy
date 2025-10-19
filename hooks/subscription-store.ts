@@ -222,19 +222,35 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
   // Get current plan
   const getCurrentPlan = useCallback((): SubscriptionPlan => {
     console.log('getCurrentPlan called with subscription:', subscription);
-    if (!subscription || subscription.status !== 'active' || new Date() > subscription.endDate) {
+    
+    // Check if subscription exists and hasn't expired
+    if (!subscription || new Date() > subscription.endDate) {
       console.log('Returning free plan because:', {
         noSubscription: !subscription,
-        statusNotActive: subscription?.status !== 'active',
         expired: subscription ? new Date() > subscription.endDate : false,
         currentDate: new Date(),
         endDate: subscription?.endDate
       });
       return SUBSCRIPTION_PLANS[0]; // Free plan
     }
-    const plan = SUBSCRIPTION_PLANS.find(plan => plan.id === subscription.planId) || SUBSCRIPTION_PLANS[0];
-    console.log('Returning plan:', plan);
-    return plan;
+    
+    // For cancelled subscriptions, check if they're still within the billing period
+    if (subscription.status === 'cancelled' && new Date() <= subscription.endDate) {
+      console.log('Subscription is cancelled but still active until:', subscription.endDate);
+      const plan = SUBSCRIPTION_PLANS.find(plan => plan.id === subscription.planId) || SUBSCRIPTION_PLANS[0];
+      return plan;
+    }
+    
+    // For active subscriptions
+    if (subscription.status === 'active') {
+      const plan = SUBSCRIPTION_PLANS.find(plan => plan.id === subscription.planId) || SUBSCRIPTION_PLANS[0];
+      console.log('Returning active plan:', plan);
+      return plan;
+    }
+    
+    // Default to free plan
+    console.log('Returning free plan as default');
+    return SUBSCRIPTION_PLANS[0];
   }, [subscription]);
 
   // Check if user can perform action
@@ -457,22 +473,48 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     if (!subscription) return;
     
     try {
-      // In real implementation, cancel with the platform
-      // For iOS: No action needed, just disable auto-renew in your backend
-      // For Android: Use Google Play Developer API to cancel
+      const isSignedIn = await googleAuthService.isSignedIn();
+      if (!isSignedIn) {
+        Alert.alert('Error', 'Please sign in to cancel your subscription.');
+        return;
+      }
+
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please sign in again.');
+        return;
+      }
+
+      console.log('🔄 Cancelling subscription with backend...');
       
-      // Cancel with your backend
-      // await trpcClient.subscription.cancel.mutate({ subscriptionId: subscription.id });
-      
-      const updatedSubscription = {
-        ...subscription,
-        autoRenew: false,
-        status: 'cancelled' as const,
-      };
-      setSubscription(updatedSubscription);
-      await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(updatedSubscription));
-      
-      Alert.alert('Subscription Cancelled', 'Your subscription has been cancelled. You will retain access until the end of your billing period.');
+      // Cancel with backend
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/subscription/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Subscription cancelled successfully:', responseData);
+        
+        // Update local subscription to reflect cancellation
+        const updatedSubscription = {
+          ...subscription,
+          autoRenew: false,
+          status: 'cancelled' as const,
+        };
+        setSubscription(updatedSubscription);
+        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(updatedSubscription));
+        
+        Alert.alert('Subscription Cancelled', 'Your subscription has been cancelled. You will retain access until the end of your billing period.');
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Failed to cancel subscription:', errorData);
+        Alert.alert('Error', errorData.error || 'Failed to cancel subscription. Please try again.');
+      }
     } catch (error) {
       console.error('Cancel subscription error:', error);
       Alert.alert('Error', 'Failed to cancel subscription. Please try again.');
