@@ -136,9 +136,39 @@ export class AuthService {
       const subscription = await this.databaseService.getUserSubscription(userId);
       const usage = await this.databaseService.getUserUsageStats(userId);
 
+      // If no subscription found, return default free plan
+      if (!subscription) {
+        return {
+          plan: {
+            id: 'free',
+            name: 'Free',
+            price: 0,
+            billingPeriod: 'monthly',
+            features: ['5 notes', '25 flashcards', '10 AI questions', '1 essay', 'OCR text extraction'],
+            limits: { notes: 5, flashcards: 25, messages: 10, essays: 1, ocrScans: 3 }
+          },
+          isActive: true,
+          expiresAt: null,
+          usage: usage || { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 }
+        };
+      }
+
+      // Return subscription in the format expected by frontend
       return {
-        subscription: subscription || { plan: 'free', isActive: true, expiresAt: null },
-        usage: usage || { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 },
+        plan: {
+          id: subscription.plan_id || 'free',
+          name: subscription.plan_name || 'Free',
+          price: subscription.plan_id === 'pro-monthly' ? 9.99 : subscription.plan_id === 'pro-yearly' ? 99.99 : 0,
+          yearlyPrice: subscription.plan_id === 'pro-yearly' ? 99.99 : undefined,
+          billingPeriod: subscription.plan_id === 'pro-yearly' ? 'yearly' : 'monthly',
+          features: subscription.plan_id === 'free' 
+            ? ['5 notes', '25 flashcards', '10 AI questions', '1 essay', 'OCR text extraction']
+            : ['Unlimited notes', 'Unlimited flashcards', 'Unlimited AI questions', 'Unlimited essays', 'OCR text extraction'],
+          limits: subscription.limits || { notes: -1, flashcards: -1, messages: -1, essays: -1, ocrScans: -1 }
+        },
+        isActive: subscription.is_active,
+        expiresAt: subscription.expires_at,
+        usage: usage || { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 }
       };
     } catch (error) {
       console.error('Subscription status error:', error);
