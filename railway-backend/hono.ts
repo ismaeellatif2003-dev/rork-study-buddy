@@ -1731,6 +1731,89 @@ app.post("/essays", async (c) => {
   }
 });
 
+// ==================== SUBSCRIPTION MANAGEMENT ENDPOINTS ====================
+
+app.post("/subscription/upgrade", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { planId, billingPeriod, expiresAt } = await c.req.json();
+    
+    console.log(`🔄 Upgrading subscription for user ${decoded.userId} to plan ${planId}`);
+    
+    // Update subscription in database
+    const updatedSubscription = await databaseService.updateUserSubscription(decoded.userId, planId);
+    
+    // Log subscription change
+    await databaseService.createSyncEvent({
+      userId: decoded.userId,
+      eventType: 'subscription_upgrade',
+      data: {
+        planId,
+        billingPeriod,
+        expiresAt,
+        previousPlan: 'free' // For now, assume upgrading from free
+      },
+      platform: 'web'
+    });
+    
+    console.log(`✅ Subscription upgraded successfully for user ${decoded.userId}`);
+    return c.json({ 
+      success: true, 
+      subscription: updatedSubscription,
+      message: `Successfully upgraded to ${planId} plan`
+    });
+  } catch (error: any) {
+    console.error("Subscription upgrade error:", error);
+    return c.json({ error: "Failed to upgrade subscription" }, 500);
+  }
+});
+
+app.post("/subscription/downgrade", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwtService.verifyToken(token);
+    const { planId, expiresAt } = await c.req.json();
+    
+    console.log(`🔄 Downgrading subscription for user ${decoded.userId} to plan ${planId}`);
+    
+    // Update subscription in database
+    const updatedSubscription = await databaseService.updateUserSubscription(decoded.userId, planId);
+    
+    // Log subscription change
+    await databaseService.createSyncEvent({
+      userId: decoded.userId,
+      eventType: 'subscription_downgrade',
+      data: {
+        planId,
+        expiresAt,
+        previousPlan: 'pro_monthly' // For now, assume downgrading from pro
+      },
+      platform: 'web'
+    });
+    
+    console.log(`✅ Subscription downgraded successfully for user ${decoded.userId}`);
+    return c.json({ 
+      success: true, 
+      subscription: updatedSubscription,
+      message: `Successfully downgraded to ${planId} plan`
+    });
+  } catch (error: any) {
+    console.error("Subscription downgrade error:", error);
+    return c.json({ error: "Failed to downgrade subscription" }, 500);
+  }
+});
+
 // ==================== CHAT HISTORY ENDPOINTS ====================
 
 app.get("/chat/history", async (c) => {
@@ -1788,6 +1871,10 @@ app.get("/", (c) => {
         linkMobile: "/auth/link-mobile",
         subscriptionStatus: "/auth/subscription-status",
         sync: "/auth/sync"
+      },
+      subscription: {
+        upgrade: "POST /subscription/upgrade",
+        downgrade: "POST /subscription/downgrade"
       },
       usage: {
         update: "/usage/update"
