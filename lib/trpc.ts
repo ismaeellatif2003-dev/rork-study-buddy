@@ -6,12 +6,7 @@ import superjson from "superjson";
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  // Development
-  if (__DEV__) {
-    return 'http://localhost:3000';
-  }
-  
-  // Production - Railway backend
+  // Always use production backend for subscription verification
   return 'https://rork-study-buddy-production-eeeb.up.railway.app';
 };
 

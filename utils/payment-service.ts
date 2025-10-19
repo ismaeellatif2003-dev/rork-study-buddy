@@ -171,6 +171,43 @@ class PaymentService {
     }
   }
 
+  // Sync subscription to backend
+  private async syncSubscriptionToBackend(subscription: UserSubscription): Promise<void> {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.log('No auth token found, skipping backend sync');
+        return;
+      }
+
+      console.log('🔄 Syncing subscription to backend:', subscription);
+      
+      // Map the subscription to the format expected by the backend
+      const planId = subscription.planId === 'pro_monthly' ? 'pro-monthly' : 'pro-yearly';
+      
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/subscription/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          planId,
+          billingPeriod: subscription.planId === 'pro_yearly' ? 'yearly' : 'monthly',
+          expiresAt: subscription.endDate.toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Subscription synced to backend successfully');
+      } else {
+        console.error('❌ Failed to sync subscription to backend:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing subscription to backend:', error);
+    }
+  }
+
   // Create a local subscription for development/testing
   private createLocalSubscription(purchase: any): UserSubscription {
     const planId = purchase.productId.includes('yearly') ? 'pro_yearly' : 'pro_monthly';
@@ -226,24 +263,33 @@ class PaymentService {
         });
 
         if (verificationResult.success && verificationResult.subscription) {
+          const subscription = {
+            ...verificationResult.subscription,
+            startDate: new Date(verificationResult.subscription.startDate),
+            endDate: new Date(verificationResult.subscription.endDate),
+          };
+          
+          // Ensure subscription is synced to backend
+          await this.syncSubscriptionToBackend(subscription);
+          
           return {
             success: true,
-            subscription: {
-              ...verificationResult.subscription,
-              startDate: new Date(verificationResult.subscription.startDate),
-              endDate: new Date(verificationResult.subscription.endDate),
-            },
+            subscription,
           };
         } else {
           console.error('Backend verification returned failure:', verificationResult);
           console.log('__DEV__ is:', __DEV__);
           
-          // In development mode, if verification fails, create a local subscription instead of showing error
+          // In development mode, if verification fails, create a local subscription and sync to backend
           if (__DEV__) {
             console.log('Development mode: Creating local subscription despite verification failure');
             console.log('Verification error:', verificationResult.error);
             const localSubscription = this.createLocalSubscription(purchase);
             console.log('Created local subscription:', localSubscription);
+            
+            // Try to sync the subscription to backend
+            await this.syncSubscriptionToBackend(localSubscription);
+            
             return {
               success: true,
               subscription: localSubscription,
@@ -260,7 +306,7 @@ class PaymentService {
         console.error('tRPC verification failed, trying direct endpoint:', trpcError);
         
         // Fallback to direct endpoint
-        const baseUrl = __DEV__ ? 'http://localhost:3000' : 'https://rork-study-buddy-production-eeeb.up.railway.app';
+        const baseUrl = 'https://rork-study-buddy-production-eeeb.up.railway.app';
         
         const response = await fetch(`${baseUrl}/trpc/subscription.verifyPurchase`, {
           method: 'POST',
