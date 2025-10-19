@@ -643,13 +643,29 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       console.log('🔄 Pushing subscription to backend:', subscription);
       
       const token = await AsyncStorage.getItem('authToken');
+      console.log('🔑 Auth token found:', token ? 'YES' : 'NO');
+      if (token) {
+        console.log('🔑 Token preview:', token.substring(0, 20) + '...');
+      }
+      
       if (!token) {
-        console.log('No auth token found, skipping backend push');
+        console.log('❌ No auth token found, skipping backend push');
         return;
       }
 
       // Map the subscription to the format expected by the backend
       const planId = subscription.planId === 'pro_monthly' ? 'pro-monthly' : 'pro-yearly';
+      const requestBody = {
+        planId,
+        billingPeriod: subscription.planId === 'pro_yearly' ? 'yearly' : 'monthly',
+        expiresAt: subscription.endDate.toISOString(),
+      };
+      
+      console.log('📤 Sending request to backend:', {
+        url: 'https://rork-study-buddy-production-eeeb.up.railway.app/subscription/upgrade',
+        method: 'POST',
+        body: requestBody
+      });
       
       const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/subscription/upgrade', {
         method: 'POST',
@@ -657,19 +673,27 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          planId,
-          billingPeriod: subscription.planId === 'pro_yearly' ? 'yearly' : 'monthly',
-          expiresAt: subscription.endDate.toISOString(),
-        }),
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('📥 Backend response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       });
 
       if (response.ok) {
-        console.log('✅ Subscription pushed to backend successfully');
+        const responseData = await response.json();
+        console.log('✅ Subscription pushed to backend successfully:', responseData);
         // After pushing, sync back to get the latest data
         await syncWithBackend();
       } else {
-        console.error('❌ Failed to push subscription to backend:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('❌ Failed to push subscription to backend:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
       }
     } catch (error) {
       console.error('❌ Error pushing subscription to backend:', error);
