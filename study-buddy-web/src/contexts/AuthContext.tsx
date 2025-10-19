@@ -23,6 +23,7 @@ interface Subscription {
   };
   isActive: boolean;
   expiresAt?: string;
+  purchasePlatform?: 'mobile' | 'web';
   usage: {
     notes: number;
     flashcards: number;
@@ -37,6 +38,7 @@ interface AuthContextType {
   subscription: Subscription | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  backendToken: string | null;
   signOut: () => void;
   refreshSubscription: () => Promise<void>;
   updateUsage: (type: string, increment?: number) => Promise<void>;
@@ -50,8 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Consider user authenticated if they have a NextAuth session, even without backend token
-  const isAuthenticated = !!session?.user;
+  // Consider user authenticated if they have a NextAuth session AND backend token
+  const isAuthenticated = !!(session?.user && session?.backendToken);
   
   // Debug logging
   useEffect(() => {
@@ -61,9 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasBackendToken: !!session?.backendToken,
       hasBackendUser: !!session?.backendUser,
       isAuthenticated,
-      status
+      status,
+      isLoading,
+      hasSubscription: !!subscription,
+      subscriptionPlan: subscription?.plan?.id
     });
-  }, [session, isAuthenticated, status]);
+  }, [session, isAuthenticated, status, isLoading, subscription]);
 
   // Set up axios interceptor for authenticated requests
   useEffect(() => {
@@ -83,14 +88,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: session.user.email || 'unknown',
           email: session.user.email || '',
           name: session.user.name || '',
-          picture: session.user.image
+          picture: session.user.image || undefined
         };
         setUser(userData);
         
-        // Only try to load subscription if we have a backend token
+        // Try to load subscription from backend first, then fallback to default
         if (session.backendToken) {
           await refreshSubscription();
         } else {
+          console.log('🔍 No backend token, setting default free subscription');
           // Set a default subscription for users without backend token
           setSubscription({
             plan: {
@@ -115,8 +121,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUserData();
   }, [session]);
 
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('⏰ Loading timeout reached, setting loading to false');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
+
   const refreshSubscription = async () => {
-    if (!session?.backendToken) return;
+    if (!session?.backendToken) {
+      console.log('🔍 No backend token available for subscription refresh');
+      return;
+    }
 
     try {
       console.log('🔄 Loading subscription from backend...');
@@ -128,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Also save to localStorage as cache
         localStorage.setItem('studyBuddySubscription', JSON.stringify(response.data));
         console.log('✅ Backend subscription loaded and cached');
+      } else {
+        throw new Error('No subscription data received from backend');
       }
     } catch (error) {
       console.error('❌ Failed to fetch subscription from backend:', error);
@@ -136,6 +159,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cachedSubscription) {
         setSubscription(JSON.parse(cachedSubscription));
         console.log('📱 Subscription loaded from localStorage cache');
+      } else {
+        // Final fallback to default free subscription
+        console.log('🆓 Setting default free subscription as final fallback');
+        setSubscription({
+          plan: {
+            id: 'free',
+            name: 'Free Plan',
+            price: 0,
+            billingPeriod: 'month',
+            limits: { notes: 10, flashcards: 10, messages: 5, essays: 2, ocrScans: 3 },
+            features: ['Basic features', 'Limited usage']
+          },
+          isActive: true,
+          usage: { notes: 0, flashcards: 0, messages: 0, essays: 0, ocrScans: 0 }
+        });
       }
     }
   };
@@ -175,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     subscription,
     isLoading: isLoading || status === 'loading',
     isAuthenticated,
+    backendToken: session?.backendToken || null,
     signOut: handleSignOut,
     refreshSubscription,
     updateUsage,

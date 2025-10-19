@@ -141,7 +141,7 @@ class AIService {
       const content = userMessage?.content as string || '';
       transformedRequest = {
         content,
-        type: 'summary',
+        type: 'text',
         model: request.model || 'openai/gpt-3.5-turbo',
         messages: request.messages
       };
@@ -149,7 +149,7 @@ class AIService {
       // Use the request as-is if it already has content
       transformedRequest = {
         ...request,
-        type: 'summary'
+        type: 'text'
       };
     }
     

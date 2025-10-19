@@ -45,7 +45,7 @@ export const useFlashcardSets = () => {
               // Group backend flashcards by set
               const setMap = new Map<string, FlashcardSet>();
               
-              response.flashcards.forEach((card: any) => {
+              response.flashcards.forEach((card: { set_id?: string; set_name?: string; set_description?: string; front: string; back: string; difficulty?: string; id: number; created_at?: string }) => {
                 const setId = card.set_id || 'default-set';
                 if (!setMap.has(setId)) {
                   setMap.set(setId, {

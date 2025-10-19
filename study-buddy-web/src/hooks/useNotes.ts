@@ -30,7 +30,7 @@ export const useNotes = () => {
             console.log('📄 Backend notes response:', response);
             
             if (response.success && response.notes) {
-              const backendNotes = response.notes.map((note: any) => ({
+              const backendNotes = response.notes.map((note: { id: number; title: string; content: string; summary?: string; created_at: string; updated_at: string }) => ({
                 id: note.id.toString(),
                 title: note.title,
                 content: note.content,

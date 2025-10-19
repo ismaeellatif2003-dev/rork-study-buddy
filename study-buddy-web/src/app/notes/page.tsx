@@ -137,7 +137,7 @@ export default function NotesPage() {
             content: `Create a summary of this note:\n\nTitle: ${note.title}\n\nContent: ${note.content}`
           }
         ],
-        type: 'summary',
+        type: 'text',
         model: 'openai/gpt-4o'
       });
 
@@ -156,8 +156,8 @@ export default function NotesPage() {
       });
       
       // Update user stats for summary generation
-      updateUserStats('summaries', 1);
-      updateUsage('summaries', 1);
+      updateUserStats('notes', 1);
+      updateUsage('notes', 1);
       
       setIsGenerating(null);
     } catch (error) {
@@ -399,7 +399,7 @@ Generate 5-7 high-quality flashcards that test understanding of the specific con
       updatedAt: new Date().toISOString(),
     };
     
-    setNotes(prev => [note, ...prev]);
+    addNote(note);
     updateUserStats('notes', 1);
     
     // Reset OCR state

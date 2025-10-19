@@ -18,6 +18,7 @@ export interface UserSubscription {
   plan: SubscriptionPlan;
   isActive: boolean;
   expiresAt: string | null;
+  purchasePlatform?: 'mobile' | 'web';
   usage: {
     notes: number;
     flashcards: number;
