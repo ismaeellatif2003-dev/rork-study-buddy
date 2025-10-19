@@ -1818,11 +1818,18 @@ app.post("/subscription/cancel", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("❌ No authorization header provided");
       return c.json({ error: "Authorization header required" }, 401);
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwtService.verifyToken(token);
+    let decoded;
+    try {
+      decoded = jwtService.verifyToken(token);
+    } catch (jwtError) {
+      console.log("❌ Invalid JWT token:", jwtError);
+      return c.json({ error: "Invalid authentication token" }, 401);
+    }
     
     console.log(`🔄 Cancelling subscription for user ${decoded.userId}`);
     
@@ -1830,30 +1837,43 @@ app.post("/subscription/cancel", async (c) => {
     const cancelledSubscription = await databaseService.cancelSubscription(decoded.userId);
     
     if (!cancelledSubscription) {
+      console.log(`❌ No active subscription found for user ${decoded.userId}`);
       return c.json({ error: "No active subscription found to cancel" }, 404);
     }
     
-    // Log subscription change
-    await databaseService.createSyncEvent({
-      userId: decoded.userId,
-      eventType: 'subscription_cancelled',
-      data: {
-        planId: cancelledSubscription.plan_id,
-        expiresAt: cancelledSubscription.expires_at,
-        autoRenew: false
-      },
-      platform: 'web'
+    console.log(`✅ Subscription cancelled for user ${decoded.userId}:`, {
+      planId: cancelledSubscription.plan_id,
+      expiresAt: cancelledSubscription.expires_at,
+      autoRenew: cancelledSubscription.auto_renew
     });
     
-    console.log(`✅ Subscription cancelled successfully for user ${decoded.userId}`);
+    // Log subscription change
+    try {
+      await databaseService.createSyncEvent({
+        userId: decoded.userId,
+        eventType: 'subscription_cancelled',
+        data: {
+          planId: cancelledSubscription.plan_id,
+          expiresAt: cancelledSubscription.expires_at,
+          autoRenew: false
+        },
+        platform: 'mobile'
+      });
+    } catch (syncError) {
+      console.log("⚠️ Failed to log sync event (non-critical):", syncError);
+    }
+    
     return c.json({ 
       success: true, 
       subscription: cancelledSubscription,
       message: "Subscription cancelled. You will retain access until the end of your billing period."
     });
   } catch (error: any) {
-    console.error("Subscription cancellation error:", error);
-    return c.json({ error: "Failed to cancel subscription" }, 500);
+    console.error("❌ Subscription cancellation error:", error);
+    return c.json({ 
+      error: "Failed to cancel subscription",
+      details: error.message 
+    }, 500);
   }
 });
 

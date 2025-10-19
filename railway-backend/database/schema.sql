@@ -39,6 +39,7 @@ CREATE TABLE subscriptions (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   plan_id VARCHAR(50) REFERENCES subscription_plans(id),
   is_active BOOLEAN DEFAULT true,
+  auto_renew BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW(),
   expires_at TIMESTAMP,
   updated_at TIMESTAMP DEFAULT NOW()
