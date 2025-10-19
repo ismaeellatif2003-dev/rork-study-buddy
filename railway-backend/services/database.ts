@@ -238,7 +238,13 @@ export class DatabaseService {
       userData.name,
       userData.picture
     ]);
-    return result.rows[0];
+    
+    const user = result.rows[0];
+    
+    // Create default free subscription for new user
+    await this.createSubscription(user.id, 'free');
+    
+    return user;
   }
 
   async getUserByGoogleId(googleId: string): Promise<User | null> {
