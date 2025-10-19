@@ -349,14 +349,14 @@ export class DatabaseService {
   }
 
   // Subscription management
-  async createSubscription(userId: number, planId: string): Promise<UserSubscription> {
+  async createSubscription(userId: number, planId: string, purchasePlatform: string = 'web'): Promise<UserSubscription> {
     const query = `
-      INSERT INTO subscriptions (user_id, plan_id, is_active, created_at, expires_at)
-      VALUES ($1, $2, true, NOW(), $3)
+      INSERT INTO subscriptions (user_id, plan_id, is_active, purchase_platform, created_at, expires_at)
+      VALUES ($1, $2, true, $3, NOW(), $4)
       RETURNING *
     `;
     const expiresAt = planId === 'free' ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const result = await this.executeQuery(query, [userId, planId, expiresAt]);
+    const result = await this.executeQuery(query, [userId, planId, purchasePlatform, expiresAt]);
     return result.rows[0];
   }
 
@@ -377,7 +377,7 @@ export class DatabaseService {
     return result.rows[0] || null;
   }
 
-  async updateUserSubscription(userId: number, planId: string): Promise<UserSubscription> {
+  async updateUserSubscription(userId: number, planId: string, purchasePlatform: string = 'web'): Promise<UserSubscription> {
     // Deactivate current subscription
     await this.executeQuery(
       'UPDATE subscriptions SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND is_active = true',
@@ -385,7 +385,7 @@ export class DatabaseService {
     );
 
     // Create new subscription
-    return await this.createSubscription(userId, planId);
+    return await this.createSubscription(userId, planId, purchasePlatform);
   }
 
   async getSubscriptionPlan(planId: string): Promise<SubscriptionPlan | null> {

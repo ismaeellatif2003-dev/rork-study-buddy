@@ -4,40 +4,118 @@ import { useState, useEffect } from 'react';
 import { Crown, Check, Star, Zap, FileText, MessageCircle, BookOpen, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
-import { getCurrentSubscription, upgradeToPro, downgradeToFree, SUBSCRIPTION_PLANS } from '@/utils/subscription';
+import { useAuth } from '@/contexts/AuthContext';
+import { SUBSCRIPTION_PLANS } from '@/utils/subscription';
 
 export default function SubscriptionPage() {
-  const [subscription, setSubscription] = useState(getCurrentSubscription());
+  const { subscription, isLoading, isAuthenticated, backendToken, refreshSubscription } = useAuth();
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
-  // Listen for subscription updates
-  useEffect(() => {
-    const handleSubscriptionUpdate = () => {
-      setSubscription(getCurrentSubscription());
-    };
+  // Add safety checks for subscription object
+  const isProUser = subscription?.plan?.id === 'pro-monthly' || subscription?.plan?.id === 'pro-yearly';
 
-    window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate);
-    return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
-  }, []);
+  // Show sign-in prompt if not authenticated (check this first)
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Sign In Required
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+              Please sign in to view and manage your subscription.
+            </p>
+            <a 
+              href="/auth/signin"
+              className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              Sign In with Google
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const isProUser = subscription.plan.id === 'pro-monthly' || subscription.plan.id === 'pro-yearly';
+  // Show loading state if subscription is not properly initialized (only for authenticated users)
+  if (isLoading || !subscription || !subscription.plan) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="text-lg text-gray-600 dark:text-gray-400">Loading subscription information...</div>
+        </div>
+      </div>
+    );
+  }
 
   const handleUpgrade = async (planId: string) => {
+    setIsUpgrading(true);
     try {
-      await upgradeToPro(planId);
+      // For now, we'll simulate the upgrade since we don't have payment integration
+      // In a real app, this would integrate with Stripe, Apple Pay, etc.
       const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
       const billingPeriod = plan?.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
-      alert(`Successfully upgraded to Pro ${billingPeriod}! You now have unlimited access to all features.`);
+      
+      // Simulate API call to backend
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subscription/upgrade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${backendToken}`
+        },
+        body: JSON.stringify({
+          planId,
+          billingPeriod,
+          expiresAt: new Date(Date.now() + (billingPeriod === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+        })
+      });
+
+      if (response.ok) {
+        // Refresh subscription data from backend
+        await refreshSubscription();
+        alert(`Successfully upgraded to Pro ${billingPeriod}! You now have unlimited access to all features.`);
+      } else {
+        throw new Error('Upgrade failed');
+      }
     } catch (error) {
       console.error('Upgrade error:', error);
       alert('Failed to upgrade subscription. Please try again.');
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
   const handleDowngrade = async () => {
+    // Check if subscription was purchased on mobile
+    const isMobilePurchase = subscription?.purchasePlatform === 'mobile';
+    
+    if (isMobilePurchase) {
+      alert('This subscription was purchased through the mobile app. Please cancel it through the mobile app or Apple ID settings.');
+      return;
+    }
+    
     if (confirm('Are you sure you want to downgrade to the Free plan? You will lose unlimited access to all features and be limited to 5 notes, 25 flashcards, 10 AI questions, and 1 essay.')) {
       try {
-        await downgradeToFree();
-        alert('Successfully downgraded to Free plan. You now have limited access to features.');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subscription/downgrade`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${backendToken}`
+          },
+          body: JSON.stringify({
+            planId: 'free',
+            expiresAt: null
+          })
+        });
+
+        if (response.ok) {
+          // Refresh subscription data from backend
+          await refreshSubscription();
+          alert('Successfully downgraded to Free plan. You now have limited access to features.');
+        } else {
+          throw new Error('Downgrade failed');
+        }
       } catch (error) {
         console.error('Downgrade error:', error);
         alert('Failed to downgrade subscription. Please try again.');
@@ -86,12 +164,12 @@ export default function SubscriptionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Current Plan</h2>
-                <p className="text-gray-600 dark:text-gray-400">You&apos;re currently on the {subscription.plan.name} plan</p>
+                <p className="text-gray-600 dark:text-gray-400">You&apos;re currently on the {subscription?.plan?.name || 'Free'} plan</p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  ${subscription.plan.billingPeriod === 'yearly' ? subscription.plan.yearlyPrice : subscription.plan.price}
-                  /{subscription.plan.billingPeriod === 'yearly' ? 'year' : 'month'}
+                  ${subscription?.plan?.billingPeriod === 'yearly' ? subscription?.plan?.yearlyPrice : subscription?.plan?.price || 0}
+                  /{subscription?.plan?.billingPeriod === 'yearly' ? 'year' : 'month'}
                 </div>
                 {isProUser && (
                   <div className="text-sm text-green-600 dark:text-green-400 font-medium">Active</div>
@@ -117,16 +195,16 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatUsage(subscription.usage.notes, subscription.plan.limits.notes)}
+                    {formatUsage(subscription?.usage?.notes || 0, subscription?.plan?.limits?.notes || 5)}
                   </span>
-                  <span className={getUsageColor(getUsagePercentage(subscription.usage.notes, subscription.plan.limits.notes))}>
-                    {getUsagePercentage(subscription.usage.notes, subscription.plan.limits.notes).toFixed(0)}%
+                  <span className={getUsageColor(getUsagePercentage(subscription?.usage?.notes || 0, subscription?.plan?.limits?.notes || 5))}>
+                    {getUsagePercentage(subscription?.usage?.notes || 0, subscription?.plan?.limits?.notes || 5).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription.usage.notes, subscription.plan.limits.notes))}`}
-                    style={{ width: `${getUsagePercentage(subscription.usage.notes, subscription.plan.limits.notes)}%` }}
+                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription?.usage?.notes || 0, subscription?.plan?.limits?.notes || 5))}`}
+                    style={{ width: `${getUsagePercentage(subscription?.usage?.notes || 0, subscription?.plan?.limits?.notes || 5)}%` }}
                   ></div>
                 </div>
               </div>
@@ -139,16 +217,16 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatUsage(subscription.usage.flashcards, subscription.plan.limits.flashcards)}
+                    {formatUsage(subscription?.usage?.flashcards || 0, subscription?.plan?.limits?.flashcards || 25)}
                   </span>
-                  <span className={getUsageColor(getUsagePercentage(subscription.usage.flashcards, subscription.plan.limits.flashcards))}>
-                    {getUsagePercentage(subscription.usage.flashcards, subscription.plan.limits.flashcards).toFixed(0)}%
+                  <span className={getUsageColor(getUsagePercentage(subscription?.usage?.flashcards || 0, subscription?.plan?.limits?.flashcards || 25))}>
+                    {getUsagePercentage(subscription?.usage?.flashcards || 0, subscription?.plan?.limits?.flashcards || 25).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription.usage.flashcards, subscription.plan.limits.flashcards))}`}
-                    style={{ width: `${getUsagePercentage(subscription.usage.flashcards, subscription.plan.limits.flashcards)}%` }}
+                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription?.usage?.flashcards || 0, subscription?.plan?.limits?.flashcards || 25))}`}
+                    style={{ width: `${getUsagePercentage(subscription?.usage?.flashcards || 0, subscription?.plan?.limits?.flashcards || 25)}%` }}
                   ></div>
                 </div>
               </div>
@@ -161,16 +239,16 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatUsage(subscription.usage.messages, subscription.plan.limits.messages)}
+                    {formatUsage(subscription?.usage?.messages || 0, subscription?.plan?.limits?.messages || 10)}
                   </span>
-                  <span className={getUsageColor(getUsagePercentage(subscription.usage.messages, subscription.plan.limits.messages))}>
-                    {getUsagePercentage(subscription.usage.messages, subscription.plan.limits.messages).toFixed(0)}%
+                  <span className={getUsageColor(getUsagePercentage(subscription?.usage?.messages || 0, subscription?.plan?.limits?.messages || 10))}>
+                    {getUsagePercentage(subscription?.usage?.messages || 0, subscription?.plan?.limits?.messages || 10).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription.usage.messages, subscription.plan.limits.messages))}`}
-                    style={{ width: `${getUsagePercentage(subscription.usage.messages, subscription.plan.limits.messages)}%` }}
+                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription?.usage?.messages || 0, subscription?.plan?.limits?.messages || 10))}`}
+                    style={{ width: `${getUsagePercentage(subscription?.usage?.messages || 0, subscription?.plan?.limits?.messages || 10)}%` }}
                   ></div>
                 </div>
               </div>
@@ -183,16 +261,16 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatUsage(subscription.usage.essays, subscription.plan.limits.essays)}
+                    {formatUsage(subscription?.usage?.essays || 0, subscription?.plan?.limits?.essays || 1)}
                   </span>
-                  <span className={getUsageColor(getUsagePercentage(subscription.usage.essays, subscription.plan.limits.essays))}>
-                    {getUsagePercentage(subscription.usage.essays, subscription.plan.limits.essays).toFixed(0)}%
+                  <span className={getUsageColor(getUsagePercentage(subscription?.usage?.essays || 0, subscription?.plan?.limits?.essays || 1))}>
+                    {getUsagePercentage(subscription?.usage?.essays || 0, subscription?.plan?.limits?.essays || 1).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription.usage.essays, subscription.plan.limits.essays))}`}
-                    style={{ width: `${getUsagePercentage(subscription.usage.essays, subscription.plan.limits.essays)}%` }}
+                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription?.usage?.essays || 0, subscription?.plan?.limits?.essays || 1))}`}
+                    style={{ width: `${getUsagePercentage(subscription?.usage?.essays || 0, subscription?.plan?.limits?.essays || 1)}%` }}
                   ></div>
                 </div>
               </div>
@@ -205,16 +283,16 @@ export default function SubscriptionPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">
-                    {formatUsage(subscription.usage.ocrScans, subscription.plan.limits.ocrScans)}
+                    {formatUsage(subscription?.usage?.ocrScans || 0, subscription?.plan?.limits?.ocrScans || 3)}
                   </span>
-                  <span className={getUsageColor(getUsagePercentage(subscription.usage.ocrScans, subscription.plan.limits.ocrScans))}>
-                    {getUsagePercentage(subscription.usage.ocrScans, subscription.plan.limits.ocrScans).toFixed(0)}%
+                  <span className={getUsageColor(getUsagePercentage(subscription?.usage?.ocrScans || 0, subscription?.plan?.limits?.ocrScans || 3))}>
+                    {getUsagePercentage(subscription?.usage?.ocrScans || 0, subscription?.plan?.limits?.ocrScans || 3).toFixed(0)}%
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription.usage.ocrScans, subscription.plan.limits.ocrScans))}`}
-                    style={{ width: `${getUsagePercentage(subscription.usage.ocrScans, subscription.plan.limits.ocrScans)}%` }}
+                    className={`h-2 rounded-full ${getUsageBarColor(getUsagePercentage(subscription?.usage?.ocrScans || 0, subscription?.plan?.limits?.ocrScans || 3))}`}
+                    style={{ width: `${getUsagePercentage(subscription?.usage?.ocrScans || 0, subscription?.plan?.limits?.ocrScans || 3)}%` }}
                   ></div>
                 </div>
               </div>
@@ -269,13 +347,13 @@ export default function SubscriptionPage() {
                           Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(2)}/year
                         </div>
                       )}
-                      {plan.id === subscription.plan.id && (
+                      {plan.id === subscription?.plan?.id && (
                         <div className="text-sm text-green-600 dark:text-green-400 font-medium">Current Plan</div>
                       )}
                     </div>
                     
                     <div className="w-48">
-                      {plan.id === subscription.plan.id ? (
+                      {plan.id === subscription?.plan?.id ? (
                         <Button 
                           disabled 
                           className="w-full bg-gray-600 text-white cursor-not-allowed"
@@ -285,20 +363,28 @@ export default function SubscriptionPage() {
                       ) : (plan.id === 'pro-monthly' || plan.id === 'pro-yearly') ? (
                         <Button 
                           onClick={() => handleUpgrade(plan.id)}
+                          disabled={isUpgrading}
                           className={`w-full ${
                             plan.id === 'pro-yearly' 
                               ? 'bg-green-600 text-white hover:bg-green-700' 
                               : 'bg-blue-600 text-white hover:bg-blue-700'
                           }`}
                         >
-                          {plan.id === 'pro-yearly' ? 'Upgrade to Yearly' : 'Upgrade to Monthly'}
+                          {isUpgrading ? 'Processing...' : (plan.id === 'pro-yearly' ? 'Upgrade to Yearly' : 'Upgrade to Monthly')}
                         </Button>
                       ) : (
                         <Button 
-                          disabled
-                          className="w-full bg-gray-600 text-white cursor-not-allowed"
+                          onClick={handleDowngrade}
+                          className={`w-full ${
+                            subscription?.purchasePlatform === 'mobile' 
+                              ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                              : 'bg-red-600 text-white hover:bg-red-700'
+                          }`}
                         >
-                          Downgrade
+                          {subscription?.purchasePlatform === 'mobile' 
+                            ? 'Cancel (Mobile Purchase)' 
+                            : 'Downgrade to Free'
+                          }
                         </Button>
                       )}
                     </div>

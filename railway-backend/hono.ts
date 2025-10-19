@@ -1742,13 +1742,13 @@ app.post("/subscription/upgrade", async (c) => {
 
     const token = authHeader.substring(7);
     const decoded = jwtService.verifyToken(token);
-    const { planId, billingPeriod, expiresAt } = await c.req.json();
-    
-    console.log(`🔄 Upgrading subscription for user ${decoded.userId} to plan ${planId}`);
-    
-    // Update subscription in database
-    const updatedSubscription = await databaseService.updateUserSubscription(decoded.userId, planId);
-    
+    const { planId, billingPeriod, expiresAt, platform = 'web' } = await c.req.json();
+
+    console.log(`🔄 Upgrading subscription for user ${decoded.userId} to plan ${planId} on platform ${platform}`);
+
+    // Update subscription in database with platform information
+    const updatedSubscription = await databaseService.updateUserSubscription(decoded.userId, planId, platform);
+
     // Log subscription change
     await databaseService.createSyncEvent({
       userId: decoded.userId,
@@ -1757,14 +1757,15 @@ app.post("/subscription/upgrade", async (c) => {
         planId,
         billingPeriod,
         expiresAt,
+        platform,
         previousPlan: 'free' // For now, assume upgrading from free
       },
-      platform: 'web'
+      platform: platform
     });
-    
-    console.log(`✅ Subscription upgraded successfully for user ${decoded.userId}`);
-    return c.json({ 
-      success: true, 
+
+    console.log(`✅ Subscription upgraded successfully for user ${decoded.userId} on platform ${platform}`);
+    return c.json({
+      success: true,
       subscription: updatedSubscription,
       message: `Successfully upgraded to ${planId} plan`
     });

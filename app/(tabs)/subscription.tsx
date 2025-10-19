@@ -250,7 +250,9 @@ export default function SubscriptionScreen() {
               style={styles.cancelButton}
               onPress={handleCancelSubscription}
             >
-              <Text style={styles.cancelButtonText}>Cancel Subscription</Text>
+              <Text style={styles.cancelButtonText}>
+                {subscription.purchasePlatform === 'mobile' ? 'Cancel Subscription (Apple)' : 'Cancel Subscription'}
+              </Text>
             </TouchableOpacity>
           )}
 

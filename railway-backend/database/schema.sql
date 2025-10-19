@@ -40,6 +40,7 @@ CREATE TABLE subscriptions (
   plan_id VARCHAR(50) REFERENCES subscription_plans(id),
   is_active BOOLEAN DEFAULT true,
   auto_renew BOOLEAN DEFAULT true,
+  purchase_platform VARCHAR(20) DEFAULT 'web', -- 'mobile' or 'web'
   created_at TIMESTAMP DEFAULT NOW(),
   expires_at TIMESTAMP,
   updated_at TIMESTAMP DEFAULT NOW()

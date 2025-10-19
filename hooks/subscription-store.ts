@@ -490,25 +490,45 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       
       console.log('✅ Subscription marked as cancelled locally');
       
-      Alert.alert(
-        'Subscription Cancelled', 
-        'Your subscription has been cancelled. You will retain access until the end of your billing period. To complete the cancellation, please also cancel your subscription in your Apple ID settings.',
-        [
-          {
-            text: 'Open Apple Settings',
-            onPress: () => {
-              // Open Apple ID settings for subscription management
-              if (Platform.OS === 'ios') {
-                Linking.openURL('https://apps.apple.com/account/subscriptions');
+      // Show different messages based on purchase platform
+      if (subscription.purchasePlatform === 'mobile') {
+        Alert.alert(
+          'Subscription Cancelled', 
+          'Your subscription has been cancelled. You will retain access until the end of your billing period. To complete the cancellation, please also cancel your subscription in your Apple ID settings.',
+          [
+            {
+              text: 'Open Apple Settings',
+              onPress: () => {
+                // Open Apple ID settings for subscription management
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('https://apps.apple.com/account/subscriptions');
+                }
               }
+            },
+            {
+              text: 'OK',
+              style: 'default'
             }
-          },
-          {
-            text: 'OK',
-            style: 'default'
-          }
-        ]
-      );
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Subscription Cancelled', 
+          'Your subscription has been cancelled. You will retain access until the end of your billing period. To complete the cancellation, please also cancel your subscription on the website.',
+          [
+            {
+              text: 'Open Website',
+              onPress: () => {
+                Linking.openURL('https://study-buddy-web.vercel.app/subscription');
+              }
+            },
+            {
+              text: 'OK',
+              style: 'default'
+            }
+          ]
+        );
+      }
       
     } catch (error) {
       console.error('Cancel subscription error:', error);
@@ -704,6 +724,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
         planId,
         billingPeriod: subscription.planId === 'pro_yearly' ? 'yearly' : 'monthly',
         expiresAt: subscription.endDate.toISOString(),
+        platform: 'mobile', // Mark as mobile purchase
       };
       
       console.log('📤 Sending request to backend:', {
