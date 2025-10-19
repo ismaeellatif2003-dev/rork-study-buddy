@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, Linking } from 'react-native';
 import type { SubscriptionPlan, UserSubscription, UsageStats } from '@/types/study';
 import paymentService from '@/utils/payment-service';
 import { googleAuthService } from '@/utils/google-auth';
@@ -473,48 +473,43 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     if (!subscription) return;
     
     try {
-      const isSignedIn = await googleAuthService.isSignedIn();
-      if (!isSignedIn) {
-        Alert.alert('Error', 'Please sign in to cancel your subscription.');
-        return;
-      }
-
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        Alert.alert('Error', 'Authentication token not found. Please sign in again.');
-        return;
-      }
-
-      console.log('🔄 Cancelling subscription with backend...');
+      console.log('🔄 Cancelling subscription...');
       
-      // Cancel with backend
-      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/subscription/cancel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('✅ Subscription cancelled successfully:', responseData);
-        
-        // Update local subscription to reflect cancellation
-        const updatedSubscription = {
-          ...subscription,
-          autoRenew: false,
-          status: 'cancelled' as const,
-        };
-        setSubscription(updatedSubscription);
-        await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(updatedSubscription));
-        
-        Alert.alert('Subscription Cancelled', 'Your subscription has been cancelled. You will retain access until the end of your billing period.');
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Failed to cancel subscription:', errorData);
-        Alert.alert('Error', errorData.error || 'Failed to cancel subscription. Please try again.');
-      }
+      // For Apple subscriptions, we don't cancel on our backend
+      // Apple handles the cancellation through their system
+      // We just mark it as cancelled locally and let Apple handle the rest
+      
+      const updatedSubscription = {
+        ...subscription,
+        autoRenew: false,
+        status: 'cancelled' as const,
+      };
+      
+      setSubscription(updatedSubscription);
+      await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(updatedSubscription));
+      
+      console.log('✅ Subscription marked as cancelled locally');
+      
+      Alert.alert(
+        'Subscription Cancelled', 
+        'Your subscription has been cancelled. You will retain access until the end of your billing period. To complete the cancellation, please also cancel your subscription in your Apple ID settings.',
+        [
+          {
+            text: 'Open Apple Settings',
+            onPress: () => {
+              // Open Apple ID settings for subscription management
+              if (Platform.OS === 'ios') {
+                Linking.openURL('https://apps.apple.com/account/subscriptions');
+              }
+            }
+          },
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      );
+      
     } catch (error) {
       console.error('Cancel subscription error:', error);
       Alert.alert('Error', 'Failed to cancel subscription. Please try again.');

@@ -1831,31 +1831,33 @@ app.post("/subscription/cancel", async (c) => {
       return c.json({ error: "Invalid authentication token" }, 401);
     }
     
-    console.log(`🔄 Cancelling subscription for user ${decoded.userId}`);
+    console.log(`🔄 Processing subscription cancellation for user ${decoded.userId}`);
     
-    // Cancel subscription (set auto_renew to false but keep active until expiry)
-    const cancelledSubscription = await databaseService.cancelSubscription(decoded.userId);
+    // For Apple subscriptions, we don't actually cancel on our backend
+    // Apple handles the cancellation through their system
+    // We just acknowledge the cancellation request
     
-    if (!cancelledSubscription) {
+    const currentSubscription = await databaseService.getUserSubscription(decoded.userId);
+    
+    if (!currentSubscription) {
       console.log(`❌ No active subscription found for user ${decoded.userId}`);
       return c.json({ error: "No active subscription found to cancel" }, 404);
     }
     
-    console.log(`✅ Subscription cancelled for user ${decoded.userId}:`, {
-      planId: cancelledSubscription.plan_id,
-      expiresAt: cancelledSubscription.expires_at,
-      autoRenew: cancelledSubscription.auto_renew
+    console.log(`✅ Subscription cancellation acknowledged for user ${decoded.userId}:`, {
+      planId: currentSubscription.plan_id,
+      expiresAt: currentSubscription.expires_at
     });
     
     // Log subscription change
     try {
       await databaseService.createSyncEvent({
         userId: decoded.userId,
-        eventType: 'subscription_cancelled',
+        eventType: 'subscription_cancellation_requested',
         data: {
-          planId: cancelledSubscription.plan_id,
-          expiresAt: cancelledSubscription.expires_at,
-          autoRenew: false
+          planId: currentSubscription.plan_id,
+          expiresAt: currentSubscription.expires_at,
+          note: "Cancellation handled by Apple - subscription remains active until expiry"
         },
         platform: 'mobile'
       });
@@ -1865,13 +1867,13 @@ app.post("/subscription/cancel", async (c) => {
     
     return c.json({ 
       success: true, 
-      subscription: cancelledSubscription,
-      message: "Subscription cancelled. You will retain access until the end of your billing period."
+      subscription: currentSubscription,
+      message: "Subscription cancellation acknowledged. Apple will handle the actual cancellation. You will retain access until the end of your billing period."
     });
   } catch (error: any) {
     console.error("❌ Subscription cancellation error:", error);
     return c.json({ 
-      error: "Failed to cancel subscription",
+      error: "Failed to process subscription cancellation",
       details: error.message 
     }, 500);
   }
