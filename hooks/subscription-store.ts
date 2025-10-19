@@ -596,13 +596,21 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
           const backendSubscription = syncData.subscription;
           const currentSubscription = subscription;
           
-          // If backend subscription is different, update local
+          // Don't downgrade from Pro to Free - only upgrade or sync same level
+          const isCurrentPro = currentSubscription && currentSubscription.planId !== 'free';
+          const isBackendPro = backendSubscription.planId !== 'free';
+          
+          // If backend subscription is different, update local (but don't downgrade)
           if (!currentSubscription || 
-              currentSubscription.planId !== backendSubscription.planId ||
+              (currentSubscription.planId !== backendSubscription.planId && 
+               !(isCurrentPro && !isBackendPro)) || // Don't downgrade from Pro to Free
               currentSubscription.status !== backendSubscription.status) {
             console.log('📱 Updating subscription from backend:', backendSubscription);
+            console.log('📱 Current Pro:', isCurrentPro, 'Backend Pro:', isBackendPro);
             setSubscription(backendSubscription);
             await AsyncStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(backendSubscription));
+          } else if (isCurrentPro && !isBackendPro) {
+            console.log('🛡️ Preventing downgrade from Pro to Free - keeping local Pro plan');
           }
         }
 
@@ -685,8 +693,8 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
       if (response.ok) {
         const responseData = await response.json();
         console.log('✅ Subscription pushed to backend successfully:', responseData);
-        // After pushing, sync back to get the latest data
-        await syncWithBackend();
+        // Don't sync back immediately to avoid overwriting local Pro plan
+        console.log('📱 Subscription synced to backend - web should now show Pro plan');
       } else {
         const errorText = await response.text();
         console.error('❌ Failed to push subscription to backend:', {
