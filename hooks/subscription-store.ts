@@ -626,6 +626,56 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     }
   }, [subscription, usageStats]);
 
+  // Push local subscription to backend
+  const pushSubscriptionToBackend = useCallback(async () => {
+    try {
+      const isSignedIn = await googleAuthService.isSignedIn();
+      if (!isSignedIn) {
+        console.log('User not signed in, skipping backend push');
+        return;
+      }
+
+      if (!subscription || subscription.planId === 'free') {
+        console.log('No Pro subscription to push to backend');
+        return;
+      }
+
+      console.log('🔄 Pushing subscription to backend:', subscription);
+      
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.log('No auth token found, skipping backend push');
+        return;
+      }
+
+      // Map the subscription to the format expected by the backend
+      const planId = subscription.planId === 'pro_monthly' ? 'pro-monthly' : 'pro-yearly';
+      
+      const response = await fetch('https://rork-study-buddy-production-eeeb.up.railway.app/subscription/upgrade', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          planId,
+          billingPeriod: subscription.planId === 'pro_yearly' ? 'yearly' : 'monthly',
+          expiresAt: subscription.endDate.toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Subscription pushed to backend successfully');
+        // After pushing, sync back to get the latest data
+        await syncWithBackend();
+      } else {
+        console.error('❌ Failed to push subscription to backend:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('❌ Error pushing subscription to backend:', error);
+    }
+  }, [subscription, syncWithBackend]);
+
   const updateUsageWithSync = useCallback(async (type: keyof UsageStats, increment: number = 1) => {
     // Update local usage first
     const newUsageStats = {
@@ -677,6 +727,7 @@ export const [SubscriptionProvider, useSubscription] = createContextHook(() => {
     initializePayment,
     activateTestProPlan,
     syncWithBackend,
+    pushSubscriptionToBackend,
     updateUsageWithSync,
-  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment, activateTestProPlan, syncWithBackend, updateUsageWithSync]);
+  }), [subscription, usageStats, isLoading, isProcessingPayment, availableProducts, isPaymentInitialized, isUpdatingSubscription, getCurrentPlan, canCreateNote, canGenerateFlashcards, canAskAIQuestion, canGenerateEssay, canUseCameraScanning, canUseAIEnhancedCards, trackNoteCreation, trackFlashcardGeneration, trackAIQuestion, trackEssayGeneration, subscribeToPlan, cancelSubscription, restorePurchases, initializePayment, activateTestProPlan, syncWithBackend, pushSubscriptionToBackend, updateUsageWithSync]);
 });
