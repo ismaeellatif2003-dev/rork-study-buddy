@@ -53,7 +53,7 @@ export default function SubscriptionPage() {
     setIsUpgrading(true);
     try {
       // Get user email from session
-      const userEmail = subscription?.user?.email;
+      const userEmail = session?.user?.email;
       if (!userEmail) {
         throw new Error('User email not found');
       }
@@ -489,7 +489,7 @@ export default function SubscriptionPage() {
                             const response = await fetch('/api/stripe/portal', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ userEmail: subscription?.user?.email }),
+                              body: JSON.stringify({ userEmail: session?.user?.email }),
                             });
                             const { url } = await response.json();
                             window.open(url, '_blank');
