@@ -18,17 +18,13 @@ export class GoogleAuthService {
       const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
       
-      console.log('🔧 Environment variables check:');
-      console.log('  - EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:', webClientId ? '✅ Set' : '❌ Missing');
-      console.log('  - EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:', iosClientId ? '✅ Set' : '❌ Missing');
-      
+      // Quick check - if no client IDs, skip immediately
       if (!webClientId || !iosClientId) {
-        throw new Error('Google OAuth client IDs not configured. Please check your .env file.');
+        console.warn('⚠️ Google OAuth client IDs not configured. Google Sign-In will be disabled.');
+        return; // Don't throw error, just skip Google Sign-In
       }
       
-      console.log('🔧 Configuring Google Sign-In with:');
-      console.log('  - Web Client ID:', webClientId);
-      console.log('  - iOS Client ID:', iosClientId);
+      console.log('🔧 Configuring Google Sign-In...');
       
       // For iOS, use the iOS Client ID as the webClientId
       // This ensures the ID token is generated for the iOS client
@@ -42,7 +38,8 @@ export class GoogleAuthService {
       console.log('✅ Google Sign-In configured successfully');
     } catch (error) {
       console.error('❌ Google Sign-In initialization error:', error);
-      throw error;
+      // Don't throw error, just log it and continue
+      console.warn('⚠️ Continuing without Google Sign-In due to initialization error');
     }
   }
 

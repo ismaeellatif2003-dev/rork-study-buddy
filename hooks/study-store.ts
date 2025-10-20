@@ -18,68 +18,14 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
   const [sessions, setSessions] = useState<StudySession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from storage
+  // Load data from storage - make it non-blocking
   useEffect(() => {
     let isMounted = true;
     
     const loadData = async () => {
       try {
-        // Try to load from backend first if authenticated
-        const authToken = await AsyncStorage.getItem('authToken');
-        
-        if (authToken) {
-          // User is authenticated - load from backend
-          try {
-            const [notesResponse, flashcardsResponse] = await Promise.all([
-              notesApi.getAll().catch(() => ({ success: false, notes: [] })),
-              flashcardsApi.getAll().catch(() => ({ success: false, flashcards: [] })),
-            ]);
-
-            if (!isMounted) return;
-
-            if (notesResponse.success && notesResponse.notes) {
-              const backendNotes = notesResponse.notes.map((note: any) => ({
-                id: note.id.toString(),
-                title: note.title,
-                content: note.content,
-                summary: note.summary,
-                createdAt: new Date(note.created_at),
-                updatedAt: new Date(note.updated_at),
-              }));
-              setNotes(backendNotes);
-              // Also save to local storage as cache
-              await AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(backendNotes));
-            }
-
-            if (flashcardsResponse.success && flashcardsResponse.flashcards) {
-              // Process flashcards from backend using normalization
-              const backendFlashcards = flashcardsResponse.flashcards.map(toMobileFormat);
-              setFlashcards(backendFlashcards);
-              await AsyncStorage.setItem(STORAGE_KEYS.FLASHCARDS, JSON.stringify(backendFlashcards));
-            }
-            
-            // Load sessions from local storage (not synced to backend yet)
-            const sessionsData = await AsyncStorage.getItem(STORAGE_KEYS.SESSIONS);
-            if (sessionsData && isMounted) {
-              try {
-                const parsed = JSON.parse(sessionsData);
-                if (Array.isArray(parsed)) {
-                  setSessions(parsed);
-                }
-              } catch (e) {
-                console.error('Error parsing sessions:', e);
-              }
-            }
-            
-            if (isMounted) setIsLoading(false);
-            return; // Exit early if backend loading succeeded
-          } catch (backendError) {
-            console.log('Backend loading failed, falling back to local storage:', backendError);
-          }
-        }
-
-        // Fallback: Load from local storage
-        const [notesData, flashcardsData, sessionsData] = await Promise.all([
+        // Load from local storage first (fast)
+        const [localNotes, localFlashcards, localSessions] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.NOTES),
           AsyncStorage.getItem(STORAGE_KEYS.FLASHCARDS),
           AsyncStorage.getItem(STORAGE_KEYS.SESSIONS),
@@ -87,66 +33,68 @@ export const [StudyProvider, useStudy] = createContextHook(() => {
 
         if (!isMounted) return;
 
-        // Simple parsing with basic validation
-        if (notesData) {
-          try {
-            const parsed = JSON.parse(notesData);
-            if (Array.isArray(parsed)) {
-              const validNotes = parsed.map(note => ({
-                ...note,
-                createdAt: new Date(note.createdAt),
-                updatedAt: new Date(note.updatedAt),
-              }));
-              if (isMounted) setNotes(validNotes);
-            }
-          } catch (parseError) {
-            console.error('Error parsing notes data:', parseError);
-          }
+        // Set local data immediately
+        if (localNotes) {
+          setNotes(JSON.parse(localNotes));
+        }
+        if (localFlashcards) {
+          setFlashcards(JSON.parse(localFlashcards));
+        }
+        if (localSessions) {
+          setSessions(JSON.parse(localSessions));
         }
         
-        if (flashcardsData && isMounted) {
+        setIsLoading(false);
+
+        // Then try to sync with backend in background (non-blocking)
+        setTimeout(async () => {
           try {
-            const parsed = JSON.parse(flashcardsData);
-            if (Array.isArray(parsed)) {
-              if (isMounted) setFlashcards(parsed);
+            const authToken = await AsyncStorage.getItem('authToken');
+            
+            if (authToken && isMounted) {
+              // User is authenticated - load from backend
+              const [notesResponse, flashcardsResponse] = await Promise.all([
+                notesApi.getAll().catch(() => ({ success: false, notes: [] })),
+                flashcardsApi.getAll().catch(() => ({ success: false, flashcards: [] })),
+              ]);
+
+              if (!isMounted) return;
+
+              if (notesResponse.success && notesResponse.notes) {
+                const backendNotes = notesResponse.notes.map((note: any) => ({
+                  id: note.id.toString(),
+                  title: note.title,
+                  content: note.content,
+                  summary: note.summary,
+                  createdAt: new Date(note.created_at),
+                  updatedAt: new Date(note.updated_at),
+                }));
+                setNotes(backendNotes);
+                await AsyncStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(backendNotes));
+              }
+
+              if (flashcardsResponse.success && flashcardsResponse.flashcards) {
+                const backendFlashcards = flashcardsResponse.flashcards.map(toMobileFormat);
+                setFlashcards(backendFlashcards);
+                await AsyncStorage.setItem(STORAGE_KEYS.FLASHCARDS, JSON.stringify(backendFlashcards));
+              }
             }
-          } catch (parseError) {
-            console.error('Error parsing flashcards data:', parseError);
+          } catch (backendError) {
+            console.log('Backend sync failed:', backendError);
           }
-        }
-        
-        if (sessionsData && isMounted) {
-          try {
-            const parsed = JSON.parse(sessionsData);
-            if (Array.isArray(parsed)) {
-              const validSessions = parsed.map(session => ({
-                ...session,
-                messages: session.messages.map((message: any) => ({
-                  ...message,
-                  timestamp: new Date(message.timestamp),
-                }))
-              }));
-              if (isMounted) setSessions(validSessions);
-            }
-          } catch (parseError) {
-            console.error('Error parsing sessions data:', parseError);
-          }
-        }
+        }, 1000); // Delay backend sync by 1 second
       } catch (error) {
-        console.error('Error loading study data:', error);
-      } finally {
-        if (isMounted) {
+          console.error('Error loading data:', error);
           setIsLoading(false);
         }
-      }
-    };
+      };
 
-    loadData();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, []);
 
   // Force loading to complete after timeout
   useEffect(() => {

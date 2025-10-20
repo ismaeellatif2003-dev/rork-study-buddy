@@ -18,6 +18,9 @@ const queryClient = new QueryClient({
       retry: 1,
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
+      // Reduce network requests during startup
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
     },
     mutations: {
       retry: 1,
@@ -121,75 +124,36 @@ export default function RootLayout() {
   const [isAppReady, setIsAppReady] = React.useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    // Set app ready immediately - no async operations
+    setIsAppReady(true);
     
-    const initializeApp = async () => {
-      try {
-        // Initialize Google Sign-In
-        await googleAuthService.initialize();
-        console.log('✅ Google Sign-In initialized');
-        
-        // Simple initialization
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (isMounted) {
-          setIsAppReady(true);
-          
-          // Hide splash after app is ready
-          setTimeout(async () => {
-            try {
-              await SplashScreen.hideAsync();
-            } catch (error) {
-              console.error('Error hiding splash screen:', error);
-            }
-          }, 100);
-        }
-      } catch (error) {
-        console.error('❌ Error initializing app:', error);
-        
-        // Set ready anyway to prevent infinite loading
-        if (isMounted) {
-          setIsAppReady(true);
-        }
-      }
-    };
+    // Hide splash screen immediately
+    SplashScreen.hideAsync().catch(console.error);
     
-    initializeApp();
-    
-    return () => {
-      isMounted = false;
-    };
+    // Initialize Google Auth in background with longer delay
+    setTimeout(() => {
+      googleAuthService.initialize().catch(console.error);
+    }, 3000);
   }, []);
 
-  // Force app ready after 3 seconds to prevent infinite loading
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (!isAppReady) {
-        console.warn('App initialization timeout, forcing ready state');
-        setIsAppReady(true);
-      }
-    }, 3000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [isAppReady]);
-
+  // Show app immediately - no blocking
   if (!isAppReady) {
-    return null; // Keep splash screen visible
+    return null;
   }
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <UserProfileProvider>
-          <SubscriptionProvider>
-            <StudyProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={queryClient}>
+          <UserProfileProvider>
+            <SubscriptionProvider>
+              <StudyProvider>
                 <RootLayoutNav />
-              </GestureHandlerRootView>
-            </StudyProvider>
-          </SubscriptionProvider>
-        </UserProfileProvider>
-      </QueryClientProvider>
+              </StudyProvider>
+            </SubscriptionProvider>
+          </UserProfileProvider>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }

@@ -13,6 +13,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
+import Stripe from 'stripe';
 
 // Initialize OpenRouter client
 const openai = new OpenAI({
@@ -29,6 +30,11 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const databaseService = new DatabaseService();
 const jwtService = new JWTService();
 const authService = new AuthService(googleClient, databaseService, jwtService);
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2024-12-18.acacia',
+});
 
 // app will be mounted at /api
 const app = new Hono();
@@ -3080,5 +3086,189 @@ function getFileExtension(filename: string): string {
   const parts = filename.split('.');
   return parts.length > 1 ? parts[parts.length - 1] : 'mp4';
 }
+
+// ==================== STRIPE WEBHOOK ENDPOINT ====================
+
+app.post("/stripe/webhook", async (c) => {
+  try {
+    const body = await c.req.text();
+    const signature = c.req.header('stripe-signature');
+    
+    if (!signature) {
+      console.log('❌ No Stripe signature found');
+      return c.json({ error: 'No signature' }, 400);
+    }
+    
+    let event: Stripe.Event;
+    
+    try {
+      event = stripe.webhooks.constructEvent(
+        body,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET || ''
+      );
+    } catch (err: any) {
+      console.log(`❌ Webhook signature verification failed: ${err.message}`);
+      return c.json({ error: 'Invalid signature' }, 400);
+    }
+    
+    console.log(`🔔 Stripe webhook received: ${event.type}`);
+    
+    // Handle the event
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.log(`💳 Checkout completed for session: ${session.id}`);
+        
+        if (session.mode === 'subscription' && session.customer) {
+          // Get the subscription
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+          const customer = await stripe.customers.retrieve(session.customer as string);
+          
+          console.log(`📋 Subscription details:`, {
+            subscriptionId: subscription.id,
+            customerId: customer.id,
+            customerEmail: (customer as Stripe.Customer).email,
+            status: subscription.status,
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+          });
+          
+          // Find user by email
+          const userEmail = (customer as Stripe.Customer).email;
+          if (userEmail) {
+            const user = await databaseService.getUserByEmail(userEmail);
+            if (user) {
+              // Determine plan based on price
+              const priceId = subscription.items.data[0].price.id;
+              let planId = 'free';
+              
+              if (priceId === process.env.PRO_MONTHLY_PRICE_ID) {
+                planId = 'pro-monthly';
+              } else if (priceId === process.env.PRO_YEARLY_PRICE_ID) {
+                planId = 'pro-yearly';
+              }
+              
+              console.log(`🔄 Upgrading user ${user.id} to plan ${planId}`);
+              
+              // Update user subscription
+              await databaseService.updateUserSubscription(user.id, planId, 'web');
+              
+              // Log the subscription change
+              await databaseService.createSyncEvent({
+                userId: user.id,
+                eventType: 'subscription_upgrade',
+                data: {
+                  planId,
+                  billingPeriod: planId === 'pro-yearly' ? 'yearly' : 'monthly',
+                  expiresAt: new Date(subscription.current_period_end * 1000).toISOString(),
+                  platform: 'web',
+                  stripeSubscriptionId: subscription.id,
+                  stripeCustomerId: customer.id
+                },
+                platform: 'web'
+              });
+              
+              console.log(`✅ User ${user.id} upgraded to ${planId} via Stripe`);
+            } else {
+              console.log(`❌ User not found for email: ${userEmail}`);
+            }
+          }
+        }
+        break;
+      }
+      
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log(`🔄 Subscription updated: ${subscription.id}`);
+        
+        // Find user by customer ID
+        const customer = await stripe.customers.retrieve(subscription.customer as string);
+        const userEmail = (customer as Stripe.Customer).email;
+        
+        if (userEmail) {
+          const user = await databaseService.getUserByEmail(userEmail);
+          if (user) {
+            // Determine plan based on price
+            const priceId = subscription.items.data[0].price.id;
+            let planId = 'free';
+            
+            if (priceId === process.env.PRO_MONTHLY_PRICE_ID) {
+              planId = 'pro-monthly';
+            } else if (priceId === process.env.PRO_YEARLY_PRICE_ID) {
+              planId = 'pro-yearly';
+            }
+            
+            console.log(`🔄 Updating user ${user.id} subscription to ${planId}`);
+            
+            // Update user subscription
+            await databaseService.updateUserSubscription(user.id, planId, 'web');
+            
+            console.log(`✅ User ${user.id} subscription updated to ${planId}`);
+          }
+        }
+        break;
+      }
+      
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log(`🗑️ Subscription cancelled: ${subscription.id}`);
+        
+        // Find user by customer ID
+        const customer = await stripe.customers.retrieve(subscription.customer as string);
+        const userEmail = (customer as Stripe.Customer).email;
+        
+        if (userEmail) {
+          const user = await databaseService.getUserByEmail(userEmail);
+          if (user) {
+            console.log(`🔄 Downgrading user ${user.id} to free plan`);
+            
+            // Downgrade to free plan
+            await databaseService.updateUserSubscription(user.id, 'free', 'web');
+            
+            // Log the subscription change
+            await databaseService.createSyncEvent({
+              userId: user.id,
+              eventType: 'subscription_downgrade',
+              data: {
+                planId: 'free',
+                previousPlan: 'pro-monthly', // or pro-yearly
+                platform: 'web',
+                stripeSubscriptionId: subscription.id,
+                cancelledAt: new Date().toISOString()
+              },
+              platform: 'web'
+            });
+            
+            console.log(`✅ User ${user.id} downgraded to free plan`);
+          }
+        }
+        break;
+      }
+      
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`💳 Payment succeeded for invoice: ${invoice.id}`);
+        // Payment successful - subscription remains active
+        break;
+      }
+      
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`❌ Payment failed for invoice: ${invoice.id}`);
+        // Handle failed payment - could downgrade user or send notification
+        break;
+      }
+      
+      default:
+        console.log(`🤷 Unhandled event type: ${event.type}`);
+    }
+    
+    return c.json({ received: true });
+    
+  } catch (error: any) {
+    console.error('❌ Stripe webhook error:', error);
+    return c.json({ error: 'Webhook error' }, 500);
+  }
+});
 
 export default app;

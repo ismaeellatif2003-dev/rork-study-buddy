@@ -52,35 +52,50 @@ export default function SubscriptionPage() {
   const handleUpgrade = async (planId: string) => {
     setIsUpgrading(true);
     try {
-      // For now, we'll simulate the upgrade since we don't have payment integration
-      // In a real app, this would integrate with Stripe, Apple Pay, etc.
-      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
-      const billingPeriod = plan?.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+      // Get user email from session
+      const userEmail = subscription?.user?.email;
+      if (!userEmail) {
+        throw new Error('User email not found');
+      }
       
-      // Simulate API call to backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/subscription/upgrade`, {
+      // Map plan ID to Stripe price ID
+      let priceId;
+      if (planId === 'pro-monthly') {
+        priceId = process.env.NEXT_PUBLIC_PRO_MONTHLY_PRICE_ID;
+      } else if (planId === 'pro-yearly') {
+        priceId = process.env.NEXT_PUBLIC_PRO_YEARLY_PRICE_ID;
+      } else {
+        throw new Error('Invalid plan ID');
+      }
+      
+      if (!priceId) {
+        throw new Error('Price ID not configured');
+      }
+      
+      // Create Stripe checkout session
+      const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${backendToken}`
         },
         body: JSON.stringify({
-          planId,
-          billingPeriod,
-          expiresAt: new Date(Date.now() + (billingPeriod === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
-        })
+          priceId,
+          userEmail,
+        }),
       });
-
-      if (response.ok) {
-        // Refresh subscription data from backend
-        await refreshSubscription();
-        alert(`Successfully upgraded to Pro ${billingPeriod}! You now have unlimited access to all features.`);
-      } else {
-        throw new Error('Upgrade failed');
+      
+      if (!response.ok) {
+        throw new Error('Failed to create checkout session');
       }
+      
+      const { sessionId } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      
     } catch (error) {
       console.error('Upgrade error:', error);
-      alert('Failed to upgrade subscription. Please try again.');
+      alert('Failed to start checkout process. Please try again.');
     } finally {
       setIsUpgrading(false);
     }
@@ -448,40 +463,77 @@ export default function SubscriptionPage() {
           </Card>
         )}
 
-        {/* Downgrade Option for Pro Users */}
+        {/* Account Management for Pro Users */}
         {isProUser && (
-          <Card className="mt-8 border-red-200 dark:border-red-800">
+          <Card className="mt-8">
             <CardHeader>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Account Management</h2>
               <p className="text-gray-600 dark:text-gray-400">Manage your subscription plan</p>
             </CardHeader>
             <CardContent>
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                    <Star className="text-red-600 dark:text-red-400" size={20} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-red-900 dark:text-red-100 mb-2">Downgrade to Free Plan</h3>
-                    <p className="text-red-800 dark:text-red-200 text-sm mb-4">
-                      You can downgrade to the Free plan at any time. You&apos;ll keep all your existing content, but will be limited to:
-                    </p>
-                    <ul className="text-red-800 dark:text-red-200 text-sm space-y-1 mb-4">
-                      <li>• 5 notes</li>
-                      <li>• 25 flashcards</li>
-                      <li>• 10 AI questions</li>
-                      <li>• 1 essay</li>
-                      <li>• 3 OCR scans</li>
-                    </ul>
-                    <Button 
-                      onClick={handleDowngrade}
-                      className="bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Downgrade to Free Plan
-                    </Button>
+              {subscription?.purchasePlatform === 'web' ? (
+                // Web purchase - show Stripe customer portal
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Star className="text-blue-600 dark:text-blue-400" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Manage Your Subscription</h3>
+                      <p className="text-blue-800 dark:text-blue-200 text-sm mb-4">
+                        Update your payment method, view billing history, or cancel your subscription through Stripe.
+                      </p>
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/stripe/portal', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userEmail: subscription?.user?.email }),
+                            });
+                            const { url } = await response.json();
+                            window.open(url, '_blank');
+                          } catch (error) {
+                            console.error('Portal error:', error);
+                            alert('Failed to open customer portal. Please try again.');
+                          }
+                        }}
+                        className="bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Manage Subscription
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                // Mobile purchase - show downgrade option
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                      <Star className="text-red-600 dark:text-red-400" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-red-900 dark:text-red-100 mb-2">Downgrade to Free Plan</h3>
+                      <p className="text-red-800 dark:text-red-200 text-sm mb-4">
+                        You can downgrade to the Free plan at any time. You&apos;ll keep all your existing content, but will be limited to:
+                      </p>
+                      <ul className="text-red-800 dark:text-red-200 text-sm space-y-1 mb-4">
+                        <li>• 5 notes</li>
+                        <li>• 25 flashcards</li>
+                        <li>• 10 AI questions</li>
+                        <li>• 1 essay</li>
+                        <li>• 3 OCR scans</li>
+                      </ul>
+                      <Button 
+                        onClick={handleDowngrade}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                      >
+                        Downgrade to Free Plan
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
