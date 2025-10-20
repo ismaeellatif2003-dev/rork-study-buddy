@@ -90,10 +90,10 @@ export default function SubscriptionPage() {
         throw new Error('Failed to create checkout session');
       }
       
-      const { sessionId } = await response.json();
+      const { url } = await response.json();
       
       // Redirect to Stripe checkout
-      window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      window.location.href = url;
       
     } catch (error) {
       console.error('Upgrade error:', error);

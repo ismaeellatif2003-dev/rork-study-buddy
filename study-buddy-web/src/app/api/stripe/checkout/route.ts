@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       },
     });
     
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json({ url: session.url });
     
   } catch (error: any) {
     console.error('Stripe checkout error:', error);
