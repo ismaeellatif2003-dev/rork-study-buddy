@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXTAUTH_URL}/subscription?success=true`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/subscription?canceled=true`,
+      success_url: `https://charming-adventure-production.up.railway.app/subscription?success=true`,
+      cancel_url: `https://charming-adventure-production.up.railway.app/subscription?canceled=true`,
       metadata: {
         userEmail: userEmail,
       },
