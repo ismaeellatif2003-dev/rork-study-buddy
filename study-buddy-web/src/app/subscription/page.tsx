@@ -5,10 +5,12 @@ import { Crown, Check, Star, Zap, FileText, MessageCircle, BookOpen, Camera } fr
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSession } from 'next-auth/react';
 import { SUBSCRIPTION_PLANS } from '@/utils/subscription';
 
 export default function SubscriptionPage() {
   const { subscription, isLoading, isAuthenticated, backendToken, refreshSubscription } = useAuth();
+  const { data: session } = useSession();
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   // Add safety checks for subscription object
