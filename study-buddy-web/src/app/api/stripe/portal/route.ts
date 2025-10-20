@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ url: session.url });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Stripe portal error:', error);
     return NextResponse.json({ error: 'Failed to create portal session' }, { status: 500 });
   }
