@@ -195,18 +195,6 @@ export default function FlashcardsPage() {
   const [deletedMockSetIds, setDeletedMockSetIds] = useState<Set<string>>(new Set());
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Load deleted mock set IDs from localStorage on mount
   useEffect(() => {
     try {
@@ -362,6 +350,18 @@ export default function FlashcardsPage() {
       window.removeEventListener('flashcardSetsUpdated', handleFlashcardSetsUpdate as EventListener);
     };
   }, []);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentCard = shuffledCards[currentIndex];
   const isLastCard = currentIndex === shuffledCards.length - 1;

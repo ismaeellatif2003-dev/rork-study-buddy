@@ -56,7 +56,7 @@ export default function UpgradePrompt({
                 </>
               ) : (
                 <>
-                  You've reached your limit for <strong>{feature}</strong>. 
+                  You&apos;ve reached your limit for <strong>{feature}</strong>. 
                   {remainingUsage > 0 && ` You have ${remainingUsage} remaining.`}
                 </>
               )}

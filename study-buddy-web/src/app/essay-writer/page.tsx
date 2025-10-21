@@ -27,6 +27,14 @@ export default function EssayWriterPage() {
   const [showNewEssay, setShowNewEssay] = useState(false);
   const [editingEssay, setEditingEssay] = useState<Essay | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showFullEssay, setShowFullEssay] = useState<Essay | null>(null);
+  const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);
+  const [showCitationModal, setShowCitationModal] = useState(false);
+  const [showSampleWorkModal, setShowSampleWorkModal] = useState(false);
+  const [showWebSearchModal, setShowWebSearchModal] = useState(false);
+  const [sampleWork, setSampleWork] = useState<string>('');
+  const [webSearchQuery, setWebSearchQuery] = useState('');
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -39,14 +47,6 @@ export default function EssayWriterPage() {
       </div>
     );
   }
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showFullEssay, setShowFullEssay] = useState<Essay | null>(null);
-  const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);
-  const [showCitationModal, setShowCitationModal] = useState(false);
-  const [showSampleWorkModal, setShowSampleWorkModal] = useState(false);
-  const [showWebSearchModal, setShowWebSearchModal] = useState(false);
-  const [sampleWork, setSampleWork] = useState<string>('');
-  const [webSearchQuery, setWebSearchQuery] = useState('');
   const [webSearchResults, setWebSearchResults] = useState<Array<{
     title: string;
     url: string;
@@ -57,16 +57,6 @@ export default function EssayWriterPage() {
   }>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [subscription, setSubscription] = useState(getCurrentSubscription());
-
-  // Listen for subscription updates
-  useEffect(() => {
-    const handleSubscriptionUpdate = () => {
-      setSubscription(getCurrentSubscription());
-    };
-
-    window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate);
-    return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
-  }, []);
   const [citations, setCitations] = useState<Array<{
     id: string;
     type: 'book' | 'article' | 'website' | 'journal' | 'other';
@@ -94,6 +84,16 @@ export default function EssayWriterPage() {
     autoWebReferences: false,
     citationStyle: 'apa' as 'apa' | 'mla' | 'chicago' | 'harvard' | 'ieee',
   });
+
+  // Listen for subscription updates
+  useEffect(() => {
+    const handleSubscriptionUpdate = () => {
+      setSubscription(getCurrentSubscription());
+    };
+
+    window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate);
+    return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
+  }, []);
 
   const handleCreateEssay = async () => {
     if (!newEssay.title.trim() || !newEssay.prompt.trim()) return;

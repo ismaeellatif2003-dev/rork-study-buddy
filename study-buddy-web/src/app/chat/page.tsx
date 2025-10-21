@@ -39,6 +39,8 @@ export default function ChatPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [subscription, setSubscription] = useState(getCurrentSubscription());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -51,8 +53,6 @@ export default function ChatPage() {
       </div>
     );
   }
-  const [subscription, setSubscription] = useState(getCurrentSubscription());
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -39,6 +39,11 @@ export default function NotesPage() {
   const [showOCRModal, setShowOCRModal] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string>('');
+  const [subscription, setSubscription] = useState(getCurrentSubscription());
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -51,11 +56,6 @@ export default function NotesPage() {
       </div>
     );
   }
-  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
-  const [ocrResult, setOcrResult] = useState<string>('');
-  const [subscription, setSubscription] = useState(getCurrentSubscription());
-  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load notes from local storage on mount
   useEffect(() => {
