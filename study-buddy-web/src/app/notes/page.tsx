@@ -31,7 +31,7 @@ export default function NotesPage() {
   });
   
   const { canUseFeature: canCreateNotes, getRemainingUsage: getRemainingNotes } = useFeatureGuard('notes');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [showAddNote, setShowAddNote] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({ title: '', content: '' });
@@ -61,7 +61,7 @@ export default function NotesPage() {
   useEffect(() => {
     // Wait for both hooks to be mounted before showing content
     if (notesMounted && flashcardsMounted) {
-      setIsLoading(false);
+      setIsPageLoading(false);
     }
   }, [notesMounted, flashcardsMounted]);
 
