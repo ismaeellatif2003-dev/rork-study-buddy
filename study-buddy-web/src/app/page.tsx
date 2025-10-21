@@ -207,10 +207,12 @@ export default function HomePage() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
-                Get Started Free
-                <ArrowRight size={20} className="ml-2" />
-              </Button>
+              <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>
+                <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
+                  Get Started Free
+                  <ArrowRight size={20} className="ml-2" />
+                </Button>
+              </Link>
               <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
                 Learn More
               </Button>
@@ -317,13 +319,17 @@ export default function HomePage() {
             Join thousands of students who are already studying smarter with Study Buddy
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
-              See Free Plan
-              <ArrowRight size={20} className="ml-2" />
-            </Button>
-            <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
-              View Pricing
-            </Button>
+            <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>
+              <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
+                See Free Plan
+                <ArrowRight size={20} className="ml-2" />
+              </Button>
+            </Link>
+            <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>
+              <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
+                View Pricing
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
