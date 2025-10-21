@@ -8,6 +8,8 @@ import { mockChatMessages } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
+import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import UpgradePrompt from '@/components/UpgradePrompt';
 import type { ChatMessage } from '@/types/study';
 
 const mockResponses = [
@@ -25,9 +27,30 @@ const mockDetailedResponses = [
 ];
 
 export default function ChatPage() {
+  // Authentication guard
+  const { isAuthenticated: authCheck, isLoading: authLoading } = useAuthGuard({
+    requireAuth: true,
+    redirectTo: '/auth/signin'
+  });
+  
+  const { canUseFeature: canAskQuestions, getRemainingUsage: getRemainingQuestions } = useFeatureGuard('messages');
+  
   const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   const [subscription, setSubscription] = useState(getCurrentSubscription());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -53,8 +76,8 @@ export default function ChatPage() {
     if (!inputMessage.trim() || isLoading) return;
 
     // Check if user can send messages
-    if (!canUseFeature('messages')) {
-      alert(`You've reached your message limit (${subscription.plan.limits.messages}). Upgrade to Pro for unlimited messages!`);
+    if (!canAskQuestions) {
+      setShowUpgradePrompt(true);
       return;
     }
 
@@ -270,6 +293,20 @@ export default function ChatPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Upgrade Prompt */}
+      {showUpgradePrompt && (
+        <UpgradePrompt
+          feature="AI questions"
+          remainingUsage={getRemainingQuestions()}
+          onUpgrade={() => {
+            setShowUpgradePrompt(false);
+            // Redirect to subscription page
+            window.location.href = '/subscription';
+          }}
+          onClose={() => setShowUpgradePrompt(false)}
+        />
+      )}
     </div>
   );
 }

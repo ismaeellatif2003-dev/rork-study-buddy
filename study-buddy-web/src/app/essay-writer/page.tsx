@@ -10,12 +10,35 @@ import { mockEssays } from '@/data/mockData';
 import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
+import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import UpgradePrompt from '@/components/UpgradePrompt';
 import type { Essay } from '@/types/study';
 
 export default function EssayWriterPage() {
+  // Authentication guard
+  const { isAuthenticated: authCheck, isLoading: authLoading } = useAuthGuard({
+    requireAuth: true,
+    redirectTo: '/auth/signin'
+  });
+  
+  const { canUseFeature: canCreateEssays, getRemainingUsage: getRemainingEssays } = useFeatureGuard('essays');
+  
   const [essays, setEssays] = useState<Essay[]>(mockEssays);
   const [showNewEssay, setShowNewEssay] = useState(false);
   const [editingEssay, setEditingEssay] = useState<Essay | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   const [isGenerating, setIsGenerating] = useState(false);
   const [showFullEssay, setShowFullEssay] = useState<Essay | null>(null);
   const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);

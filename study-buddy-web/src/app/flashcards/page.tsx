@@ -10,6 +10,8 @@ import { getFlashcardSets, normalizeFlashcardSet } from '@/utils/flashcardSets';
 import { flashcardsApi } from '@/services/dataService';
 import { useAuth } from '@/hooks/useAuth';
 import { useFlashcardSets } from '@/hooks/useFlashcardSets';
+import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import UpgradePrompt from '@/components/UpgradePrompt';
 import type { Flashcard } from '@/types/study';
 import type { FlashcardSet } from '@/utils/flashcardSets';
 
@@ -169,6 +171,14 @@ const mockFlashcardSets = [
 export default function FlashcardsPage() {
   const { isAuthenticated } = useAuth();
   const { deleteFlashcardFromSet, deleteFlashcardSet } = useFlashcardSets();
+  
+  // Authentication guard
+  const { isAuthenticated: authCheck, isLoading } = useAuthGuard({
+    requireAuth: true,
+    redirectTo: '/auth/signin'
+  });
+  
+  const { canUseFeature: canCreateFlashcards, getRemainingUsage: getRemainingFlashcards } = useFeatureGuard('flashcards');
   const [flashcards] = useState<Flashcard[]>(mockFlashcards);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -183,6 +193,19 @@ export default function FlashcardsPage() {
   const [userFlashcardSets, setUserFlashcardSets] = useState<FlashcardSet[]>([]);
   const [allFlashcardSets, setAllFlashcardSets] = useState<FlashcardSet[]>([]);
   const [deletedMockSetIds, setDeletedMockSetIds] = useState<Set<string>>(new Set());
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Load deleted mock set IDs from localStorage on mount
   useEffect(() => {
@@ -1060,6 +1083,20 @@ export default function FlashcardsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Upgrade Prompt */}
+      {showUpgradePrompt && (
+        <UpgradePrompt
+          feature="flashcards"
+          remainingUsage={getRemainingFlashcards()}
+          onUpgrade={() => {
+            setShowUpgradePrompt(false);
+            // Redirect to subscription page
+            window.location.href = '/subscription';
+          }}
+          onClose={() => setShowUpgradePrompt(false)}
+        />
       )}
     </div>
   );

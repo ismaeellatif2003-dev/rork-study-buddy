@@ -16,7 +16,9 @@ import {
   FileText, 
   ClipboardCopy,
   RefreshCw,
-  X
+  X,
+  Crown,
+  Lock
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Progress } from '@/components/ui/Progress';
@@ -24,11 +26,22 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { useNotes } from '@/hooks/useNotes';
 import { toast } from 'sonner';
 import VideoAnalysisService, { VideoAnalysisResult, VideoTopic } from '@/services/videoAnalysisService';
+import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import UpgradePrompt from '@/components/UpgradePrompt';
 
 export default function VideoAnalyzerPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const { addNote, notes, saveNotes } = useNotes();
+  
+  // Authentication and feature guards
+  const { isAuthenticated, isPro, canAccess, canAccessPro, isLoading } = useAuthGuard({
+    requireAuth: true,
+    requirePro: true,
+    showUpgradePrompt: true
+  });
+  
+  const { canUseFeature, isProFeature } = useFeatureGuard('videoAnalysis');
 
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -38,11 +51,92 @@ export default function VideoAnalyzerPage() {
   const [activeTab, setActiveTab] = useState<'transcript' | 'topics' | 'summary'>('transcript');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
 
-  useEffect(() => {
-    if (!session) {
-      router.push('/api/auth/signin');
-    }
-  }, [session, router]);
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show upgrade prompt for non-Pro users
+  if (!isAuthenticated || !isPro) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <div className="mx-auto mb-4 p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full w-fit">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                Video AI Analysis
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                Advanced video analysis is a Pro-only feature. Upgrade to unlock powerful AI-driven video insights.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5" />
+                    Free Plan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <li>• Basic note-taking</li>
+                    <li>• Limited flashcards</li>
+                    <li>• Basic AI questions</li>
+                    <li>• 1 essay per month</li>
+                    <li>• OCR text extraction</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border-purple-200 dark:border-purple-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                    <Crown className="w-5 h-5" />
+                    Pro Plan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <li>• <strong>Video AI Analysis</strong></li>
+                    <li>• Unlimited notes & flashcards</li>
+                    <li>• Unlimited AI questions</li>
+                    <li>• Unlimited essays</li>
+                    <li>• Priority support</li>
+                    <li>• All premium features</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="text-center">
+              <Button
+                onClick={() => router.push('/subscription')}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3"
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Upgrade to Pro - $9.99/month
+              </Button>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                Cancel anytime • 30-day money-back guarantee
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleAnalyzeUrl = async () => {
     if (!videoUrl) {
