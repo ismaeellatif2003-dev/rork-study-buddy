@@ -45,18 +45,6 @@ export default function NotesPage() {
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Load notes from local storage on mount
   useEffect(() => {
     // Wait for both hooks to be mounted before showing content
@@ -74,6 +62,18 @@ export default function NotesPage() {
     window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate);
     return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
   }, []);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSaveNote = async () => {
     if (!newNote.title.trim() || !newNote.content.trim()) return;

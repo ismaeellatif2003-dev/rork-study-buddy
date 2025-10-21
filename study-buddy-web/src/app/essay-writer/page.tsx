@@ -35,18 +35,6 @@ export default function EssayWriterPage() {
   const [showWebSearchModal, setShowWebSearchModal] = useState(false);
   const [sampleWork, setSampleWork] = useState<string>('');
   const [webSearchQuery, setWebSearchQuery] = useState('');
-
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
   const [webSearchResults, setWebSearchResults] = useState<Array<{
     title: string;
     url: string;
@@ -94,6 +82,18 @@ export default function EssayWriterPage() {
     window.addEventListener('subscriptionUpdated', handleSubscriptionUpdate);
     return () => window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
   }, []);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreateEssay = async () => {
     if (!newEssay.title.trim() || !newEssay.prompt.trim()) return;
