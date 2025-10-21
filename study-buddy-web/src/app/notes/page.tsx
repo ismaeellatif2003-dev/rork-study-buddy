@@ -772,7 +772,7 @@ Generate 5-7 high-quality flashcards that test understanding of the specific con
       {showUpgradePrompt && (
         <UpgradePrompt
           feature="notes"
-          remainingUsage={getRemainingNotes()}
+          remainingUsage={getRemainingNotes}
           onUpgrade={() => {
             setShowUpgradePrompt(false);
             // Redirect to subscription page

@@ -1089,7 +1089,7 @@ export default function FlashcardsPage() {
       {showUpgradePrompt && (
         <UpgradePrompt
           feature="flashcards"
-          remainingUsage={getRemainingFlashcards()}
+          remainingUsage={getRemainingFlashcards}
           onUpgrade={() => {
             setShowUpgradePrompt(false);
             // Redirect to subscription page

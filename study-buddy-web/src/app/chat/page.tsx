@@ -298,7 +298,7 @@ export default function ChatPage() {
       {showUpgradePrompt && (
         <UpgradePrompt
           feature="AI questions"
-          remainingUsage={getRemainingQuestions()}
+          remainingUsage={getRemainingQuestions}
           onUpgrade={() => {
             setShowUpgradePrompt(false);
             // Redirect to subscription page
