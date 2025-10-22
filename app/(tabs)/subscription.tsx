@@ -23,7 +23,6 @@ export default function SubscriptionScreen() {
     subscribeToPlan,
     cancelSubscription,
     restorePurchases,
-    pushSubscriptionToBackend,
   } = useSubscription();
 
   const currentPlan = getCurrentPlan();
@@ -227,23 +226,6 @@ export default function SubscriptionScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Temporary Sync Button for Debugging */}
-          {isProUser && isMobile && (
-            <TouchableOpacity
-              style={[styles.restoreButton, { backgroundColor: '#007AFF', marginTop: 10 }]}
-              onPress={async () => {
-                console.log('🔄 Manual sync triggered');
-                try {
-                  await pushSubscriptionToBackend();
-                  console.log('✅ Manual sync completed');
-                } catch (error) {
-                  console.error('❌ Manual sync failed:', error);
-                }
-              }}
-            >
-              <Text style={[styles.restoreButtonText, { color: 'white' }]}>Sync to Backend</Text>
-            </TouchableOpacity>
-          )}
 
           {isProUser && subscription?.status === 'active' && (
             <TouchableOpacity
