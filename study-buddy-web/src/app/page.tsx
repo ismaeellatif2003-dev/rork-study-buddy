@@ -206,16 +206,13 @@ export default function HomePage() {
               All in one powerful platform.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>
                 <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
                   Get Started Free
                   <ArrowRight size={20} className="ml-2" />
                 </Button>
               </Link>
-              <Button size="lg" className="bg-blue-600 text-white hover:bg-blue-700 font-semibold border-2 border-blue-600">
-                Learn More
-              </Button>
             </div>
           </div>
         </div>
