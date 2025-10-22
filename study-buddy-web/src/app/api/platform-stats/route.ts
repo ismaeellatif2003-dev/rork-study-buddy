@@ -17,13 +17,18 @@ export async function GET() {
 
       console.log('📡 Backend response status:', response.status);
       
-      if (response.ok) {
-        const stats = await response.json();
-        console.log('✅ Platform stats from backend:', stats);
-        return NextResponse.json(stats);
-      } else {
-        console.log('❌ Backend API returned error:', response.status, response.statusText);
-      }
+           if (response.ok) {
+             const stats = await response.json();
+             console.log('✅ Platform stats from backend:', stats);
+             console.log('📊 Detailed stats breakdown:');
+             console.log('  - Notes:', stats.totalNotes);
+             console.log('  - Flashcards:', stats.totalFlashcards);
+             console.log('  - AI Questions:', stats.totalAiQuestions);
+             console.log('  - Essays:', stats.totalEssays);
+             return NextResponse.json(stats);
+           } else {
+             console.log('❌ Backend API returned error:', response.status, response.statusText);
+           }
     } catch (backendError) {
       console.log('❌ Backend API not available:', backendError);
     }

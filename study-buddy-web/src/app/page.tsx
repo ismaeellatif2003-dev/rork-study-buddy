@@ -82,6 +82,11 @@ export default function HomePage() {
         if (response.ok) {
           const stats = await response.json();
           console.log('✅ Platform stats received:', stats);
+          console.log('📊 Landing page stats breakdown:');
+          console.log('  - Notes:', stats.totalNotes);
+          console.log('  - Flashcards:', stats.totalFlashcards);
+          console.log('  - AI Questions:', stats.totalAiQuestions);
+          console.log('  - Essays:', stats.totalEssays);
           setPlatformStats(stats);
         } else {
           console.log('❌ API not available, status:', response.status);
