@@ -738,6 +738,11 @@ export class DatabaseService {
     return require('crypto').randomBytes(32).toString('hex');
   }
 
+  // Public query method for platform stats
+  async query(sql: string, params: any[] = []): Promise<any> {
+    return await this.executeQuery(sql, params);
+  }
+
   // Health check
   async healthCheck(): Promise<boolean> {
     if (this.isDevelopmentMode()) {
