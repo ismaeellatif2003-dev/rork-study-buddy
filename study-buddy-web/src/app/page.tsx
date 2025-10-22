@@ -83,17 +83,23 @@ export default function HomePage() {
           throw new Error('API not available');
         }
       } catch (error) {
-        // Fallback to impressive demo numbers
+        // Fallback to zero stats if API fails
         setPlatformStats({
-          totalNotes: 125000,
-          totalFlashcards: 890000,
-          totalConversations: 45000,
-          totalEssays: 12000,
+          totalNotes: 0,
+          totalFlashcards: 0,
+          totalConversations: 0,
+          totalEssays: 0,
         });
       }
     };
 
+    // Load stats immediately
     loadPlatformStats();
+
+    // Refresh stats every 30 seconds to show real-time updates
+    const interval = setInterval(loadPlatformStats, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const features = [

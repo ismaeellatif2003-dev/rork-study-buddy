@@ -165,6 +165,38 @@ app.get("/metrics", (c) => {
   });
 });
 
+// Platform statistics endpoint
+app.get("/platform-stats", async (c) => {
+  try {
+    // Query actual counts from the database
+    const [notesResult, flashcardsResult, essaysResult, conversationsResult] = await Promise.all([
+      databaseService.query('SELECT COUNT(*) as count FROM notes'),
+      databaseService.query('SELECT COUNT(*) as count FROM flashcards'),
+      databaseService.query('SELECT COUNT(*) as count FROM essays'),
+      databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage')
+    ]);
+
+    const platformStats = {
+      totalNotes: parseInt(notesResult.rows[0]?.count || '0'),
+      totalFlashcards: parseInt(flashcardsResult.rows[0]?.count || '0'),
+      totalConversations: parseInt(conversationsResult.rows[0]?.count || '0'),
+      totalEssays: parseInt(essaysResult.rows[0]?.count || '0'),
+    };
+
+    return c.json(platformStats);
+  } catch (error) {
+    console.error('Error fetching platform stats:', error);
+    
+    // Return zero stats if database query fails
+    return c.json({
+      totalNotes: 0,
+      totalFlashcards: 0,
+      totalConversations: 0,
+      totalEssays: 0,
+    });
+  }
+});
+
 // OpenRouter AI Text Generation endpoint using SDK
 app.post("/ai/generate", async (c) => {
   let type = 'text'; // Declare outside try-catch for scope access

@@ -2,21 +2,41 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // For now, return impressive demo numbers
-    // In production, you would query your database here
-    const platformStats = {
-      totalNotes: 125000,
-      totalFlashcards: 890000,
-      totalConversations: 45000,
-      totalEssays: 12000,
-    };
+    // Fetch platform stats from the backend API
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://rork-study-buddy-production-eeeb.up.railway.app';
+    
+    try {
+      const response = await fetch(`${API_BASE}/platform-stats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    return NextResponse.json(platformStats);
+      if (response.ok) {
+        const stats = await response.json();
+        return NextResponse.json(stats);
+      }
+    } catch (backendError) {
+      console.log('Backend API not available, using fallback');
+    }
+
+    // Fallback to zero stats if backend is not available
+    return NextResponse.json({
+      totalNotes: 0,
+      totalFlashcards: 0,
+      totalConversations: 0,
+      totalEssays: 0,
+    });
   } catch (error) {
     console.error('Error fetching platform stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch platform stats' },
-      { status: 500 }
-    );
+    
+    // Return zero stats if everything fails
+    return NextResponse.json({
+      totalNotes: 0,
+      totalFlashcards: 0,
+      totalConversations: 0,
+      totalEssays: 0,
+    });
   }
 }
