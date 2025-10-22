@@ -197,6 +197,12 @@ app.get("/platform-stats", async (c) => {
       databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage')
     ]);
 
+    console.log('📊 Raw database results:');
+    console.log('  Notes:', notesResult.rows[0]?.count);
+    console.log('  Flashcards:', flashcardsResult.rows[0]?.count);
+    console.log('  Essays:', essaysResult.rows[0]?.count);
+    console.log('  AI Questions (messages):', aiQuestionsResult.rows[0]?.count);
+
     // Add base numbers to actual database counts
     const platformStats = {
       totalNotes: BASE_NOTES + parseInt(notesResult.rows[0]?.count || '0'),
