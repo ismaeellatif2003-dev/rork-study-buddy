@@ -12,7 +12,7 @@ import { GoogleSignIn } from '@/components/auth/GoogleSignIn';
 import { profileApi } from '@/services/dataService';
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, isLoading, signOut } = useAuth();
+  const { user, isAuthenticated, isLoading, signOut, subscription } = useAuth();
   const router = useRouter();
   const [notifications, setNotifications] = useState({
     studyReminders: true,
@@ -308,11 +308,17 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium text-gray-900">Account Type</div>
-                    <div className="text-sm text-gray-600">{userProfile?.accountType || 'Free'}</div>
+                    <div className="text-sm text-gray-600">{subscription?.plan?.name || 'Free Plan'}</div>
                   </div>
-                  <Button size="sm" onClick={() => window.location.href = '/subscription'} className="bg-blue-600 text-white hover:bg-blue-700">
-                    Upgrade to Pro
-                  </Button>
+                  {subscription?.plan?.id === 'free' ? (
+                    <Button size="sm" onClick={() => window.location.href = '/subscription'} className="bg-blue-600 text-white hover:bg-blue-700">
+                      Upgrade to Pro
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => window.location.href = '/subscription'} className="bg-green-600 text-white hover:bg-green-700">
+                      Manage Subscription
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (
