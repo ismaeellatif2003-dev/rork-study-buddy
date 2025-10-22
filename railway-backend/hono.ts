@@ -173,7 +173,7 @@ app.get("/platform-stats", async (c) => {
     // Base numbers to start with
     const BASE_NOTES = 1000;
     const BASE_FLASHCARDS = 1000;
-    const BASE_CONVERSATIONS = 1000;
+    const BASE_AI_QUESTIONS = 1000;
     const BASE_ESSAYS = 1000;
     
     // Check if database is available
@@ -182,7 +182,7 @@ app.get("/platform-stats", async (c) => {
       return c.json({
         totalNotes: BASE_NOTES,
         totalFlashcards: BASE_FLASHCARDS,
-        totalConversations: BASE_CONVERSATIONS,
+        totalAiQuestions: BASE_AI_QUESTIONS,
         totalEssays: BASE_ESSAYS,
       });
     }
@@ -190,7 +190,7 @@ app.get("/platform-stats", async (c) => {
     console.log('📊 Querying database for platform stats...');
     
     // Query actual counts from the database
-    const [notesResult, flashcardsResult, essaysResult, conversationsResult] = await Promise.all([
+    const [notesResult, flashcardsResult, essaysResult, aiQuestionsResult] = await Promise.all([
       databaseService.query('SELECT COUNT(*) as count FROM notes'),
       databaseService.query('SELECT COUNT(*) as count FROM flashcards'),
       databaseService.query('SELECT COUNT(*) as count FROM essays'),
@@ -201,7 +201,7 @@ app.get("/platform-stats", async (c) => {
     const platformStats = {
       totalNotes: BASE_NOTES + parseInt(notesResult.rows[0]?.count || '0'),
       totalFlashcards: BASE_FLASHCARDS + parseInt(flashcardsResult.rows[0]?.count || '0'),
-      totalConversations: BASE_CONVERSATIONS + parseInt(conversationsResult.rows[0]?.count || '0'),
+      totalAiQuestions: BASE_AI_QUESTIONS + parseInt(aiQuestionsResult.rows[0]?.count || '0'),
       totalEssays: BASE_ESSAYS + parseInt(essaysResult.rows[0]?.count || '0'),
     };
 
@@ -214,7 +214,7 @@ app.get("/platform-stats", async (c) => {
     return c.json({
       totalNotes: 1000,
       totalFlashcards: 1000,
-      totalConversations: 1000,
+      totalAiQuestions: 1000,
       totalEssays: 1000,
     });
   }

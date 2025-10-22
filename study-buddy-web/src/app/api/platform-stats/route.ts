@@ -33,7 +33,7 @@ export async function GET() {
     return NextResponse.json({
       totalNotes: 1000,
       totalFlashcards: 1000,
-      totalConversations: 1000,
+      totalAiQuestions: 1000,
       totalEssays: 1000,
     });
   } catch (error) {
@@ -43,7 +43,7 @@ export async function GET() {
     return NextResponse.json({
       totalNotes: 1000,
       totalFlashcards: 1000,
-      totalConversations: 1000,
+      totalAiQuestions: 1000,
       totalEssays: 1000,
     });
   }

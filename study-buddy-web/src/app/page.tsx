@@ -20,7 +20,7 @@ export default function HomePage() {
   const [platformStats, setPlatformStats] = useState({
     totalNotes: 0,
     totalFlashcards: 0,
-    totalConversations: 0,
+    totalAiQuestions: 0,
     totalEssays: 0,
   });
   const [userName, setUserName] = useState('John Doe');
@@ -93,7 +93,7 @@ export default function HomePage() {
         setPlatformStats({
           totalNotes: 1000,
           totalFlashcards: 1000,
-          totalConversations: 1000,
+          totalAiQuestions: 1000,
           totalEssays: 1000,
         });
       }
@@ -284,9 +284,9 @@ export default function HomePage() {
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-green-600 mb-2">
-                {platformStats.totalConversations.toLocaleString()}
+                {platformStats.totalAiQuestions.toLocaleString()}
               </div>
-              <div className="text-gray-600">AI Conversations</div>
+              <div className="text-gray-600">AI Questions</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-purple-600 mb-2">
