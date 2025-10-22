@@ -70,7 +70,7 @@ export default function VideoAnalyzerPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
-              <div className="mx-auto mb-4 p-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full w-fit">
+              <div className="mx-auto mb-4 p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full w-fit">
                 <Lock className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
@@ -100,9 +100,9 @@ export default function VideoAnalyzerPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-purple-200 dark:border-purple-800">
+              <Card className="border-blue-200 dark:border-blue-800">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                  <CardTitle className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
                     <Crown className="w-5 h-5" />
                     Pro Plan
                   </CardTitle>
@@ -123,7 +123,7 @@ export default function VideoAnalyzerPage() {
             <div className="text-center">
               <Button
                 onClick={() => router.push('/subscription')}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-3"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3"
               >
                 <Crown className="w-4 h-4 mr-2" />
                 Upgrade to Pro - $9.99/month
