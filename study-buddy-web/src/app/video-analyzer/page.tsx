@@ -466,27 +466,6 @@ export default function VideoAnalyzerPage() {
               </div>
             </div>
 
-            {/* Test Connection Button */}
-            <div className="flex justify-center">
-              <Button 
-                onClick={testBackendConnection} 
-                disabled={isTestingConnection}
-                variant="outline"
-                size="sm"
-              >
-                {isTestingConnection ? (
-                  <>
-                    <Loader2 className="mr-2 animate-spin" size={16} />
-                    Testing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2" size={16} />
-                    Test Backend Connection
-                  </>
-                )}
-              </Button>
-            </div>
 
             <div className="relative flex items-center justify-center w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center"
               onDrop={handleDrop}
@@ -537,15 +516,6 @@ export default function VideoAnalyzerPage() {
               <Upload className="mr-2" size={16} /> Analyze Uploaded File
             </Button>
             
-            <Alert className="mt-4">
-              <FileText className="h-4 w-4" />
-              <AlertTitle>Video Upload Processing</AlertTitle>
-              <AlertDescription>
-                Uploaded videos are processed using AssemblyAI speech-to-text technology to extract real transcripts from your video content.
-                The audio is extracted from your video file and transcribed to create accurate text content for analysis and flashcard generation.
-                Processing may take a few minutes depending on video length.
-              </AlertDescription>
-            </Alert>
           </div>
 
           {error && (
