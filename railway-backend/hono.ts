@@ -170,14 +170,20 @@ app.get("/platform-stats", async (c) => {
   try {
     console.log('🔍 Platform stats endpoint called');
     
+    // Base numbers to start with
+    const BASE_NOTES = 1000;
+    const BASE_FLASHCARDS = 1000;
+    const BASE_CONVERSATIONS = 1000;
+    const BASE_ESSAYS = 1000;
+    
     // Check if database is available
     if (!databaseService.hasDatabase()) {
-      console.log('❌ Database not available, returning zero stats');
+      console.log('❌ Database not available, returning base stats');
       return c.json({
-        totalNotes: 0,
-        totalFlashcards: 0,
-        totalConversations: 0,
-        totalEssays: 0,
+        totalNotes: BASE_NOTES,
+        totalFlashcards: BASE_FLASHCARDS,
+        totalConversations: BASE_CONVERSATIONS,
+        totalEssays: BASE_ESSAYS,
       });
     }
 
@@ -191,11 +197,12 @@ app.get("/platform-stats", async (c) => {
       databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage')
     ]);
 
+    // Add base numbers to actual database counts
     const platformStats = {
-      totalNotes: parseInt(notesResult.rows[0]?.count || '0'),
-      totalFlashcards: parseInt(flashcardsResult.rows[0]?.count || '0'),
-      totalConversations: parseInt(conversationsResult.rows[0]?.count || '0'),
-      totalEssays: parseInt(essaysResult.rows[0]?.count || '0'),
+      totalNotes: BASE_NOTES + parseInt(notesResult.rows[0]?.count || '0'),
+      totalFlashcards: BASE_FLASHCARDS + parseInt(flashcardsResult.rows[0]?.count || '0'),
+      totalConversations: BASE_CONVERSATIONS + parseInt(conversationsResult.rows[0]?.count || '0'),
+      totalEssays: BASE_ESSAYS + parseInt(essaysResult.rows[0]?.count || '0'),
     };
 
     console.log('✅ Platform stats calculated:', platformStats);
@@ -203,12 +210,12 @@ app.get("/platform-stats", async (c) => {
   } catch (error) {
     console.error('❌ Error fetching platform stats:', error);
     
-    // Return zero stats if database query fails
+    // Return base stats if database query fails
     return c.json({
-      totalNotes: 0,
-      totalFlashcards: 0,
-      totalConversations: 0,
-      totalEssays: 0,
+      totalNotes: 1000,
+      totalFlashcards: 1000,
+      totalConversations: 1000,
+      totalEssays: 1000,
     });
   }
 });

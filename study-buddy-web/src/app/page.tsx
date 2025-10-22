@@ -70,7 +70,7 @@ export default function HomePage() {
     };
   }, []);
 
-  // Load platform-wide stats
+  // Load platform-wide stats on every page refresh
   useEffect(() => {
     const loadPlatformStats = async () => {
       try {
@@ -89,23 +89,18 @@ export default function HomePage() {
         }
       } catch (error) {
         console.log('❌ Error loading platform stats:', error);
-        // Fallback to zero stats if API fails
+        // Fallback to base stats if API fails
         setPlatformStats({
-          totalNotes: 0,
-          totalFlashcards: 0,
-          totalConversations: 0,
-          totalEssays: 0,
+          totalNotes: 1000,
+          totalFlashcards: 1000,
+          totalConversations: 1000,
+          totalEssays: 1000,
         });
       }
     };
 
-    // Load stats immediately
+    // Load stats immediately on page load/refresh
     loadPlatformStats();
-
-    // Refresh stats every 30 seconds to show real-time updates
-    const interval = setInterval(loadPlatformStats, 30000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const features = [
