@@ -74,15 +74,21 @@ export default function HomePage() {
   useEffect(() => {
     const loadPlatformStats = async () => {
       try {
+        console.log('🔄 Loading platform stats...');
         // Try to fetch from backend API
         const response = await fetch('/api/platform-stats');
+        console.log('📡 Frontend API response status:', response.status);
+        
         if (response.ok) {
           const stats = await response.json();
+          console.log('✅ Platform stats received:', stats);
           setPlatformStats(stats);
         } else {
+          console.log('❌ API not available, status:', response.status);
           throw new Error('API not available');
         }
       } catch (error) {
+        console.log('❌ Error loading platform stats:', error);
         // Fallback to zero stats if API fails
         setPlatformStats({
           totalNotes: 0,

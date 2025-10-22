@@ -168,6 +168,21 @@ app.get("/metrics", (c) => {
 // Platform statistics endpoint
 app.get("/platform-stats", async (c) => {
   try {
+    console.log('🔍 Platform stats endpoint called');
+    
+    // Check if database is available
+    if (!databaseService.hasDatabase()) {
+      console.log('❌ Database not available, returning zero stats');
+      return c.json({
+        totalNotes: 0,
+        totalFlashcards: 0,
+        totalConversations: 0,
+        totalEssays: 0,
+      });
+    }
+
+    console.log('📊 Querying database for platform stats...');
+    
     // Query actual counts from the database
     const [notesResult, flashcardsResult, essaysResult, conversationsResult] = await Promise.all([
       databaseService.query('SELECT COUNT(*) as count FROM notes'),
@@ -183,9 +198,10 @@ app.get("/platform-stats", async (c) => {
       totalEssays: parseInt(essaysResult.rows[0]?.count || '0'),
     };
 
+    console.log('✅ Platform stats calculated:', platformStats);
     return c.json(platformStats);
   } catch (error) {
-    console.error('Error fetching platform stats:', error);
+    console.error('❌ Error fetching platform stats:', error);
     
     // Return zero stats if database query fails
     return c.json({
