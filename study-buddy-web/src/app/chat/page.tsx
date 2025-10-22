@@ -9,6 +9,7 @@ import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
 import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import { chatApi } from '@/services/dataService';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import type { ChatMessage } from '@/types/study';
 
@@ -97,6 +98,18 @@ export default function ChatPage() {
     updateUsage('messages', 1);
 
     try {
+      // Save message to backend to update usage stats
+      try {
+        await chatApi.saveMessage({
+          role: 'user',
+          content: inputMessage.trim()
+        });
+        console.log('✅ Chat message saved to backend');
+      } catch (backendError) {
+        console.error('❌ Failed to save chat message to backend:', backendError);
+        // Don't fail the operation if backend save fails
+      }
+
       // Prepare conversation history for context
       const conversationHistory = messages.map(msg => ({
         role: msg.role,

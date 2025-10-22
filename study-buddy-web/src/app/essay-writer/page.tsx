@@ -11,6 +11,7 @@ import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
 import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import { essaysApi } from '@/services/dataService';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import type { Essay } from '@/types/study';
 
@@ -153,6 +154,20 @@ export default function EssayWriterPage() {
       });
       setEditingEssay(null);
       setShowNewEssay(false);
+      
+      // Save essay to backend to update usage stats
+      try {
+        await essaysApi.create({
+          title: essay.title,
+          prompt: essay.prompt,
+          content: essay.content,
+          word_count: essay.wordCount
+        });
+        console.log('✅ Essay saved to backend');
+      } catch (backendError) {
+        console.error('❌ Failed to save essay to backend:', backendError);
+        // Don't fail the operation if backend save fails
+      }
       
       // Update user stats for essay generation
       updateUserStats('essays', 1);
