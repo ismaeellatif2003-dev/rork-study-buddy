@@ -185,7 +185,7 @@ export default function SubscriptionPage() {
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  ${subscription?.plan?.billingPeriod === 'yearly' ? subscription?.plan?.yearlyPrice : subscription?.plan?.price || 0}
+                  £{subscription?.plan?.billingPeriod === 'yearly' ? subscription?.plan?.yearlyPrice : subscription?.plan?.price || 0}
                   /{subscription?.plan?.billingPeriod === 'yearly' ? 'year' : 'month'}
                 </div>
                 {isProUser && (
@@ -354,14 +354,14 @@ export default function SubscriptionPage() {
                   <div className="flex items-center gap-6">
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                        ${plan.billingPeriod === 'yearly' ? plan.yearlyPrice : plan.price}
+                        £{plan.billingPeriod === 'yearly' ? plan.yearlyPrice : plan.price}
                         <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
                           /{plan.billingPeriod === 'yearly' ? 'year' : 'month'}
                         </span>
                       </div>
                       {plan.billingPeriod === 'yearly' && plan.yearlyPrice && (
                         <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-                          Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(2)}/year
+                          Save £{((plan.price * 12) - plan.yearlyPrice).toFixed(2)}/year
                         </div>
                       )}
                       {plan.id === subscription?.plan?.id && (

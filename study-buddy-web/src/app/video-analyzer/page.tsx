@@ -126,7 +126,7 @@ export default function VideoAnalyzerPage() {
                 className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3"
               >
                 <Crown className="w-4 h-4 mr-2" />
-                Upgrade to Pro - $9.99/month
+                Upgrade to Pro - £9.99/month
               </Button>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
                 Cancel anytime • 30-day money-back guarantee
