@@ -1,10 +1,11 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 export class GoogleAuthService {
   private static instance: GoogleAuthService;
-  private apiBase = 'https://rork-study-buddy-production-eeeb.up.railway.app';
+  private apiBase = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || 'https://rork-study-buddy-production-eeeb.up.railway.app';
 
   static getInstance() {
     if (!GoogleAuthService.instance) {
@@ -15,12 +16,20 @@ export class GoogleAuthService {
 
   async initialize() {
     try {
-      const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-      const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+      const webClientId = Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+      const iosClientId = Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+      
+      console.log('🔧 Google OAuth Configuration:', {
+        hasWebClientId: !!webClientId,
+        hasIosClientId: !!iosClientId,
+        webClientId: webClientId ? webClientId.substring(0, 20) + '...' : 'MISSING',
+        iosClientId: iosClientId ? iosClientId.substring(0, 20) + '...' : 'MISSING'
+      });
       
       // Quick check - if no client IDs, skip immediately
       if (!webClientId || !iosClientId) {
         console.warn('⚠️ Google OAuth client IDs not configured. Google Sign-In will be disabled.');
+        console.warn('⚠️ Please check app.json extra configuration for EXPO_PUBLIC_GOOGLE_*_CLIENT_ID');
         return; // Don't throw error, just skip Google Sign-In
       }
       
