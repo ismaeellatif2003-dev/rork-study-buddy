@@ -46,10 +46,22 @@ export class GoogleAuthService {
   async signIn() {
     try {
       console.log('🔄 Starting Google Sign-In process...');
-      await this.initialize();
+      
+      // Initialize with error handling
+      try {
+        await this.initialize();
+      } catch (initError) {
+        console.error('❌ Google Auth initialization failed:', initError);
+        throw new Error('Google Sign-In is not available. Please check your internet connection and try again.');
+      }
       
       console.log('🔄 Checking Google Play Services...');
-      await GoogleSignin.hasPlayServices();
+      try {
+        await GoogleSignin.hasPlayServices();
+      } catch (playServicesError) {
+        console.error('❌ Google Play Services error:', playServicesError);
+        throw new Error('Google Play Services is not available. Please update Google Play Services and try again.');
+      }
       
       // Sign out first to ensure clean state
       try {
@@ -60,7 +72,21 @@ export class GoogleAuthService {
       }
       
       console.log('🔄 Initiating Google Sign-In...');
-      const userInfo = await GoogleSignin.signIn();
+      let userInfo;
+      try {
+        userInfo = await GoogleSignin.signIn();
+      } catch (signInError) {
+        console.error('❌ Google Sign-In failed:', signInError);
+        if (signInError.code === statusCodes.SIGN_IN_CANCELLED) {
+          throw new Error('Sign in was cancelled by user');
+        } else if (signInError.code === statusCodes.IN_PROGRESS) {
+          throw new Error('Sign in is already in progress. Please wait and try again.');
+        } else if (signInError.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          throw new Error('Google Play Services is not available. Please update and try again.');
+        } else {
+          throw new Error('Sign in failed. Please try again.');
+        }
+      }
       
       console.log('📋 Google Sign-In response:', {
         hasUserInfo: !!userInfo,
@@ -156,13 +182,34 @@ export class GoogleAuthService {
 
   async signOut() {
     try {
-      await GoogleSignin.signOut();
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('studyBuddySubscription');
-      await AsyncStorage.removeItem('studyBuddyUsage');
+      console.log('🔄 Starting Google Sign-Out process...');
+      
+      // Sign out from Google
+      try {
+        await GoogleSignin.signOut();
+        console.log('✅ Google Sign-Out successful');
+      } catch (googleSignOutError) {
+        console.error('❌ Google Sign-Out error:', googleSignOutError);
+        // Continue with local cleanup even if Google sign-out fails
+      }
+      
+      // Clear local storage
+      try {
+        await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('user');
+        await AsyncStorage.removeItem('studyBuddySubscription');
+        await AsyncStorage.removeItem('studyBuddyUsage');
+        console.log('✅ Local storage cleared');
+      } catch (storageError) {
+        console.error('❌ Error clearing local storage:', storageError);
+        // Continue even if storage cleanup fails
+      }
+      
+      console.log('✅ Sign-Out process completed');
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('❌ Sign out error:', error);
+      // Don't throw error, just log it
+      console.warn('⚠️ Sign out completed with errors, but user is signed out locally');
     }
   }
 

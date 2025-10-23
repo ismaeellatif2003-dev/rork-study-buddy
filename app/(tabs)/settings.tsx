@@ -79,18 +79,41 @@ export default function SettingsScreen() {
   };
 
   const handleGoogleSignInSuccess = async () => {
-    await checkGoogleSignInStatus();
-    await syncWithBackend();
-    await loadProfileFromBackend();
+    try {
+      console.log('🔄 Handling Google Sign-In success...');
+      await checkGoogleSignInStatus();
+      await syncWithBackend();
+      await loadProfileFromBackend();
+      console.log('✅ Google Sign-In success handling completed');
+    } catch (error) {
+      console.error('❌ Error in Google Sign-In success handler:', error);
+      // Don't show error to user as sign-in was successful
+    }
   };
 
   const handleGoogleSignOutSuccess = async () => {
-    await checkGoogleSignInStatus();
+    try {
+      console.log('🔄 Handling Google Sign-Out success...');
+      await checkGoogleSignInStatus();
+      console.log('✅ Google Sign-Out success handling completed');
+    } catch (error) {
+      console.error('❌ Error in Google Sign-Out success handler:', error);
+      // Don't show error to user as sign-out was successful
+    }
   };
 
   // Check Google sign-in status on component mount
   useEffect(() => {
-    checkGoogleSignInStatus();
+    const initializeGoogleAuth = async () => {
+      try {
+        await checkGoogleSignInStatus();
+      } catch (error) {
+        console.error('❌ Error initializing Google auth status:', error);
+        // Don't crash the app, just log the error
+      }
+    };
+    
+    initializeGoogleAuth();
   }, []);
 
   // Show loading only for a brief moment, then show empty state

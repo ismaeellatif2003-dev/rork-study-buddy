@@ -20,22 +20,44 @@ export function GoogleSignInButton({
   const { syncWithBackend } = useSubscription();
 
   const handleGoogleSignIn = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous sign-ins
+    
     setIsLoading(true);
     
     try {
+      console.log('🔄 Starting Google Sign-In...');
       const result = await googleAuthService.signIn();
       
       if (result) {
+        console.log('✅ Google Sign-In successful, syncing data...');
         // Sync subscription data after successful sign-in
-        await syncWithBackend();
+        try {
+          await syncWithBackend();
+          console.log('✅ Data sync completed');
+        } catch (syncError) {
+          console.error('❌ Data sync failed:', syncError);
+          // Don't fail the sign-in if sync fails
+        }
+        
         onSuccess?.();
         Alert.alert('Success', 'Signed in successfully! Your data will sync across devices.');
       }
     } catch (error) {
+      console.error('❌ Google Sign-In error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
-      console.error('Google Sign-In error:', error);
       onError?.(errorMessage);
-      Alert.alert('Sign In Failed', errorMessage);
+      
+      // Show user-friendly error message
+      let userMessage = 'Sign in failed. Please try again.';
+      if (errorMessage.includes('cancelled')) {
+        userMessage = 'Sign in was cancelled.';
+      } else if (errorMessage.includes('Play Services')) {
+        userMessage = 'Google Play Services is not available. Please update and try again.';
+      } else if (errorMessage.includes('internet')) {
+        userMessage = 'Please check your internet connection and try again.';
+      }
+      
+      Alert.alert('Sign In Failed', userMessage);
     } finally {
       setIsLoading(false);
     }
@@ -81,17 +103,28 @@ export function GoogleSignOutButton({
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleSignOut = async () => {
+    if (isLoading) return; // Prevent multiple simultaneous sign-outs
+    
     setIsLoading(true);
     
     try {
+      console.log('🔄 Starting Google Sign-Out...');
       await googleAuthService.signOut();
+      console.log('✅ Google Sign-Out successful');
       onSuccess?.();
       Alert.alert('Signed Out', 'You have been signed out successfully.');
     } catch (error) {
+      console.error('❌ Google Sign-Out error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Sign out failed';
-      console.error('Google Sign-Out error:', error);
       onError?.(errorMessage);
-      Alert.alert('Sign Out Failed', errorMessage);
+      
+      // Show user-friendly error message
+      let userMessage = 'Sign out failed. Please try again.';
+      if (errorMessage.includes('storage')) {
+        userMessage = 'Sign out completed, but some data may not have been cleared.';
+      }
+      
+      Alert.alert('Sign Out Issue', userMessage);
     } finally {
       setIsLoading(false);
     }
