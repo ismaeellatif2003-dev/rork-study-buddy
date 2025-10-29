@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `https://charming-adventure-production.up.railway.app/subscription?success=true`,
-      cancel_url: `https://charming-adventure-production.up.railway.app/subscription?canceled=true`,
+      success_url: `https://studybuddy.global/subscription?success=true`,
+      cancel_url: `https://studybuddy.global/subscription?canceled=true`,
       metadata: {
         userEmail: userEmail,
       },
