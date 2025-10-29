@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
+      allow_promotion_codes: true,
       success_url: `https://studybuddy.global/subscription?success=true`,
       cancel_url: `https://studybuddy.global/subscription?canceled=true`,
       metadata: {
