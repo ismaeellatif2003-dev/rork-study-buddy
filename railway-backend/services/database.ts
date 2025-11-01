@@ -141,6 +141,42 @@ export interface MobileSubscription {
   updated_at: Date;
 }
 
+export interface NoteEmbedding {
+  id: number;
+  note_id: number;
+  user_id: number;
+  content_type: string;
+  content_text: string;
+  embedding: number[]; // Vector as array
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface UserQuestion {
+  id: number;
+  user_id: number;
+  question: string;
+  answer: string;
+  context_note_ids: number[];
+  topic_tags: string[];
+  difficulty: string;
+  feedback_score?: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface UserKnowledgeProfile {
+  id: number;
+  user_id: number;
+  topics_studied: any[];
+  weak_areas: any[];
+  strong_areas: any[];
+  study_preferences: Record<string, any>;
+  question_patterns: Record<string, any>;
+  last_updated: Date;
+  created_at: Date;
+}
+
 export class DatabaseService {
   private pool: Pool | null;
 
@@ -935,6 +971,205 @@ export class DatabaseService {
     // This would require updating the JSONB flashcards field
     // For now, just log in development mode
     console.log('Flashcards update not implemented in database yet');
+  }
+
+  // ==================== AI LEARNING METHODS ====================
+
+  // Store or update note embedding
+  async storeNoteEmbedding(noteId: number, userId: number, contentType: string, contentText: string, embedding: number[]): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Storing note embedding:', { noteId, userId, contentType });
+      return;
+    }
+
+    const embeddingStr = `[${embedding.join(',')}]`; // Convert array to PostgreSQL vector format
+    
+    const query = `
+      INSERT INTO note_embeddings (note_id, user_id, content_type, content_text, embedding)
+      VALUES ($1, $2, $3, $4, $5::vector)
+      ON CONFLICT (note_id, content_type) 
+      DO UPDATE SET 
+        content_text = EXCLUDED.content_text,
+        embedding = EXCLUDED.embedding,
+        updated_at = NOW()
+    `;
+    
+    await this.executeQuery(query, [noteId, userId, contentType, contentText, embeddingStr]);
+    console.log(`✅ Stored embedding for note ${noteId}, type: ${contentType}`);
+  }
+
+  // Vector similarity search - find most relevant notes for a question
+  async searchSimilarNotes(userId: number, queryEmbedding: number[], limit: number = 5): Promise<NoteEmbedding[]> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Searching similar notes for user:', userId);
+      return [];
+    }
+
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+    
+    // Use cosine similarity for vector search
+    const query = `
+      SELECT 
+        ne.id,
+        ne.note_id,
+        ne.user_id,
+        ne.content_type,
+        ne.content_text,
+        n.title,
+        1 - (ne.embedding <=> $1::vector) as similarity
+      FROM note_embeddings ne
+      JOIN notes n ON ne.note_id = n.id
+      WHERE ne.user_id = $2
+      ORDER BY ne.embedding <=> $1::vector
+      LIMIT $3
+    `;
+    
+    const result = await this.executeQuery(query, [embeddingStr, userId, limit]);
+    return result.rows.map(row => ({
+      id: row.id,
+      note_id: row.note_id,
+      user_id: row.user_id,
+      content_type: row.content_type,
+      content_text: row.content_text,
+      embedding: [], // Don't return the full embedding to save bandwidth
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      title: row.title,
+      similarity: row.similarity
+    })) as any[];
+  }
+
+  // Store user question and answer for learning
+  async storeUserQuestion(userId: number, question: string, answer: string, contextNoteIds: number[], topicTags: string[], difficulty: string = 'medium'): Promise<UserQuestion> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Storing user question:', { userId, question });
+      return {
+        id: 1,
+        user_id: userId,
+        question,
+        answer,
+        context_note_ids: contextNoteIds,
+        topic_tags: topicTags,
+        difficulty,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+    }
+
+    const query = `
+      INSERT INTO user_questions (user_id, question, answer, context_note_ids, topic_tags, difficulty)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+    
+    const result = await this.executeQuery(query, [userId, question, answer, contextNoteIds, topicTags, difficulty]);
+    return result.rows[0];
+  }
+
+  // Get user's knowledge profile
+  async getUserKnowledgeProfile(userId: number): Promise<UserKnowledgeProfile | null> {
+    if (this.isDevelopmentMode()) {
+      return {
+        id: 1,
+        user_id: userId,
+        topics_studied: [],
+        weak_areas: [],
+        strong_areas: [],
+        study_preferences: {},
+        question_patterns: {},
+        last_updated: new Date(),
+        created_at: new Date()
+      };
+    }
+
+    const query = 'SELECT * FROM user_knowledge_profiles WHERE user_id = $1';
+    const result = await this.executeQuery(query, [userId]);
+    
+    if (result.rows.length === 0) {
+      // Create default profile if doesn't exist
+      const insertQuery = `
+        INSERT INTO user_knowledge_profiles (user_id)
+        VALUES ($1)
+        RETURNING *
+      `;
+      const insertResult = await this.executeQuery(insertQuery, [userId]);
+      return insertResult.rows[0];
+    }
+    
+    return result.rows[0];
+  }
+
+  // Update user knowledge profile
+  async updateUserKnowledgeProfile(userId: number, updates: Partial<UserKnowledgeProfile>): Promise<UserKnowledgeProfile> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Updating knowledge profile:', userId, updates);
+      return this.getUserKnowledgeProfile(userId) as Promise<UserKnowledgeProfile>;
+    }
+
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+    const setClause = fields.map((field, index) => {
+      // Handle JSONB fields
+      if (field === 'topics_studied' || field === 'weak_areas' || field === 'strong_areas' || 
+          field === 'study_preferences' || field === 'question_patterns') {
+        return `${field} = $${index + 2}::jsonb`;
+      }
+      return `${field} = $${index + 2}`;
+    }).join(', ');
+    
+    const processedValues = values.map(v => 
+      typeof v === 'object' ? JSON.stringify(v) : v
+    );
+    
+    const query = `
+      UPDATE user_knowledge_profiles 
+      SET ${setClause}, last_updated = NOW()
+      WHERE user_id = $1
+      RETURNING *
+    `;
+    
+    const result = await this.executeQuery(query, [userId, ...processedValues]);
+    return result.rows[0];
+  }
+
+  // Get user's recent questions
+  async getUserQuestions(userId: number, limit: number = 20): Promise<UserQuestion[]> {
+    if (this.isDevelopmentMode()) {
+      return [];
+    }
+
+    const query = `
+      SELECT * FROM user_questions 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT $2
+    `;
+    const result = await this.executeQuery(query, [userId, limit]);
+    return result.rows;
+  }
+
+  // Delete embeddings when note is deleted (handled by CASCADE, but useful for cleanup)
+  async deleteNoteEmbeddings(noteId: number): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Deleting embeddings for note:', noteId);
+      return;
+    }
+
+    const query = 'DELETE FROM note_embeddings WHERE note_id = $1';
+    await this.executeQuery(query, [noteId]);
+    console.log(`✅ Deleted embeddings for note ${noteId}`);
+  }
+
+  // Delete specific embedding type for a note
+  async deleteNoteEmbeddingByType(noteId: number, contentType: string): Promise<void> {
+    if (this.isDevelopmentMode()) {
+      console.log('Mock: Deleting embedding for note:', noteId, contentType);
+      return;
+    }
+
+    const query = 'DELETE FROM note_embeddings WHERE note_id = $1 AND content_type = $2';
+    await this.executeQuery(query, [noteId, contentType]);
+    console.log(`✅ Deleted ${contentType} embedding for note ${noteId}`);
   }
 }
 

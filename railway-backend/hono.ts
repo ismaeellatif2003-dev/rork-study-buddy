@@ -8,6 +8,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { DatabaseService } from './services/database';
 import { JWTService } from './services/jwt';
 import { AuthService } from './services/auth-service';
+import { embeddingService } from './services/embedding-service';
 import * as fs from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -804,6 +805,283 @@ app.post("/ai/ocr", async (c) => {
   }
 });
 
+// ==================== PERSONALIZED AI LEARNING ENDPOINTS ====================
+
+// Generate embedding for text
+app.post("/ai/embed", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { text } = body;
+
+    if (!text || typeof text !== 'string') {
+      return c.json({ error: 'Text is required' }, 400);
+    }
+
+    const embedding = await embeddingService.generateEmbedding(text);
+    
+    return c.json({
+      success: true,
+      embedding,
+      dimensions: embedding.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Embed endpoint error:', error);
+    return c.json({ 
+      success: false, 
+      error: error.message || 'Failed to generate embedding',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Personalized chat endpoint - uses user's notes as context
+app.post("/ai/personalized-chat", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    let userId = 1; // Default for development
+    
+    if (process.env.NODE_ENV === 'production') {
+      const jwtService = (await import('./services/jwt-service')).jwtService;
+      const decoded = jwtService.verifyToken(token);
+      userId = decoded.userId;
+    }
+
+    const body = await c.req.json();
+    const { question, conversationHistory = [] } = body;
+
+    if (!question || typeof question !== 'string') {
+      return c.json({ error: 'Question is required' }, 400);
+    }
+
+    console.log(`🤖 Personalized chat request for user ${userId}: ${question.substring(0, 50)}...`);
+
+    // Step 1: Generate embedding for the question
+    const questionEmbedding = await embeddingService.generateEmbedding(question);
+    console.log('✅ Generated question embedding');
+
+    // Step 2: Search for relevant notes using vector similarity
+    const relevantNotes = await databaseService.searchSimilarNotes(userId, questionEmbedding, 5);
+    console.log(`✅ Found ${relevantNotes.length} relevant notes`);
+
+    // Step 3: Build context from relevant notes
+    let contextText = '';
+    const contextNoteIds: number[] = [];
+    
+    if (relevantNotes.length > 0) {
+      contextText = relevantNotes.map((note, index) => {
+        contextNoteIds.push(note.note_id);
+        return `[Note ${index + 1}: ${note.title || 'Untitled'}]\n${note.content_text.substring(0, 500)}`;
+      }).join('\n\n');
+      
+      // Extract topic tags from question
+      const topicTags = embeddingService.extractTopics(question);
+      console.log(`📌 Extracted topics: ${topicTags.join(', ')}`);
+
+      // Step 4: Get user's knowledge profile for personalized prompt
+      const knowledgeProfile = await databaseService.getUserKnowledgeProfile(userId);
+      
+      // Step 5: Build personalized system prompt
+      let systemPrompt = `You are a personalized AI study assistant. You answer questions based on the user's own notes and study materials. `;
+      
+      if (knowledgeProfile && knowledgeProfile.topics_studied && knowledgeProfile.topics_studied.length > 0) {
+        systemPrompt += `The user has been studying: ${(knowledgeProfile.topics_studied as any[]).slice(0, 5).join(', ')}. `;
+      }
+      
+      systemPrompt += `Use the provided notes context to give accurate, personalized answers. If the answer isn't in the notes, say so but still try to help based on general knowledge.`;
+
+      // Step 6: Build the user prompt with context
+      const userPrompt = `Based on the following notes from the user's study materials:
+
+${contextText}
+
+Question: ${question}
+
+Provide a clear, educational answer that references the relevant notes when possible.`;
+
+      // Step 7: Call AI with personalized context
+      const openRouterKey = process.env.OPENROUTER_API_KEY;
+      if (!openRouterKey) {
+        return c.json({ 
+          success: false,
+          error: 'OpenRouter API key not configured'
+        }, 500);
+      }
+
+      const openai = new OpenAI({
+        apiKey: openRouterKey,
+        baseURL: 'https://openrouter.ai/api/v1'
+      });
+
+      // Build conversation history with context
+      const messages: any[] = [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory.slice(-5), // Last 5 messages for context
+        { role: 'user', content: userPrompt }
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages,
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+
+      const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+      
+      console.log(`✅ Generated personalized answer (${answer.length} chars)`);
+
+      // Step 8: Store question and answer for learning
+      try {
+        await databaseService.storeUserQuestion(
+          userId,
+          question,
+          answer,
+          contextNoteIds,
+          topicTags,
+          'medium' // Can be determined by analyzing question complexity
+        );
+
+        // Update knowledge profile (async, don't wait)
+        const existingProfile = knowledgeProfile || await databaseService.getUserKnowledgeProfile(userId);
+        const currentTopics = existingProfile?.topics_studied as any[] || [];
+        const updatedTopics = [...new Set([...currentTopics, ...topicTags])];
+        
+        databaseService.updateUserKnowledgeProfile(userId, {
+          topics_studied: updatedTopics
+        }).catch(err => console.error('Failed to update knowledge profile:', err));
+      } catch (storeError) {
+        console.error('Failed to store question for learning:', storeError);
+        // Don't fail the request if storing fails
+      }
+
+      return c.json({
+        success: true,
+        response: answer,
+        contextNotes: relevantNotes.map(n => ({
+          id: n.note_id,
+          title: n.title,
+          similarity: n.similarity
+        })),
+        topics: topicTags,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // No relevant notes found - use general AI response
+      console.log('⚠️ No relevant notes found, using general AI response');
+      
+      const openRouterKey = process.env.OPENROUTER_API_KEY;
+      if (!openRouterKey) {
+        return c.json({ 
+          success: false,
+          error: 'OpenRouter API key not configured'
+        }, 500);
+      }
+
+      const openai = new OpenAI({
+        apiKey: openRouterKey,
+        baseURL: 'https://openrouter.ai/api/v1'
+      });
+
+      const messages: any[] = [
+        { role: 'system', content: 'You are a helpful AI study assistant. Provide clear, educational responses.' },
+        ...conversationHistory.slice(-5),
+        { role: 'user', content: question }
+      ];
+
+      const completion = await openai.chat.completions.create({
+        model: 'openai/gpt-4o',
+        messages,
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+
+      const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+
+      return c.json({
+        success: true,
+        response: answer,
+        contextNotes: [],
+        note: 'No relevant notes found in your study materials. This is a general answer.',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error: any) {
+    console.error('Personalized chat endpoint error:', error);
+    return c.json({ 
+      success: false, 
+      error: error.message || 'Failed to generate personalized response',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// Auto-generate embeddings when notes are created/updated
+app.post("/notes/:noteId/embed", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const noteId = parseInt(c.req.param('noteId'));
+    if (isNaN(noteId)) {
+      return c.json({ error: 'Invalid note ID' }, 400);
+    }
+
+    const token = authHeader.substring(7);
+    let userId = 1;
+    
+    if (process.env.NODE_ENV === 'production') {
+      const jwtService = (await import('./services/jwt-service')).jwtService;
+      const decoded = jwtService.verifyToken(token);
+      userId = decoded.userId;
+    }
+
+    // Get the note
+    const notes = await databaseService.getUserNotes(userId);
+    const note = notes.find(n => n.id === noteId);
+    
+    if (!note) {
+      return c.json({ error: 'Note not found' }, 404);
+    }
+
+    // Generate embeddings for note content and summary (if exists)
+    const embeddings: { type: string; embedding: number[] }[] = [];
+
+    // Embed main content
+    const contentEmbedding = await embeddingService.generateEmbedding(`${note.title}\n\n${note.content}`);
+    embeddings.push({ type: 'note', embedding: contentEmbedding });
+    await databaseService.storeNoteEmbedding(noteId, userId, 'note', `${note.title}\n\n${note.content}`, contentEmbedding);
+
+    // Embed summary if exists
+    if (note.summary) {
+      const summaryEmbedding = await embeddingService.generateEmbedding(note.summary);
+      embeddings.push({ type: 'summary', embedding: summaryEmbedding });
+      await databaseService.storeNoteEmbedding(noteId, userId, 'summary', note.summary, summaryEmbedding);
+    }
+
+    return c.json({
+      success: true,
+      noteId,
+      embeddingsGenerated: embeddings.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Embed note endpoint error:', error);
+    return c.json({ 
+      success: false, 
+      error: error.message || 'Failed to generate embeddings',
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
 // Essay-specific AI endpoints
 app.post("/ai/essay/analyze-references", async (c) => {
   try {
@@ -1548,6 +1826,23 @@ app.post("/notes", async (c) => {
     // Update usage stats
     await databaseService.updateUsageStats(decoded.userId, 'notes', 1);
     
+    // Auto-generate embeddings for the new note (async, don't block response)
+    (async () => {
+      try {
+        const contentEmbedding = await embeddingService.generateEmbedding(`${note.title}\n\n${note.content}`);
+        await databaseService.storeNoteEmbedding(note.id, decoded.userId, 'note', `${note.title}\n\n${note.content}`, contentEmbedding);
+        
+        if (note.summary) {
+          const summaryEmbedding = await embeddingService.generateEmbedding(note.summary);
+          await databaseService.storeNoteEmbedding(note.id, decoded.userId, 'summary', note.summary, summaryEmbedding);
+        }
+        console.log(`✅ Auto-generated embeddings for note ${note.id}`);
+      } catch (embedError) {
+        console.error(`❌ Failed to generate embeddings for note ${note.id}:`, embedError);
+        // Don't fail the request if embedding generation fails
+      }
+    })();
+    
     return c.json({ success: true, note });
   } catch (error: any) {
     console.error("Create note error:", error);
@@ -1568,6 +1863,26 @@ app.put("/notes/:id", async (c) => {
     const { title, content, summary } = await c.req.json();
     
     const note = await databaseService.updateNote(noteId, decoded.userId, { title, content, summary });
+    
+    // Auto-regenerate embeddings for the updated note (async, don't block response)
+    (async () => {
+      try {
+        const contentEmbedding = await embeddingService.generateEmbedding(`${note.title}\n\n${note.content}`);
+        await databaseService.storeNoteEmbedding(noteId, decoded.userId, 'note', `${note.title}\n\n${note.content}`, contentEmbedding);
+        
+        if (note.summary) {
+          const summaryEmbedding = await embeddingService.generateEmbedding(note.summary);
+          await databaseService.storeNoteEmbedding(noteId, decoded.userId, 'summary', note.summary, summaryEmbedding);
+        } else {
+          // Delete summary embedding if summary was removed
+          await databaseService.deleteNoteEmbeddingByType(noteId, 'summary');
+        }
+        console.log(`✅ Auto-regenerated embeddings for note ${noteId}`);
+      } catch (embedError) {
+        console.error(`❌ Failed to regenerate embeddings for note ${noteId}:`, embedError);
+        // Don't fail the request if embedding generation fails
+      }
+    })();
     
     return c.json({ success: true, note });
   } catch (error: any) {

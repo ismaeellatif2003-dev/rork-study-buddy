@@ -9,6 +9,7 @@ import { updateUserStats } from '@/utils/userStats';
 import { canUseFeature, updateUsage, getCurrentSubscription } from '@/utils/subscription';
 import { aiService } from '@/services/aiService';
 import { useAuthGuard, useFeatureGuard } from '@/utils/auth-guards';
+import { useAuth } from '@/contexts/AuthContext';
 import { chatApi } from '@/services/dataService';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import type { ChatMessage } from '@/types/study';
@@ -35,6 +36,7 @@ export default function ChatPage() {
   });
   
   const { canUseFeature: canAskQuestions, getRemainingUsage: getRemainingQuestions } = useFeatureGuard('messages');
+  const { backendToken } = useAuth();
   
   const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
   const [inputMessage, setInputMessage] = useState('');
@@ -116,24 +118,35 @@ export default function ChatPage() {
         content: msg.content
       }));
 
-      // Add the current user message to the conversation
-      conversationHistory.push({
-        role: 'user',
-        content: inputMessage.trim()
-      });
-
-      // Call AI service
-      const aiResponse = await aiService.generateText({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful AI tutor and study assistant. Provide clear, educational responses to help students learn and understand concepts. Be encouraging and supportive in your explanations.'
-          },
-          ...conversationHistory
-        ],
-        type: 'text',
-        model: 'openai/gpt-4o'
-      });
+      // Use personalized chat if user is authenticated (has notes to learn from)
+      // Otherwise fall back to regular chat
+      let aiResponse;
+      
+      if (backendToken && authCheck) {
+        // Use personalized chat that learns from user's notes
+        aiResponse = await aiService.personalizedChat(
+          inputMessage.trim(),
+          conversationHistory,
+          backendToken
+        );
+      } else {
+        // Fallback to regular AI chat
+        aiResponse = await aiService.generateText({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful AI tutor and study assistant. Provide clear, educational responses to help students learn and understand concepts. Be encouraging and supportive in your explanations.'
+            },
+            ...conversationHistory,
+            {
+              role: 'user',
+              content: inputMessage.trim()
+            }
+          ],
+          type: 'text',
+          model: 'openai/gpt-4o'
+        });
+      }
 
       if (!aiResponse.success || !aiResponse.response) {
         throw new Error(aiResponse.error || 'Failed to get AI response');

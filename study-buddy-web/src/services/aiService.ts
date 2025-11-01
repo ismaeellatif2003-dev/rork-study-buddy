@@ -176,6 +176,54 @@ class AIService {
   async analyzeReferences(request: AIRequest): Promise<AIResponse> {
     return this.makeRequest('/ai/essay/analyze-references', request);
   }
+
+  // Personalized chat using user's notes as context
+  async personalizedChat(question: string, conversationHistory: Array<{role: string, content: string}>, authToken?: string): Promise<AIResponse> {
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/ai/personalized-chat`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          question,
+          conversationHistory
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: result.success,
+        response: result.response,
+        error: result.error,
+        contextNotes: result.contextNotes,
+        topics: result.topics,
+        timestamp: result.timestamp
+      };
+    } catch (error) {
+      console.error('Personalized chat error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  // Generate embedding for text
+  async generateEmbedding(text: string): Promise<AIResponse> {
+    return this.makeRequest('/ai/embed', { text });
+  }
 }
 
 export const aiService = new AIService();
