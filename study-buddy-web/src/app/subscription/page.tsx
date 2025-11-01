@@ -80,7 +80,7 @@ function SubscriptionPageContent() {
       if (planId === 'pro-monthly') {
         priceId = process.env.NEXT_PUBLIC_PRO_MONTHLY_PRICE_ID;
       } else if (planId === 'pro-yearly') {
-        priceId = process.env.NEXT_PUBLIC_PRO_YEARLY_PRICE_ID;
+        priceId = process.env.NEXT_PUBLIC_PRO_YEARLY_PRICE_ID || 'price_1SOg9wAPvjkaDuO0Qoqkbdc0';
       } else {
         throw new Error('Invalid plan ID');
       }
