@@ -65,6 +65,8 @@ export interface AIResponse {
   error?: string;
   timestamp?: string;
   source?: string;
+  contextNotes?: Array<{ id: number; title: string; similarity: number }>;
+  topics?: string[];
 }
 
 class AIService {
