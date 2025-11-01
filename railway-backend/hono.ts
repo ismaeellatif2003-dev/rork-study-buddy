@@ -847,7 +847,6 @@ app.post("/ai/personalized-chat", async (c) => {
     let userId = 1; // Default for development
     
     if (process.env.NODE_ENV === 'production') {
-      const jwtService = (await import('./services/jwt-service')).jwtService;
       const decoded = jwtService.verifyToken(token);
       userId = decoded.userId;
     }
@@ -876,7 +875,7 @@ app.post("/ai/personalized-chat", async (c) => {
     if (relevantNotes.length > 0) {
       contextText = relevantNotes.map((note, index) => {
         contextNoteIds.push(note.note_id);
-        return `[Note ${index + 1}: ${note.title || 'Untitled'}]\n${note.content_text.substring(0, 500)}`;
+        return `[Note ${index + 1}: ${(note as any).title || 'Untitled'}]\n${note.content_text.substring(0, 500)}`;
       }).join('\n\n');
       
       // Extract topic tags from question
@@ -965,8 +964,8 @@ Provide a clear, educational answer that references the relevant notes when poss
         response: answer,
         contextNotes: relevantNotes.map(n => ({
           id: n.note_id,
-          title: n.title,
-          similarity: n.similarity
+          title: (n as any).title || 'Untitled',
+          similarity: (n as any).similarity || 0
         })),
         topics: topicTags,
         timestamp: new Date().toISOString()
@@ -1038,7 +1037,6 @@ app.post("/notes/:noteId/embed", async (c) => {
     let userId = 1;
     
     if (process.env.NODE_ENV === 'production') {
-      const jwtService = (await import('./services/jwt-service')).jwtService;
       const decoded = jwtService.verifyToken(token);
       userId = decoded.userId;
     }
@@ -1863,6 +1861,10 @@ app.put("/notes/:id", async (c) => {
     const { title, content, summary } = await c.req.json();
     
     const note = await databaseService.updateNote(noteId, decoded.userId, { title, content, summary });
+    
+    if (!note) {
+      return c.json({ error: "Note not found or update failed" }, 404);
+    }
     
     // Auto-regenerate embeddings for the updated note (async, don't block response)
     (async () => {

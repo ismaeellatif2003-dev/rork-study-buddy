@@ -150,6 +150,8 @@ export interface NoteEmbedding {
   embedding: number[]; // Vector as array
   created_at: Date;
   updated_at: Date;
+  title?: string; // Optional, added in search results
+  similarity?: number; // Optional, added in search results
 }
 
 export interface UserQuestion {
@@ -1025,7 +1027,7 @@ export class DatabaseService {
     `;
     
     const result = await this.executeQuery(query, [embeddingStr, userId, limit]);
-    return result.rows.map(row => ({
+    return result.rows.map((row: any) => ({
       id: row.id,
       note_id: row.note_id,
       user_id: row.user_id,
@@ -1036,7 +1038,7 @@ export class DatabaseService {
       updated_at: row.updated_at,
       title: row.title,
       similarity: row.similarity
-    })) as any[];
+    })) as NoteEmbedding[];
   }
 
   // Store user question and answer for learning
