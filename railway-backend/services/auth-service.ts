@@ -158,8 +158,8 @@ export class AuthService {
         plan: {
           id: subscription.plan_id || 'free',
           name: subscription.plan_name || 'Free',
-          price: subscription.plan_id === 'pro-monthly' ? 9.99 : subscription.plan_id === 'pro-yearly' ? 99.99 : 0,
-          yearlyPrice: subscription.plan_id === 'pro-yearly' ? 99.99 : undefined,
+          price: subscription.plan_id === 'pro-monthly' ? 0.99 : subscription.plan_id === 'pro-yearly' ? 9.99 : 0,
+          yearlyPrice: subscription.plan_id === 'pro-yearly' ? 9.99 : undefined,
           billingPeriod: subscription.plan_id === 'pro-yearly' ? 'yearly' : 'monthly',
           features: subscription.plan_id === 'free' 
             ? ['5 notes', '25 flashcards', '10 AI questions', '1 essay', 'OCR text extraction']

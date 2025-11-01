@@ -92,14 +92,14 @@ class PaymentService {
           productId: getProductId('PRO_MONTHLY'),
           title: 'Pro Monthly',
           description: 'Monthly subscription',
-          price: '9.99',
+          price: '0.99',
           currency: 'GBP',
         } as Product,
         {
           productId: getProductId('PRO_YEARLY'),
           title: 'Pro Yearly',
           description: 'Yearly subscription',
-          price: '99.99',
+          price: '9.99',
           currency: 'GBP',
         } as Product,
       ];

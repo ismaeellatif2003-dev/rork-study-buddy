@@ -52,7 +52,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'pro-monthly',
     name: 'Pro Monthly',
-    price: 9.99,
+    price: 0.99,
     billingPeriod: 'monthly',
     features: [
       'Unlimited notes',
@@ -74,8 +74,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'pro-yearly',
     name: 'Pro Yearly',
-    price: 9.99,
-    yearlyPrice: 99.99,
+    price: 0.99,
+    yearlyPrice: 9.99,
     billingPeriod: 'yearly',
     features: [
       'Unlimited notes',
@@ -85,7 +85,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Unlimited OCR scans',
       'Priority support',
       'Advanced AI features',
-      'Save 17% with yearly billing'
+      'Save 16% with yearly billing'
     ],
     limits: {
       notes: -1, // -1 means unlimited

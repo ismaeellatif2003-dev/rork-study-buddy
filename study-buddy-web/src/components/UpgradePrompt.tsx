@@ -97,7 +97,7 @@ export default function UpgradePrompt({
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            Starting at £9.99/month • Cancel anytime
+            Starting at £0.99/month • Cancel anytime
           </p>
         </CardContent>
       </Card>

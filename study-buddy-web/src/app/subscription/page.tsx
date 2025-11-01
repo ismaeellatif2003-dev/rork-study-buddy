@@ -400,7 +400,7 @@ function SubscriptionPageContent() {
                       </div>
                       {plan.billingPeriod === 'yearly' && plan.yearlyPrice && (
                         <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-                          Save £{((plan.price * 12) - plan.yearlyPrice).toFixed(2)}/year
+                          Save £{((0.99 * 12) - plan.yearlyPrice).toFixed(2)}/year
                         </div>
                       )}
                       {plan.id === subscription?.plan?.id && (

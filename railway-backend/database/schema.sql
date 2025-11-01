@@ -180,13 +180,13 @@ INSERT INTO subscription_plans (id, name, price, yearly_price, billing_period, l
  '{"notes": 5, "flashcards": 25, "messages": 10, "essays": 1, "ocrScans": 3}',
  '["5 notes", "25 flashcards", "10 AI questions", "1 essay", "OCR text extraction"]'),
  
-('pro-monthly', 'Pro Monthly', 9.99, 0, 'monthly',
+('pro-monthly', 'Pro Monthly', 0.99, 0, 'monthly',
  '{"notes": -1, "flashcards": -1, "messages": -1, "essays": -1, "ocrScans": -1}',
  '["Unlimited notes", "Unlimited flashcards", "Unlimited AI questions", "Unlimited essays", "Unlimited OCR scans", "Priority support", "Advanced AI features"]'),
  
-('pro-yearly', 'Pro Yearly', 9.99, 99.99, 'yearly',
+('pro-yearly', 'Pro Yearly', 9.99, 9.99, 'yearly',
  '{"notes": -1, "flashcards": -1, "messages": -1, "essays": -1, "ocrScans": -1}',
- '["Unlimited notes", "Unlimited flashcards", "Unlimited AI questions", "Unlimited essays", "Unlimited OCR scans", "Priority support", "Advanced AI features", "Save 17% with yearly billing"]');
+ '["Unlimited notes", "Unlimited flashcards", "Unlimited AI questions", "Unlimited essays", "Unlimited OCR scans", "Priority support", "Advanced AI features", "Save 16% with yearly billing"]');
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

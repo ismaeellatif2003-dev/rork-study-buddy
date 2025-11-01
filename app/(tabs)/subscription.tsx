@@ -180,7 +180,7 @@ export default function SubscriptionScreen() {
                 </Text>
                 {plan.id === 'pro_yearly' && (
                   <View style={styles.savingsBadge}>
-                    <Text style={styles.savingsBadgeText}>Save 17%</Text>
+                    <Text style={styles.savingsBadgeText}>Save 16%</Text>
                   </View>
                 )}
               </View>

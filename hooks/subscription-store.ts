@@ -46,7 +46,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'pro_monthly',
     name: 'Pro',
-    price: 9.99,
+    price: 0.99,
     interval: 'monthly',
     productId: PRODUCT_IDS.PRO_MONTHLY,
     features: [
@@ -68,7 +68,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'pro_yearly',
     name: 'Pro (Yearly)',
-    price: 99.99,
+    price: 9.99,
     interval: 'yearly',
     productId: PRODUCT_IDS.PRO_YEARLY,
     features: [
