@@ -6,6 +6,7 @@ export interface AIRequest {
     content: string | Array<{ type: 'text' | 'image_url'; text?: string; image_url?: { url: string } }>;
   }>;
   content?: string;
+  text?: string; // For embedding generation
   count?: number;
   model?: string;
   type?: 'text' | 'flashcards';
