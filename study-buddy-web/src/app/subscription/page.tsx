@@ -78,7 +78,7 @@ function SubscriptionPageContent() {
       // Map plan ID to Stripe price ID
       let priceId;
       if (planId === 'pro-monthly') {
-        priceId = process.env.NEXT_PUBLIC_PRO_MONTHLY_PRICE_ID;
+        priceId = process.env.NEXT_PUBLIC_PRO_MONTHLY_PRICE_ID || 'price_1SOgBCAPvjkaDuO0X4mX8duJ';
       } else if (planId === 'pro-yearly') {
         priceId = process.env.NEXT_PUBLIC_PRO_YEARLY_PRICE_ID || 'price_1SOg9wAPvjkaDuO0Qoqkbdc0';
       } else {
