@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "Study Buddy",
+  "version": "1.0.0",
+  "description": "Capture notes, use AI chat, and analyze videos from anywhere on the web. Sync with your Study Buddy account.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://rork-study-buddy-production-eeeb.up.railway.app/*",
+    "https://studybuddy.global/*",
+    "https://*.youtube.com/*",
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_CHROME_EXTENSION_CLIENT_ID_HERE.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content-script.js"],
+      "css": ["content/content-style.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup/popup.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+

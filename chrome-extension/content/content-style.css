@@ -1,0 +1,243 @@
+#study-buddy-popup {
+  position: absolute;
+  z-index: 2147483647;
+  background: white;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  width: 400px;
+  max-height: 600px;
+  display: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.sb-popup-container {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 10px;
+}
+
+.sb-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border-radius: 10px 10px 0 0;
+}
+
+.sb-popup-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sb-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sb-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.sb-popup-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.sb-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.sb-tab:hover {
+  background: #f3f4f6;
+  color: #3b82f6;
+}
+
+.sb-tab.active {
+  background: white;
+  color: #3b82f6;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.sb-popup-content {
+  padding: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  background: white;
+}
+
+.sb-tab-content {
+  display: none;
+}
+
+.sb-tab-content.active {
+  display: block;
+}
+
+.sb-selected-text {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.sb-selected-text label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.sb-selected-text p {
+  margin: 0;
+  color: #6b7280;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.sb-input, .sb-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  margin: 8px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.sb-input:focus, .sb-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.sb-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.sb-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sb-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sb-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sb-btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.sb-btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.sb-btn-secondary {
+  background: #6b7280;
+  color: white;
+}
+
+.sb-btn-secondary:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.sb-chat-messages {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+  min-height: 100px;
+}
+
+.sb-chat-message {
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.sb-chat-message-user {
+  background: #dbeafe;
+  color: #1e40af;
+  text-align: right;
+  margin-left: 40px;
+}
+
+.sb-chat-message-assistant {
+  background: white;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  margin-right: 40px;
+}
+
+.sb-chat-message-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.sb-chat-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sb-status {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #f3f4f6;
+  color: #374151;
+  min-height: 20px;
+}
+
+.sb-status:empty {
+  display: none;
+}
+

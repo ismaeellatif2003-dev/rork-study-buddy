@@ -1558,6 +1558,71 @@ app.post("/auth/google", async (c) => {
       platform
     });
 
+    // Handle Chrome extension authentication (uses access token instead of ID token)
+    if (platform === 'chrome-extension') {
+      try {
+        // Verify access token with Google
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        });
+        
+        if (!userInfoResponse.ok) {
+          console.error('❌ Invalid Google access token');
+          return c.json({ error: "Invalid Google token" }, 401);
+        }
+        
+        const userInfo = await userInfoResponse.json();
+        const { id: googleId, email, name, picture } = userInfo;
+        
+        console.log('✅ Token verified for Chrome extension user:', email);
+        
+        // Get or create user
+        let user = await databaseService.getUserByGoogleId(googleId);
+        if (!user) {
+          user = await databaseService.createUser({
+            googleId,
+            email: email!,
+            name: name!,
+            picture,
+          });
+          console.log('✅ Created new user for Chrome extension');
+        } else {
+          // Update last login
+          await databaseService.updateUserLastLogin(user.id);
+          console.log('✅ Updated last login for existing user');
+        }
+        
+        // Generate JWT token
+        const token = jwtService.generateToken({
+          userId: user.id,
+          email: user.email,
+          platform: 'chrome-extension',
+        });
+        
+        return c.json({
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+          },
+        });
+      } catch (chromeError: any) {
+        console.error("❌ Chrome extension auth error:", {
+          message: chromeError.message,
+          stack: chromeError.stack
+        });
+        return c.json({ 
+          error: "Chrome extension authentication failed",
+          details: chromeError.message 
+        }, 500);
+      }
+    }
+
+    // Existing flow for other platforms (web, mobile, ios)
     const result = await authService.authenticateUser(idToken, platform, deviceInfo);
     console.log('✅ Authentication successful for user:', result.user.email);
     return c.json(result);
