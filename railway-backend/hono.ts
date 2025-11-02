@@ -1726,9 +1726,25 @@ app.post("/profile/sync", async (c) => {
     console.log("🔐 Profile sync token received:", token.substring(0, 20) + "...");
     
     let decoded;
+    let tokenExpired = false;
     try {
-      decoded = jwtService.verifyToken(token);
-      console.log("✅ JWT verification successful for user:", decoded.userId);
+      // For sync operations, allow expired tokens within grace period (30 days)
+      const result = jwtService.verifyTokenWithGracePeriod(token, 30);
+      decoded = result.decoded;
+      tokenExpired = result.isExpired;
+      
+      if (tokenExpired) {
+        console.log("⚠️ Token expired but within grace period, validating user exists...");
+        // Validate user still exists
+        const user = await databaseService.getUserById(decoded.userId);
+        if (!user) {
+          console.error("❌ User not found for expired token");
+          return c.json({ error: "User not found" }, 401);
+        }
+        console.log("✅ User validated for expired token, proceeding with sync");
+      } else {
+        console.log("✅ JWT verification successful for user:", decoded.userId);
+      }
     } catch (jwtError) {
       console.error("❌ JWT verification failed:", jwtError);
       return c.json({ error: "Invalid or expired token" }, 401);
@@ -1978,9 +1994,25 @@ app.post("/flashcards/sync", async (c) => {
     console.log("🔐 Token received:", token.substring(0, 20) + "...");
     
     let decoded;
+    let tokenExpired = false;
     try {
-      decoded = jwtService.verifyToken(token);
-      console.log("✅ JWT verification successful for user:", decoded.userId);
+      // For sync operations, allow expired tokens within grace period (30 days)
+      const result = jwtService.verifyTokenWithGracePeriod(token, 30);
+      decoded = result.decoded;
+      tokenExpired = result.isExpired;
+      
+      if (tokenExpired) {
+        console.log("⚠️ Token expired but within grace period, validating user exists...");
+        // Validate user still exists
+        const user = await databaseService.getUserById(decoded.userId);
+        if (!user) {
+          console.error("❌ User not found for expired token");
+          return c.json({ error: "User not found" }, 401);
+        }
+        console.log("✅ User validated for expired token, proceeding with sync");
+      } else {
+        console.log("✅ JWT verification successful for user:", decoded.userId);
+      }
     } catch (jwtError) {
       console.error("❌ JWT verification failed:", jwtError);
       return c.json({ error: "Invalid or expired token" }, 401);

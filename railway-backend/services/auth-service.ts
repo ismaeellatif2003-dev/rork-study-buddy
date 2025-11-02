@@ -182,7 +182,18 @@ export class AuthService {
 
   async syncUserData(token: string) {
     try {
-      const decoded = this.jwtService.verifyToken(token);
+      // For sync operations, allow expired tokens within grace period (30 days)
+      const result = this.jwtService.verifyTokenWithGracePeriod(token, 30);
+      const decoded = result.decoded;
+      
+      if (result.isExpired) {
+        // Validate user still exists
+        const user = await this.databaseService.getUserById(decoded.userId);
+        if (!user) {
+          throw new Error('User not found');
+        }
+      }
+      
       const userId = decoded.userId;
 
       const subscription = await this.databaseService.getUserSubscription(userId);
