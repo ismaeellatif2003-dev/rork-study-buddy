@@ -170,28 +170,37 @@ app.get("/metrics", (c) => {
 // Base timestamp for calculating time-based increments (can be set to a fixed date or server start time)
 const STATS_START_TIME = new Date('2025-11-02T00:00:00Z').getTime(); // Reset to today for manageable numbers
 const BASE_STAT_VALUE = 100; // Starting value for all stats
-const INCREMENT_PER_MINUTE = 5; // Add 5 to each stat every minute
+
+// Different increment rates per minute for each stat
+const INCREMENTS_PER_MINUTE = {
+  notes: 5,
+  flashcards: 3,
+  aiQuestions: 6,
+  essays: 1,
+};
 
 app.get("/platform-stats", async (c) => {
   try {
     console.log('🔍 Platform stats endpoint called');
     
-    // Calculate time-based increment (add 5 per minute since start time)
+    // Calculate time-based increments (different rates per stat)
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
-    const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
-    const finalValue = BASE_STAT_VALUE + timeBasedIncrement;
     
-    console.log(`⏰ Time-based increment: ${timeBasedIncrement} (${minutesElapsed} minutes elapsed)`);
-    console.log(`📊 Final value: ${BASE_STAT_VALUE} + ${timeBasedIncrement} = ${finalValue}`);
+    const notesIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.notes;
+    const flashcardsIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.flashcards;
+    const aiQuestionsIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.aiQuestions;
+    const essaysIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.essays;
     
-    // Return stats: 100 + (minutes elapsed × 5)
-    // All stats use the same value and increase together
+    console.log(`⏰ Minutes elapsed: ${minutesElapsed}`);
+    console.log(`📊 Increments: Notes +${notesIncrement}, Flashcards +${flashcardsIncrement}, AI Questions +${aiQuestionsIncrement}, Essays +${essaysIncrement}`);
+    
+    // Calculate final stats: 100 + (minutes elapsed × increment rate)
     const platformStats = {
-      totalNotes: finalValue,
-      totalFlashcards: finalValue,
-      totalAiQuestions: finalValue,
-      totalEssays: finalValue,
+      totalNotes: BASE_STAT_VALUE + notesIncrement,
+      totalFlashcards: BASE_STAT_VALUE + flashcardsIncrement,
+      totalAiQuestions: BASE_STAT_VALUE + aiQuestionsIncrement,
+      totalEssays: BASE_STAT_VALUE + essaysIncrement,
     };
 
     console.log('✅ Platform stats calculated:', platformStats);
@@ -202,14 +211,17 @@ app.get("/platform-stats", async (c) => {
     // Return time-based stats if there's an error
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
-    const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
-    const finalValue = BASE_STAT_VALUE + timeBasedIncrement;
+    
+    const notesIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.notes;
+    const flashcardsIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.flashcards;
+    const aiQuestionsIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.aiQuestions;
+    const essaysIncrement = minutesElapsed * INCREMENTS_PER_MINUTE.essays;
     
     return c.json({
-      totalNotes: finalValue,
-      totalFlashcards: finalValue,
-      totalAiQuestions: finalValue,
-      totalEssays: finalValue,
+      totalNotes: BASE_STAT_VALUE + notesIncrement,
+      totalFlashcards: BASE_STAT_VALUE + flashcardsIncrement,
+      totalAiQuestions: BASE_STAT_VALUE + aiQuestionsIncrement,
+      totalEssays: BASE_STAT_VALUE + essaysIncrement,
     });
   }
 });
