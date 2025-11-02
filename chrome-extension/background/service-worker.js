@@ -43,16 +43,100 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return { success: true, note, message: 'Note saved locally (testing mode)' };
           
         case 'generateSummary':
-          // For testing: Return mock summary
-          return { 
-            summary: `[TEST MODE] Summary: ${message.data.text.substring(0, 100)}... (Sign in to generate real summaries)` 
-          };
+          // Connect to backend /ai/generate endpoint (no auth required)
+          try {
+            const text = message.data.text;
+            
+            const messages = [
+              {
+                role: 'system',
+                content: 'You are a helpful study assistant. Generate a concise summary of the provided text.'
+              },
+              {
+                role: 'user',
+                content: `Please provide a concise summary of the following text:\n\n${text}`
+              }
+            ];
+            
+            const response = await fetch(`${API_BASE_URL}/ai/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages,
+                type: 'text',
+                model: 'openai/gpt-3.5-turbo'
+              }),
+            });
+            
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || 'Summary generation failed');
+            }
+            
+            const data = await response.json();
+            return { 
+              summary: data.response || data.text || 'Could not generate summary.',
+              note: data.note // Will show if using mock response
+            };
+          } catch (error) {
+            console.error('Summary generation error:', error);
+            return { 
+              summary: `Error: ${error.message}. Could not generate summary.`,
+              error: error.message
+            };
+          }
           
         case 'aiChat':
-          // For testing: Return mock response
-          return { 
-            response: `[TEST MODE] I can help you understand "${message.data.question.substring(0, 50)}...". Please sign in to use the full AI chat feature.` 
-          };
+          // Connect to backend /ai/generate endpoint (no auth required)
+          try {
+            const question = message.data.question;
+            const selectedText = message.data.selectedText || '';
+            
+            // Build messages array for the API
+            const messages = [
+              {
+                role: 'system',
+                content: 'You are a helpful study assistant. Help explain concepts and answer questions about the selected text.'
+              },
+              {
+                role: 'user',
+                content: selectedText 
+                  ? `Context: ${selectedText}\n\nQuestion: ${question}`
+                  : question
+              }
+            ];
+            
+            const response = await fetch(`${API_BASE_URL}/ai/generate`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages,
+                type: 'text',
+                model: 'openai/gpt-3.5-turbo'
+              }),
+            });
+            
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error || 'AI request failed');
+            }
+            
+            const data = await response.json();
+            return { 
+              response: data.response || data.text || 'I apologize, but I could not generate a response.',
+              note: data.note // Will show if using mock response
+            };
+          } catch (error) {
+            console.error('AI chat error:', error);
+            return { 
+              response: `Error: ${error.message}. The AI service may be unavailable.`,
+              error: error.message
+            };
+          }
           
         case 'analyzeVideo':
           // For testing: Return mock response
