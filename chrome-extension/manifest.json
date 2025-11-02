@@ -7,24 +7,13 @@
     "storage",
     "activeTab",
     "scripting",
-    "contextMenus",
-    "identity"
+    "contextMenus"
   ],
   "host_permissions": [
     "https://rork-study-buddy-production-eeeb.up.railway.app/*",
     "https://studybuddy.global/*",
-    "https://*.youtube.com/*",
-    "https://accounts.google.com/*",
-    "https://www.googleapis.com/*"
+    "https://*.youtube.com/*"
   ],
-  "oauth2": {
-    "client_id": "YOUR_CHROME_EXTENSION_CLIENT_ID_HERE.apps.googleusercontent.com",
-    "scopes": [
-      "openid",
-      "email",
-      "profile"
-    ]
-  },
   "background": {
     "service_worker": "background/service-worker.js"
   },

@@ -108,14 +108,9 @@ function closePopup() {
   }
 }
 
-// Check auth before action
+// No auth check needed for testing mode
 async function checkAuthBeforeAction() {
-  const response = await chrome.runtime.sendMessage({ action: 'checkAuth' });
-  if (!response.authenticated) {
-    alert('Please sign in to Study Buddy first. Click the extension icon to sign in.');
-    return false;
-  }
-  return true;
+  return true; // Always allow actions in test mode
 }
 
 function setupPopupEventListeners(popup) {
@@ -158,7 +153,7 @@ function setupPopupEventListeners(popup) {
         throw new Error(response.error);
       }
       
-      alert('✓ Note saved successfully! View it at studybuddy.global/notes');
+      alert(response.message || '✓ Note saved successfully! (Test mode - saved locally)');
       closePopup();
     } catch (error) {
       alert('Failed to save note: ' + error.message);

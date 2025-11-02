@@ -1,96 +1,47 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  const authBtn = document.getElementById('auth-btn');
-  const signOutBtn = document.getElementById('sign-out-btn');
-  const authSection = document.getElementById('auth-section');
-  const userSection = document.getElementById('user-section');
-  const quickActions = document.getElementById('quick-actions');
-  const instructions = document.getElementById('instructions');
-  const statusDiv = document.getElementById('auth-status');
-  
-  // Check auth status on load
-  async function updateUI() {
-    const response = await chrome.runtime.sendMessage({ action: 'checkAuth' });
-    
-    if (response.authenticated) {
-      // User is signed in
-      authSection.style.display = 'none';
-      userSection.style.display = 'block';
-      quickActions.style.display = 'block';
-      instructions.style.display = 'none';
-      
-      // Load user info
-      const userData = await chrome.storage.sync.get(['userName', 'userEmail', 'userPicture']);
-      
-      if (userData.userPicture) {
-        document.getElementById('user-picture').src = userData.userPicture;
-      }
-      document.getElementById('user-name').textContent = userData.userName || 'User';
-      document.getElementById('user-email').textContent = userData.userEmail || '';
-    } else {
-      // User is not signed in
-      authSection.style.display = 'block';
-      userSection.style.display = 'none';
-      quickActions.style.display = 'none';
-      instructions.style.display = 'block';
-      statusDiv.textContent = '';
-    }
-  }
-  
-  // Sign in button
-  authBtn.addEventListener('click', async () => {
-    authBtn.disabled = true;
-    const originalText = authBtn.innerHTML;
-    authBtn.innerHTML = '<span>Signing in...</span>';
-    statusDiv.textContent = 'Authenticating with Google...';
-    statusDiv.style.display = 'block';
-    
-    try {
-      const response = await chrome.runtime.sendMessage({ action: 'signIn' });
-      
-      if (response.success) {
-        statusDiv.textContent = '✓ Signed in successfully!';
-        statusDiv.style.color = '#10b981';
-        await updateUI();
-        setTimeout(() => {
-          statusDiv.style.display = 'none';
-        }, 2000);
-      } else {
-        throw new Error(response.error || 'Sign in failed');
-      }
-    } catch (error) {
-      statusDiv.textContent = 'Error: ' + error.message;
-      statusDiv.style.color = '#ef4444';
-      authBtn.disabled = false;
-      authBtn.innerHTML = originalText;
-    }
-  });
-  
-  // Sign out button
-  signOutBtn.addEventListener('click', async () => {
-    if (confirm('Are you sure you want to sign out?')) {
-      try {
-        await chrome.runtime.sendMessage({ action: 'signOut' });
-        await updateUI();
-      } catch (error) {
-        console.error('Sign out error:', error);
-      }
-    }
-  });
-  
   // Quick actions
-  document.getElementById('open-video-analyzer').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://studybuddy.global/video-analyzer' });
-  });
-  
-  document.getElementById('open-notes').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://studybuddy.global/notes' });
-  });
-  
   document.getElementById('open-app').addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://studybuddy.global' });
   });
   
-  // Initial UI update
-  await updateUI();
+  // View local notes
+  document.getElementById('view-local-notes').addEventListener('click', async () => {
+    const notesSection = document.getElementById('local-notes');
+    const notesList = document.getElementById('notes-list');
+    
+    if (notesSection.style.display === 'none') {
+      // Load and display notes
+      const { notes = [] } = await chrome.storage.local.get(['notes']);
+      
+      if (notes.length === 0) {
+        notesList.innerHTML = '<p style="color: #6b7280; padding: 12px; text-align: center;">No notes saved yet. Select text on a webpage to create notes!</p>';
+      } else {
+        notesList.innerHTML = notes.map((note, index) => `
+          <div class="note-item">
+            <div class="note-title">${note.title || 'Untitled'}</div>
+            <div class="note-content">${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}</div>
+            <div class="note-date">${new Date(note.createdAt).toLocaleDateString()}</div>
+            <button class="note-delete-btn" data-index="${index}">Delete</button>
+          </div>
+        `).join('');
+        
+        // Add delete handlers
+        notesList.querySelectorAll('.note-delete-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const index = parseInt(btn.dataset.index);
+            const { notes = [] } = await chrome.storage.local.get(['notes']);
+            notes.splice(index, 1);
+            await chrome.storage.local.set({ notes });
+            // Refresh list
+            document.getElementById('view-local-notes').click();
+          });
+        });
+      }
+      
+      notesSection.style.display = 'block';
+    } else {
+      notesSection.style.display = 'none';
+    }
+  });
 });
 
