@@ -180,58 +180,18 @@ app.get("/platform-stats", async (c) => {
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
     const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
-    const baseWithIncrement = BASE_STAT_VALUE + timeBasedIncrement;
+    const finalValue = BASE_STAT_VALUE + timeBasedIncrement;
     
     console.log(`⏰ Time-based increment: ${timeBasedIncrement} (${minutesElapsed} minutes elapsed)`);
-    console.log(`📊 Base value (${BASE_STAT_VALUE}) + increment = ${baseWithIncrement}`);
+    console.log(`📊 Final value: ${BASE_STAT_VALUE} + ${timeBasedIncrement} = ${finalValue}`);
     
-    // Check if database is available
-    if (!databaseService.hasDatabase()) {
-      console.log('❌ Database not available, returning time-based stats only');
-      return c.json({
-        totalNotes: baseWithIncrement,
-        totalFlashcards: baseWithIncrement,
-        totalAiQuestions: baseWithIncrement,
-        totalEssays: baseWithIncrement,
-      });
-    }
-
-    console.log('📊 Querying database for platform stats...');
-    
-    // Query actual counts from the database
-    // Use actual table counts instead of usage tracking
-    const [notesResult, flashcardsResult, essaysResult] = await Promise.all([
-      databaseService.query('SELECT COUNT(*) as count FROM notes'),
-      databaseService.query('SELECT COUNT(*) as count FROM flashcards'),
-      databaseService.query('SELECT COUNT(*) as count FROM essays'),
-    ]);
-
-    // Try to count AI questions from user_questions table, fallback to user_usage if table doesn't exist
-    let aiQuestionsResult;
-    try {
-      aiQuestionsResult = await databaseService.query('SELECT COUNT(*) as count FROM user_questions');
-    } catch (error) {
-      console.log('⚠️ user_questions table not found, using user_usage as fallback');
-      aiQuestionsResult = await databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage');
-    }
-
-    const notesCount = parseInt(notesResult.rows[0]?.count || '0');
-    const flashcardsCount = parseInt(flashcardsResult.rows[0]?.count || '0');
-    const essaysCount = parseInt(essaysResult.rows[0]?.count || '0');
-    const aiQuestionsCount = parseInt(aiQuestionsResult.rows[0]?.count || '0');
-
-    console.log('📊 Raw database results:');
-    console.log('  Notes:', notesCount);
-    console.log('  Flashcards:', flashcardsCount);
-    console.log('  Essays:', essaysCount);
-    console.log('  AI Questions:', aiQuestionsCount);
-
-    // Calculate final stats: base (100) + time increment (5 per minute) + actual database counts
+    // Return stats: 100 + (minutes elapsed × 5)
+    // All stats use the same value and increase together
     const platformStats = {
-      totalNotes: BASE_STAT_VALUE + timeBasedIncrement + notesCount,
-      totalFlashcards: BASE_STAT_VALUE + timeBasedIncrement + flashcardsCount,
-      totalAiQuestions: BASE_STAT_VALUE + timeBasedIncrement + aiQuestionsCount,
-      totalEssays: BASE_STAT_VALUE + timeBasedIncrement + essaysCount,
+      totalNotes: finalValue,
+      totalFlashcards: finalValue,
+      totalAiQuestions: finalValue,
+      totalEssays: finalValue,
     };
 
     console.log('✅ Platform stats calculated:', platformStats);
@@ -239,17 +199,17 @@ app.get("/platform-stats", async (c) => {
   } catch (error) {
     console.error('❌ Error fetching platform stats:', error);
     
-    // Return time-based stats if database query fails
+    // Return time-based stats if there's an error
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
     const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
-    const baseWithIncrement = BASE_STAT_VALUE + timeBasedIncrement;
+    const finalValue = BASE_STAT_VALUE + timeBasedIncrement;
     
     return c.json({
-      totalNotes: baseWithIncrement,
-      totalFlashcards: baseWithIncrement,
-      totalAiQuestions: baseWithIncrement,
-      totalEssays: baseWithIncrement,
+      totalNotes: finalValue,
+      totalFlashcards: finalValue,
+      totalAiQuestions: finalValue,
+      totalEssays: finalValue,
     });
   }
 });
