@@ -169,6 +169,8 @@ app.get("/metrics", (c) => {
 // Platform statistics endpoint
 // Base timestamp for calculating time-based increments (can be set to a fixed date or server start time)
 const STATS_START_TIME = new Date('2024-11-01T00:00:00Z').getTime(); // Fixed start date for consistent increments
+const BASE_STAT_VALUE = 100; // Starting value for all stats
+const INCREMENT_PER_MINUTE = 5; // Add 5 to each stat every minute
 
 app.get("/platform-stats", async (c) => {
   try {
@@ -177,18 +179,20 @@ app.get("/platform-stats", async (c) => {
     // Calculate time-based increment (add 5 per minute since start time)
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
-    const timeBasedIncrement = minutesElapsed * 5;
+    const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
+    const baseWithIncrement = BASE_STAT_VALUE + timeBasedIncrement;
     
     console.log(`⏰ Time-based increment: ${timeBasedIncrement} (${minutesElapsed} minutes elapsed)`);
+    console.log(`📊 Base value (${BASE_STAT_VALUE}) + increment = ${baseWithIncrement}`);
     
     // Check if database is available
     if (!databaseService.hasDatabase()) {
       console.log('❌ Database not available, returning time-based stats only');
       return c.json({
-        totalNotes: timeBasedIncrement,
-        totalFlashcards: timeBasedIncrement,
-        totalAiQuestions: timeBasedIncrement,
-        totalEssays: timeBasedIncrement,
+        totalNotes: baseWithIncrement,
+        totalFlashcards: baseWithIncrement,
+        totalAiQuestions: baseWithIncrement,
+        totalEssays: baseWithIncrement,
       });
     }
 
@@ -222,12 +226,12 @@ app.get("/platform-stats", async (c) => {
     console.log('  Essays:', essaysCount);
     console.log('  AI Questions:', aiQuestionsCount);
 
-    // Add time-based increment to actual database counts (5 per minute)
+    // Calculate final stats: base (100) + time increment (5 per minute) + actual database counts
     const platformStats = {
-      totalNotes: notesCount + timeBasedIncrement,
-      totalFlashcards: flashcardsCount + timeBasedIncrement,
-      totalAiQuestions: aiQuestionsCount + timeBasedIncrement,
-      totalEssays: essaysCount + timeBasedIncrement,
+      totalNotes: BASE_STAT_VALUE + timeBasedIncrement + notesCount,
+      totalFlashcards: BASE_STAT_VALUE + timeBasedIncrement + flashcardsCount,
+      totalAiQuestions: BASE_STAT_VALUE + timeBasedIncrement + aiQuestionsCount,
+      totalEssays: BASE_STAT_VALUE + timeBasedIncrement + essaysCount,
     };
 
     console.log('✅ Platform stats calculated:', platformStats);
@@ -238,13 +242,14 @@ app.get("/platform-stats", async (c) => {
     // Return time-based stats if database query fails
     const now = Date.now();
     const minutesElapsed = Math.floor((now - STATS_START_TIME) / (1000 * 60));
-    const timeBasedIncrement = minutesElapsed * 5;
+    const timeBasedIncrement = minutesElapsed * INCREMENT_PER_MINUTE;
+    const baseWithIncrement = BASE_STAT_VALUE + timeBasedIncrement;
     
     return c.json({
-      totalNotes: timeBasedIncrement,
-      totalFlashcards: timeBasedIncrement,
-      totalAiQuestions: timeBasedIncrement,
-      totalEssays: timeBasedIncrement,
+      totalNotes: baseWithIncrement,
+      totalFlashcards: baseWithIncrement,
+      totalAiQuestions: baseWithIncrement,
+      totalEssays: baseWithIncrement,
     });
   }
 });
