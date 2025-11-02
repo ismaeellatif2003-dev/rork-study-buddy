@@ -2081,7 +2081,13 @@ app.get("/essays", async (c) => {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwtService.verifyToken(token);
+    
+    // In development mode, use mock user ID
+    let userId = 1;
+    if (process.env.NODE_ENV === 'production') {
+      const decoded = jwtService.verifyToken(token);
+      userId = decoded.userId;
+    }
     
     // Get essays from database (for now, return empty array until we implement essay storage)
     return c.json({ success: true, essays: [] });

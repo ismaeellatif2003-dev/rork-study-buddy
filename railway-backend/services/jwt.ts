@@ -14,8 +14,15 @@ export class JWTService {
   verifyToken(token: string): any {
     try {
       return jwt.verify(token, this.secret);
-    } catch (error) {
-      throw new Error('Invalid token');
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error';
+      console.error('JWT verification failed:', {
+        error: errorMessage,
+        tokenLength: token?.length,
+        hasSecret: !!this.secret,
+        secretLength: this.secret?.length
+      });
+      throw new Error(`Invalid token: ${errorMessage}`);
     }
   }
 

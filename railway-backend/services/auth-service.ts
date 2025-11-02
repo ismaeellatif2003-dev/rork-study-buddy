@@ -35,7 +35,11 @@ export class AuthService {
           picture: 'https://via.placeholder.com/150'
         };
         
-        const token = this.jwtService.generateToken(mockUser.id, mockUser.email);
+        const token = this.jwtService.generateToken({
+          userId: parseInt(mockUser.id),
+          email: mockUser.email,
+          platform: 'web'
+        });
         
         return {
           token,
