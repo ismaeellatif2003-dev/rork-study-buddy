@@ -171,45 +171,53 @@ app.get("/platform-stats", async (c) => {
   try {
     console.log('🔍 Platform stats endpoint called');
     
-    // Base numbers to start with
-    const BASE_NOTES = 1000;
-    const BASE_FLASHCARDS = 1000;
-    const BASE_AI_QUESTIONS = 1000;
-    const BASE_ESSAYS = 1000;
-    
     // Check if database is available
     if (!databaseService.hasDatabase()) {
-      console.log('❌ Database not available, returning base stats');
+      console.log('❌ Database not available, returning zero stats');
       return c.json({
-        totalNotes: BASE_NOTES,
-        totalFlashcards: BASE_FLASHCARDS,
-        totalAiQuestions: BASE_AI_QUESTIONS,
-        totalEssays: BASE_ESSAYS,
+        totalNotes: 0,
+        totalFlashcards: 0,
+        totalAiQuestions: 0,
+        totalEssays: 0,
       });
     }
 
     console.log('📊 Querying database for platform stats...');
     
     // Query actual counts from the database
-    const [notesResult, flashcardsResult, essaysResult, aiQuestionsResult] = await Promise.all([
+    // Use actual table counts instead of usage tracking
+    const [notesResult, flashcardsResult, essaysResult] = await Promise.all([
       databaseService.query('SELECT COUNT(*) as count FROM notes'),
       databaseService.query('SELECT COUNT(*) as count FROM flashcards'),
       databaseService.query('SELECT COUNT(*) as count FROM essays'),
-      databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage')
     ]);
 
-    console.log('📊 Raw database results:');
-    console.log('  Notes:', notesResult.rows[0]?.count);
-    console.log('  Flashcards:', flashcardsResult.rows[0]?.count);
-    console.log('  Essays:', essaysResult.rows[0]?.count);
-    console.log('  AI Questions (messages):', aiQuestionsResult.rows[0]?.count);
+    // Try to count AI questions from user_questions table, fallback to user_usage if table doesn't exist
+    let aiQuestionsResult;
+    try {
+      aiQuestionsResult = await databaseService.query('SELECT COUNT(*) as count FROM user_questions');
+    } catch (error) {
+      console.log('⚠️ user_questions table not found, using user_usage as fallback');
+      aiQuestionsResult = await databaseService.query('SELECT COALESCE(SUM(messages), 0) as count FROM user_usage');
+    }
 
-    // Add base numbers to actual database counts
+    const notesCount = parseInt(notesResult.rows[0]?.count || '0');
+    const flashcardsCount = parseInt(flashcardsResult.rows[0]?.count || '0');
+    const essaysCount = parseInt(essaysResult.rows[0]?.count || '0');
+    const aiQuestionsCount = parseInt(aiQuestionsResult.rows[0]?.count || '0');
+
+    console.log('📊 Raw database results:');
+    console.log('  Notes:', notesCount);
+    console.log('  Flashcards:', flashcardsCount);
+    console.log('  Essays:', essaysCount);
+    console.log('  AI Questions:', aiQuestionsCount);
+
+    // Return actual database counts (no base values added)
     const platformStats = {
-      totalNotes: BASE_NOTES + parseInt(notesResult.rows[0]?.count || '0'),
-      totalFlashcards: BASE_FLASHCARDS + parseInt(flashcardsResult.rows[0]?.count || '0'),
-      totalAiQuestions: BASE_AI_QUESTIONS + parseInt(aiQuestionsResult.rows[0]?.count || '0'),
-      totalEssays: BASE_ESSAYS + parseInt(essaysResult.rows[0]?.count || '0'),
+      totalNotes: notesCount,
+      totalFlashcards: flashcardsCount,
+      totalAiQuestions: aiQuestionsCount,
+      totalEssays: essaysCount,
     };
 
     console.log('✅ Platform stats calculated:', platformStats);
@@ -217,12 +225,12 @@ app.get("/platform-stats", async (c) => {
   } catch (error) {
     console.error('❌ Error fetching platform stats:', error);
     
-    // Return base stats if database query fails
+    // Return zero stats if database query fails
     return c.json({
-      totalNotes: 1000,
-      totalFlashcards: 1000,
-      totalAiQuestions: 1000,
-      totalEssays: 1000,
+      totalNotes: 0,
+      totalFlashcards: 0,
+      totalAiQuestions: 0,
+      totalEssays: 0,
     });
   }
 });
