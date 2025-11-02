@@ -168,7 +168,7 @@ app.get("/metrics", (c) => {
 
 // Platform statistics endpoint
 // Base timestamp for calculating time-based increments (can be set to a fixed date or server start time)
-const STATS_START_TIME = new Date('2024-11-01T00:00:00Z').getTime(); // Fixed start date for consistent increments
+const STATS_START_TIME = new Date('2025-11-02T00:00:00Z').getTime(); // Reset to today for manageable numbers
 const BASE_STAT_VALUE = 100; // Starting value for all stats
 const INCREMENT_PER_MINUTE = 5; // Add 5 to each stat every minute
 
