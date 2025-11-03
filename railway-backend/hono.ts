@@ -851,13 +851,16 @@ app.post("/ai/personalized-chat", async (c) => {
     }
 
     const body = await c.req.json();
-    const { question, conversationHistory = [] } = body;
+    const { question, conversationHistory = [], selectedText } = body;
 
     if (!question || typeof question !== 'string') {
       return c.json({ error: 'Question is required' }, 400);
     }
 
     console.log(`🤖 Personalized chat request for user ${userId}: ${question.substring(0, 50)}...`);
+    if (selectedText) {
+      console.log(`📄 Selected text provided (${selectedText.length} chars): ${selectedText.substring(0, 100)}...`);
+    }
 
     // Step 1: Generate embedding for the question
     const questionEmbedding = await embeddingService.generateEmbedding(question);
@@ -879,40 +882,70 @@ app.post("/ai/personalized-chat", async (c) => {
       }
     }
 
-    // Step 3: Build context from relevant notes
+    // Step 3: Build context from relevant notes and selected text
     let contextText = '';
     const contextNoteIds: number[] = [];
     
+    // Priority 1: Use selected text if provided (most relevant context)
+    if (selectedText && selectedText.trim()) {
+      contextText = `[Selected Text from Web Page]\n${selectedText.trim()}`;
+      console.log('📄 Using selected text as primary context');
+    }
+    
+    // Priority 2: Add relevant notes from user's saved notes
     if (relevantNotes.length > 0) {
-      contextText = relevantNotes.map((note, index) => {
+      const notesContext = relevantNotes.map((note, index) => {
         contextNoteIds.push(note.note_id);
         return `[Note ${index + 1}: ${(note as any).title || 'Untitled'}]\n${note.content_text.substring(0, 500)}`;
       }).join('\n\n');
       
-      // Extract topic tags from question
-      const topicTags = embeddingService.extractTopics(question);
-      console.log(`📌 Extracted topics: ${topicTags.join(', ')}`);
-
-      // Step 4: Get user's knowledge profile for personalized prompt
-      const knowledgeProfile = await databaseService.getUserKnowledgeProfile(userId);
-      
-      // Step 5: Build personalized system prompt
-      let systemPrompt = `You are a personalized AI study assistant. You answer questions based on the user's own notes and study materials. `;
-      
-      if (knowledgeProfile && knowledgeProfile.topics_studied && knowledgeProfile.topics_studied.length > 0) {
-        systemPrompt += `The user has been studying: ${(knowledgeProfile.topics_studied as any[]).slice(0, 5).join(', ')}. `;
+      if (contextText) {
+        contextText = `${contextText}\n\n[Additional Context from Your Saved Notes]\n${notesContext}`;
+      } else {
+        contextText = `[Your Saved Notes]\n${notesContext}`;
       }
-      
-      systemPrompt += `Use the provided notes context to give accurate, personalized answers. If the answer isn't in the notes, say so but still try to help based on general knowledge.`;
+      console.log(`📚 Added ${relevantNotes.length} relevant notes to context`);
+    }
+    
+    // Extract topic tags from question
+    const topicTags = embeddingService.extractTopics(question);
+    if (selectedText) {
+      // Also extract topics from selected text for better context
+      const selectedTopics = embeddingService.extractTopics(selectedText);
+      topicTags.push(...selectedTopics);
+    }
+    console.log(`📌 Extracted topics: ${topicTags.join(', ')}`);
 
-      // Step 6: Build the user prompt with context
-      const userPrompt = `Based on the following notes from the user's study materials:
+    // Step 4: Get user's knowledge profile for personalized prompt
+    const knowledgeProfile = await databaseService.getUserKnowledgeProfile(userId);
+    
+    // Step 5: Build personalized system prompt
+    let systemPrompt = `You are a personalized AI study assistant. Answer questions based on the context provided by the user. `;
+    
+    if (selectedText) {
+      systemPrompt += `The user has selected text from a webpage that is relevant to their question. `;
+    }
+    
+    if (knowledgeProfile && knowledgeProfile.topics_studied && knowledgeProfile.topics_studied.length > 0) {
+      systemPrompt += `The user has been studying: ${(knowledgeProfile.topics_studied as any[]).slice(0, 5).join(', ')}. `;
+    }
+    
+    systemPrompt += `Use the provided context (selected text and/or saved notes) to give accurate, relevant answers. Reference specific details from the context when answering. If the answer isn't in the provided context, say so but still try to help based on general knowledge.`;
+
+    // Step 6: Build the user prompt with context
+    let userPrompt = '';
+    if (contextText) {
+      userPrompt = `Based on the following context:
 
 ${contextText}
 
 Question: ${question}
 
-Provide a clear, educational answer that references the relevant notes when possible.`;
+Provide a clear, educational answer that directly references specific details from the context above when relevant.`;
+    } else {
+      // No context available - general answer
+      userPrompt = `Question: ${question}\n\nProvide a clear, educational answer.`;
+    }
 
       // Step 7: Call AI with personalized context
       const openRouterKey = process.env.OPENROUTER_API_KEY;
@@ -982,44 +1015,95 @@ Provide a clear, educational answer that references the relevant notes when poss
         timestamp: new Date().toISOString()
       });
     } else {
-      // No relevant notes found - use general AI response
-      console.log('⚠️ No relevant notes found, using general AI response');
-      
-      const openRouterKey = process.env.OPENROUTER_API_KEY;
-      if (!openRouterKey) {
-        return c.json({ 
-          success: false,
-          error: 'OpenRouter API key not configured'
-        }, 500);
+      // No relevant notes found, but check if we have selected text
+      if (selectedText && selectedText.trim()) {
+        console.log('📄 Using selected text as context (no saved notes found)');
+        
+        const openRouterKey = process.env.OPENROUTER_API_KEY;
+        if (!openRouterKey) {
+          return c.json({ 
+            success: false,
+            error: 'OpenRouter API key not configured'
+          }, 500);
+        }
+
+        const openai = new OpenAI({
+          apiKey: openRouterKey,
+          baseURL: 'https://openrouter.ai/api/v1'
+        });
+
+        const systemPrompt = 'You are a helpful AI study assistant. Answer questions based on the selected text context provided by the user. Reference specific details from the selected text when answering.';
+        
+        const userPrompt = `Based on the following selected text:
+
+${selectedText.trim()}
+
+Question: ${question}
+
+Provide a clear, educational answer that directly references specific details from the selected text above.`;
+
+        const messages: any[] = [
+          { role: 'system', content: systemPrompt },
+          ...conversationHistory.slice(-5),
+          { role: 'user', content: userPrompt }
+        ];
+
+        const completion = await openai.chat.completions.create({
+          model: 'openai/gpt-4o',
+          messages,
+          max_tokens: 1000,
+          temperature: 0.7
+        });
+
+        const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+
+        return c.json({
+          success: true,
+          response: answer,
+          contextNotes: [],
+          note: 'Answer based on selected text from webpage.',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // No context at all - use general AI response
+        console.log('⚠️ No relevant notes or selected text found, using general AI response');
+        
+        const openRouterKey = process.env.OPENROUTER_API_KEY;
+        if (!openRouterKey) {
+          return c.json({ 
+            success: false,
+            error: 'OpenRouter API key not configured'
+          }, 500);
+        }
+
+        const openai = new OpenAI({
+          apiKey: openRouterKey,
+          baseURL: 'https://openrouter.ai/api/v1'
+        });
+
+        const messages: any[] = [
+          { role: 'system', content: 'You are a helpful AI study assistant. Provide clear, educational responses.' },
+          ...conversationHistory.slice(-5),
+          { role: 'user', content: question }
+        ];
+
+        const completion = await openai.chat.completions.create({
+          model: 'openai/gpt-4o',
+          messages,
+          max_tokens: 1000,
+          temperature: 0.7
+        });
+
+        const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+
+        return c.json({
+          success: true,
+          response: answer,
+          contextNotes: [],
+          note: 'No relevant notes found in your study materials. This is a general answer.',
+          timestamp: new Date().toISOString()
+        });
       }
-
-      const openai = new OpenAI({
-        apiKey: openRouterKey,
-        baseURL: 'https://openrouter.ai/api/v1'
-      });
-
-      const messages: any[] = [
-        { role: 'system', content: 'You are a helpful AI study assistant. Provide clear, educational responses.' },
-        ...conversationHistory.slice(-5),
-        { role: 'user', content: question }
-      ];
-
-      const completion = await openai.chat.completions.create({
-        model: 'openai/gpt-4o',
-        messages,
-        max_tokens: 1000,
-        temperature: 0.7
-      });
-
-      const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-
-      return c.json({
-        success: true,
-        response: answer,
-        contextNotes: [],
-        note: 'No relevant notes found in your study materials. This is a general answer.',
-        timestamp: new Date().toISOString()
-      });
     }
   } catch (error: any) {
     console.error('Personalized chat endpoint error:', error);

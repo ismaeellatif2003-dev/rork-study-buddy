@@ -34,21 +34,27 @@ class StudyBuddyAPI {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        await this.clearToken();
-        throw new Error('Authentication required. Please sign in.');
+      const responseData = await response.json().catch(() => ({ error: 'Invalid JSON response' }));
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          await this.clearToken();
+          throw new Error('Authentication required. Please sign in.');
+        }
+        throw new Error(responseData.error || responseData.message || `HTTP ${response.status}`);
       }
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
 
-    return response.json();
+      return responseData;
+    } catch (error) {
+      console.error('API request error:', error);
+      throw error;
+    }
   }
 
   // Notes API
@@ -60,10 +66,14 @@ class StudyBuddyAPI {
   }
 
   // AI Chat API
-  async personalizedChat(question, conversationHistory = []) {
+  async personalizedChat(question, conversationHistory = [], selectedText = null) {
     return this.request('/ai/personalized-chat', {
       method: 'POST',
-      body: JSON.stringify({ question, conversationHistory }),
+      body: JSON.stringify({ 
+        question, 
+        conversationHistory,
+        selectedText: selectedText || null
+      }),
     });
   }
 
