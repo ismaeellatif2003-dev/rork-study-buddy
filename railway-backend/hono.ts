@@ -1577,47 +1577,68 @@ app.post("/auth/google", async (c) => {
         const { id: googleId, email, name, picture } = userInfo;
         
         console.log('✅ Token verified for Chrome extension user:', email);
+        console.log('🔍 User info from Google:', { googleId, email, name, hasPicture: !!picture });
         
         // Get or create user
+        console.log('🔍 Looking up user by Google ID:', googleId);
         let user = await databaseService.getUserByGoogleId(googleId);
-        if (!user) {
-          user = await databaseService.createUser({
-            googleId,
-            email: email!,
-            name: name!,
-            picture,
-          });
-          console.log('✅ Created new user for Chrome extension');
-        } else {
-          // Update last login
-          await databaseService.updateUserLastLogin(user.id);
-          console.log('✅ Updated last login for existing user');
-        }
+        console.log('🔍 User lookup result:', user ? { id: user.id, email: user.email } : 'not found');
         
-        // Generate JWT token
-        const token = jwtService.generateToken({
-          userId: user.id,
-          email: user.email,
-          platform: 'chrome-extension',
-        });
-        
-        return c.json({
-          token,
-          user: {
-            id: user.id,
+        try {
+          if (!user) {
+            console.log('🔍 Creating new user...');
+            user = await databaseService.createUser({
+              googleId,
+              email: email!,
+              name: name!,
+              picture,
+            });
+            console.log('✅ Created new user for Chrome extension:', { id: user.id, email: user.email });
+          } else {
+            // Update last login
+            console.log('🔍 Updating last login...');
+            await databaseService.updateUserLastLogin(user.id);
+            console.log('✅ Updated last login for existing user');
+          }
+          
+          // Generate JWT token
+          console.log('🔍 Generating JWT token...');
+          const token = jwtService.generateToken({
+            userId: user.id,
             email: user.email,
-            name: user.name,
-            picture: user.picture,
-          },
-        });
+            platform: 'chrome-extension',
+          });
+          console.log('✅ JWT token generated successfully');
+          
+          return c.json({
+            token,
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              picture: user.picture,
+            },
+          });
+        } catch (dbError: any) {
+          console.error('❌ Database operation error:', {
+            message: dbError.message,
+            stack: dbError.stack,
+            code: dbError.code
+          });
+          throw dbError;
+        }
       } catch (chromeError: any) {
         console.error("❌ Chrome extension auth error:", {
           message: chromeError.message,
-          stack: chromeError.stack
+          stack: chromeError.stack,
+          errorType: chromeError.constructor?.name,
+          errorCode: chromeError.code
         });
+        console.error("❌ Full error details:", JSON.stringify(chromeError, Object.getOwnPropertyNames(chromeError)));
         return c.json({ 
           error: "Chrome extension authentication failed",
-          details: chromeError.message 
+          details: chromeError.message || 'Unknown error',
+          errorType: chromeError.constructor?.name
         }, 500);
       }
     }
