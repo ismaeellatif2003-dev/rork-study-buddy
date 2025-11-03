@@ -1573,7 +1573,7 @@ app.post("/auth/google", async (c) => {
           return c.json({ error: "Invalid Google token" }, 401);
         }
         
-        const userInfo = await userInfoResponse.json();
+        const userInfo = await userInfoResponse.json() as { id: string; email: string; name: string; picture?: string };
         const { id: googleId, email, name, picture } = userInfo;
         
         console.log('✅ Token verified for Chrome extension user:', email);
