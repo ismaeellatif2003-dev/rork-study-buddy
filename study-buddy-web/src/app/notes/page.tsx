@@ -200,47 +200,11 @@ export default function NotesPage() {
     setIsGenerating(note.id);
     
     try {
-      // Generate flashcards using AI service
+      // Generate flashcards using AI service - same format as iOS app
+      // Hardcoded limit: always generate 10 flashcards
       const aiResponse = await aiService.generateFlashcards({
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert educator and study specialist. Create high-quality, detailed flashcards that are SPECIFICALLY based on the given note content.
-
-CRITICAL REQUIREMENTS:
-- Create 5-7 flashcards that are DIRECTLY related to the specific content in this note
-- Questions must reference specific facts, concepts, and details from the note content
-- Answers must be based ONLY on the information provided in the note
-- Do not create generic questions that could apply to any topic
-- Focus on the most important and specific information from this particular note
-- Make questions that test understanding of the specific material in this note
-- Ensure answers include specific details and examples from the note content
-- Avoid generic educational questions - make them specific to this note's content
-
-CONTENT-SPECIFIC GUIDELINES:
-- Extract key facts, concepts, and details from the note content
-- Create questions that test understanding of these specific elements
-- Reference specific names, dates, processes, or concepts mentioned in the note
-- Ask about relationships, causes, effects, or implications specific to this note
-- Include specific examples or details mentioned in the note
-- Make questions that require analysis of the specific information in this note
-
-Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and directly reference the note content.`
-          },
-          {
-            role: 'user',
-            content: `Create detailed, educational flashcards that are SPECIFICALLY based on this exact note content. Generate questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this note. Do not create generic questions - make them specific to what is actually written in this note:
-
-Title: ${note.title}
-
-Content: ${note.content}
-
-Generate 5-7 high-quality flashcards that test understanding of the specific concepts, facts, and details mentioned in this particular note. Focus on the most important and specific information from this note content.`
-          }
-        ],
-        type: 'flashcards',
-        model: 'openai/gpt-4o',
-        count: 7
+        content: note.content,
+        count: 10
       });
 
       if (!aiResponse.success || !aiResponse.flashcards) {

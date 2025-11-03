@@ -275,8 +275,8 @@ Date: ${new Date().toLocaleDateString()}
 
   const generateFlashcardsFromNote = async (noteId: string, content: string, noteTitle: string) => {
     try {
-      // Always generate minimum 5 flashcards
-      const flashcardsData = await AIService.generateFlashcards(content, 5);
+      // Hardcoded limit: always generate 10 flashcards
+      const flashcardsData = await AIService.generateFlashcards(content, 10);
       const flashcards = flashcardsData.map(card => ({
         noteId,
         question: card.question,
