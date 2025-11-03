@@ -80,10 +80,26 @@ class StudyBuddyAPI {
     return this.request('/ai/generate', {
       method: 'POST',
       body: JSON.stringify({
-        type: 'text',
-        prompt: `Please provide a concise summary of the following text:\n\n${text}`,
-        maxTokens: 500,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.'
+          },
+          {
+            role: 'user',
+            content: `Summarize this content: ${text}`
+          }
+        ],
+        type: 'summary',
+        model: 'openai/gpt-3.5-turbo'
       }),
+    });
+  }
+
+  // Get subscription status
+  async getSubscriptionStatus() {
+    return this.request('/auth/subscription-status', {
+      method: 'GET',
     });
   }
 }

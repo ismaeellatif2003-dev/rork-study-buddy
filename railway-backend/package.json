@@ -13,7 +13,9 @@
     "db:seed": "tsx database/migrate.ts seed",
     "db:reset-and-migrate": "tsx database/migrate.ts reset-and-migrate",
     "db:full-setup": "tsx database/migrate.ts full-setup",
-    "db:test": "tsx database/test-connection.ts"
+    "db:test": "tsx database/test-connection.ts",
+    "db:ai-migration": "tsx database/run-ai-learning-migration.ts",
+    "db:ai-migration-js": "node database/run-migration-now.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.8.0",

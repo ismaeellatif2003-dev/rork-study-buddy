@@ -864,8 +864,20 @@ app.post("/ai/personalized-chat", async (c) => {
     console.log('✅ Generated question embedding');
 
     // Step 2: Search for relevant notes using vector similarity
-    const relevantNotes = await databaseService.searchSimilarNotes(userId, questionEmbedding, 5);
-    console.log(`✅ Found ${relevantNotes.length} relevant notes`);
+    // Try to search similar notes, but handle case where note_embeddings table doesn't exist yet
+    let relevantNotes: any[] = [];
+    try {
+      relevantNotes = await databaseService.searchSimilarNotes(userId, questionEmbedding, 5);
+      console.log(`✅ Found ${relevantNotes.length} relevant notes`);
+    } catch (embeddingError: any) {
+      // If note_embeddings table doesn't exist, continue without context
+      if (embeddingError?.code === '42P01' || embeddingError?.message?.includes('note_embeddings')) {
+        console.warn('⚠️ note_embeddings table not found. Continuing without RAG context. Run migration: npm run db:ai-migration');
+        relevantNotes = [];
+      } else {
+        throw embeddingError;
+      }
+    }
 
     // Step 3: Build context from relevant notes
     let contextText = '';
