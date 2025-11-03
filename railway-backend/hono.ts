@@ -917,7 +917,17 @@ app.post("/ai/personalized-chat", async (c) => {
     console.log(`📌 Extracted topics: ${topicTags.join(', ')}`);
 
     // Step 4: Get user's knowledge profile for personalized prompt
-    const knowledgeProfile = await databaseService.getUserKnowledgeProfile(userId);
+    let knowledgeProfile = null;
+    try {
+      knowledgeProfile = await databaseService.getUserKnowledgeProfile(userId);
+    } catch (profileError: any) {
+      // Gracefully handle missing table - just continue without profile
+      if (profileError?.code === '42P01' || profileError?.message?.includes('user_knowledge_profiles')) {
+        console.warn('⚠️ user_knowledge_profiles table not found. Continuing without personalized profile.');
+      } else {
+        console.error('Error getting knowledge profile:', profileError);
+      }
+    }
     
     // Step 5: Build personalized system prompt
     let systemPrompt = `You are a personalized AI study assistant. Answer questions based on the context provided by the user. `;
@@ -979,29 +989,51 @@ Provide a clear, educational answer that directly references specific details fr
     
     console.log(`✅ Generated personalized answer (${answer.length} chars)`);
 
-    // Step 8: Store question and answer for learning
-    try {
-      await databaseService.storeUserQuestion(
-        userId,
-        question,
-        answer,
-        contextNoteIds,
-        topicTags,
-        'medium' // Can be determined by analyzing question complexity
-      );
+      // Step 8: Store question and answer for learning
+      try {
+        await databaseService.storeUserQuestion(
+          userId,
+          question,
+          answer,
+          contextNoteIds,
+          topicTags,
+          'medium' // Can be determined by analyzing question complexity
+        );
+      } catch (storeError: any) {
+        // Gracefully handle missing table
+        if (storeError?.code === '42P01' || storeError?.message?.includes('user_questions')) {
+          console.warn('⚠️ user_questions table not found. Skipping question storage.');
+        } else {
+          console.error('Failed to store question for learning:', storeError);
+        }
+        // Don't fail the request if storing fails
+      }
 
-      // Update knowledge profile (async, don't wait)
-      const existingProfile = knowledgeProfile || await databaseService.getUserKnowledgeProfile(userId);
-      const currentTopics = existingProfile?.topics_studied as any[] || [];
-      const updatedTopics = [...new Set([...currentTopics, ...topicTags])];
-      
-      databaseService.updateUserKnowledgeProfile(userId, {
-        topics_studied: updatedTopics
-      }).catch(err => console.error('Failed to update knowledge profile:', err));
-    } catch (storeError) {
-      console.error('Failed to store question for learning:', storeError);
-      // Don't fail the request if storing fails
-    }
+      // Update knowledge profile (async, don't wait) - only if we successfully got a profile
+      if (knowledgeProfile) {
+        try {
+          const currentTopics = (knowledgeProfile.topics_studied as any[] || []);
+          const updatedTopics = [...new Set([...currentTopics, ...topicTags])];
+          
+          databaseService.updateUserKnowledgeProfile(userId, {
+            topics_studied: updatedTopics
+          }).catch((err: any) => {
+            // Gracefully handle missing table
+            if (err?.code === '42P01' || err?.message?.includes('user_knowledge_profiles')) {
+              console.warn('⚠️ user_knowledge_profiles table not found. Skipping profile update.');
+            } else {
+              console.error('Failed to update knowledge profile:', err);
+            }
+          });
+        } catch (profileError: any) {
+          // Gracefully handle missing table
+          if (profileError?.code === '42P01' || profileError?.message?.includes('user_knowledge_profiles')) {
+            console.warn('⚠️ user_knowledge_profiles table not found. Skipping profile update.');
+          } else {
+            console.error('Failed to update knowledge profile:', profileError);
+          }
+        }
+      }
 
     return c.json({
       success: true,
