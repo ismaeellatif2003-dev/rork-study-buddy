@@ -947,164 +947,73 @@ Provide a clear, educational answer that directly references specific details fr
       userPrompt = `Question: ${question}\n\nProvide a clear, educational answer.`;
     }
 
-      // Step 7: Call AI with personalized context
-      const openRouterKey = process.env.OPENROUTER_API_KEY;
-      if (!openRouterKey) {
-        return c.json({ 
-          success: false,
-          error: 'OpenRouter API key not configured'
-        }, 500);
-      }
-
-      const openai = new OpenAI({
-        apiKey: openRouterKey,
-        baseURL: 'https://openrouter.ai/api/v1'
-      });
-
-      // Build conversation history with context
-      const messages: any[] = [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory.slice(-5), // Last 5 messages for context
-        { role: 'user', content: userPrompt }
-      ];
-
-      const completion = await openai.chat.completions.create({
-        model: 'openai/gpt-4o',
-        messages,
-        max_tokens: 1000,
-        temperature: 0.7
-      });
-
-      const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-      
-      console.log(`✅ Generated personalized answer (${answer.length} chars)`);
-
-      // Step 8: Store question and answer for learning
-      try {
-        await databaseService.storeUserQuestion(
-          userId,
-          question,
-          answer,
-          contextNoteIds,
-          topicTags,
-          'medium' // Can be determined by analyzing question complexity
-        );
-
-        // Update knowledge profile (async, don't wait)
-        const existingProfile = knowledgeProfile || await databaseService.getUserKnowledgeProfile(userId);
-        const currentTopics = existingProfile?.topics_studied as any[] || [];
-        const updatedTopics = [...new Set([...currentTopics, ...topicTags])];
-        
-        databaseService.updateUserKnowledgeProfile(userId, {
-          topics_studied: updatedTopics
-        }).catch(err => console.error('Failed to update knowledge profile:', err));
-      } catch (storeError) {
-        console.error('Failed to store question for learning:', storeError);
-        // Don't fail the request if storing fails
-      }
-
-      return c.json({
-        success: true,
-        response: answer,
-        contextNotes: relevantNotes.map(n => ({
-          id: n.note_id,
-          title: (n as any).title || 'Untitled',
-          similarity: (n as any).similarity || 0
-        })),
-        topics: topicTags,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      // No relevant notes found, but check if we have selected text
-      if (selectedText && selectedText.trim()) {
-        console.log('📄 Using selected text as context (no saved notes found)');
-        
-        const openRouterKey = process.env.OPENROUTER_API_KEY;
-        if (!openRouterKey) {
-          return c.json({ 
-            success: false,
-            error: 'OpenRouter API key not configured'
-          }, 500);
-        }
-
-        const openai = new OpenAI({
-          apiKey: openRouterKey,
-          baseURL: 'https://openrouter.ai/api/v1'
-        });
-
-        const systemPrompt = 'You are a helpful AI study assistant. Answer questions based on the selected text context provided by the user. Reference specific details from the selected text when answering.';
-        
-        const userPrompt = `Based on the following selected text:
-
-${selectedText.trim()}
-
-Question: ${question}
-
-Provide a clear, educational answer that directly references specific details from the selected text above.`;
-
-        const messages: any[] = [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory.slice(-5),
-          { role: 'user', content: userPrompt }
-        ];
-
-        const completion = await openai.chat.completions.create({
-          model: 'openai/gpt-4o',
-          messages,
-          max_tokens: 1000,
-          temperature: 0.7
-        });
-
-        const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-
-        return c.json({
-          success: true,
-          response: answer,
-          contextNotes: [],
-          note: 'Answer based on selected text from webpage.',
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        // No context at all - use general AI response
-        console.log('⚠️ No relevant notes or selected text found, using general AI response');
-        
-        const openRouterKey = process.env.OPENROUTER_API_KEY;
-        if (!openRouterKey) {
-          return c.json({ 
-            success: false,
-            error: 'OpenRouter API key not configured'
-          }, 500);
-        }
-
-        const openai = new OpenAI({
-          apiKey: openRouterKey,
-          baseURL: 'https://openrouter.ai/api/v1'
-        });
-
-        const messages: any[] = [
-          { role: 'system', content: 'You are a helpful AI study assistant. Provide clear, educational responses.' },
-          ...conversationHistory.slice(-5),
-          { role: 'user', content: question }
-        ];
-
-        const completion = await openai.chat.completions.create({
-          model: 'openai/gpt-4o',
-          messages,
-          max_tokens: 1000,
-          temperature: 0.7
-        });
-
-        const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-
-        return c.json({
-          success: true,
-          response: answer,
-          contextNotes: [],
-          note: 'No relevant notes found in your study materials. This is a general answer.',
-          timestamp: new Date().toISOString()
-        });
-      }
+    // Step 7: Call AI with personalized context
+    const openRouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openRouterKey) {
+      return c.json({ 
+        success: false,
+        error: 'OpenRouter API key not configured'
+      }, 500);
     }
+
+    const openai = new OpenAI({
+      apiKey: openRouterKey,
+      baseURL: 'https://openrouter.ai/api/v1'
+    });
+
+    // Build conversation history with context
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.slice(-5), // Last 5 messages for context
+      { role: 'user', content: userPrompt }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: 'openai/gpt-4o',
+      messages,
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+
+    const answer = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+    
+    console.log(`✅ Generated personalized answer (${answer.length} chars)`);
+
+    // Step 8: Store question and answer for learning
+    try {
+      await databaseService.storeUserQuestion(
+        userId,
+        question,
+        answer,
+        contextNoteIds,
+        topicTags,
+        'medium' // Can be determined by analyzing question complexity
+      );
+
+      // Update knowledge profile (async, don't wait)
+      const existingProfile = knowledgeProfile || await databaseService.getUserKnowledgeProfile(userId);
+      const currentTopics = existingProfile?.topics_studied as any[] || [];
+      const updatedTopics = [...new Set([...currentTopics, ...topicTags])];
+      
+      databaseService.updateUserKnowledgeProfile(userId, {
+        topics_studied: updatedTopics
+      }).catch(err => console.error('Failed to update knowledge profile:', err));
+    } catch (storeError) {
+      console.error('Failed to store question for learning:', storeError);
+      // Don't fail the request if storing fails
+    }
+
+    return c.json({
+      success: true,
+      response: answer,
+      contextNotes: relevantNotes.map(n => ({
+        id: n.note_id,
+        title: (n as any).title || 'Untitled',
+        similarity: (n as any).similarity || 0
+      })),
+      topics: topicTags,
+      timestamp: new Date().toISOString()
+    });
   } catch (error: any) {
     console.error('Personalized chat endpoint error:', error);
     return c.json({ 
