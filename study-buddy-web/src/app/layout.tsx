@@ -11,10 +11,6 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Study Buddy - AI-Powered Study Assistant',
   description: 'Create notes, generate flashcards, and get AI help with your studies',
-  icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
-  },
 };
 
 export default function RootLayout({
