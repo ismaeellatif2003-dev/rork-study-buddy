@@ -6,13 +6,23 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting",
-    "contextMenus"
+    "contextMenus",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "170755360925-lbnesfl6tfk5qhc6pdg3d7mkhdc134ll.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
   "host_permissions": [
     "https://rork-study-buddy-production-eeeb.up.railway.app/*",
     "https://studybuddy.global/*",
-    "https://*.youtube.com/*"
+    "https://*.youtube.com/*",
+    "https://accounts.google.com/*",
+    "https://www.googleapis.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
