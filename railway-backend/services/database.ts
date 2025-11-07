@@ -10,16 +10,44 @@ let pool: Pool | null = null;
 // Initialize database connection only if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   console.log('🔗 Initializing database connection with DATABASE_URL');
+  console.log('📝 DATABASE_URL present:', process.env.DATABASE_URL.substring(0, 20) + '...');
+  
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000, // Increased timeout for Railway
   });
-  console.log('✅ Database connection pool initialized');
+  
+  // Test connection immediately
+  pool.query('SELECT NOW()')
+    .then(() => {
+      console.log('✅ Database connection pool initialized and tested successfully');
+    })
+    .catch((error) => {
+      console.error('❌ Database connection test failed:', {
+        message: error.message,
+        code: error.code,
+        detail: error.detail
+      });
+      console.error('⚠️  Database operations may fail. Check DATABASE_URL and Railway PostgreSQL service.');
+    });
+  
+  // Handle connection errors
+  pool.on('error', (err) => {
+    console.error('❌ Unexpected database pool error:', {
+      message: err.message,
+      code: err.code
+    });
+  });
+  
+  pool.on('connect', () => {
+    console.log('✅ New database client connected');
+  });
 } else {
   console.log('🔧 Running in development mode with mock database - no DATABASE_URL found');
+  console.log('⚠️  Set DATABASE_URL environment variable to connect to a real database');
 }
 
 // Types for database operations
@@ -200,7 +228,22 @@ export class DatabaseService {
     if (this.isDevelopmentMode()) {
       throw new Error('Database queries not available in development mode');
     }
-    return await this.pool!.query(query, params);
+    
+    if (!this.pool) {
+      throw new Error('Database pool not initialized. DATABASE_URL may be missing.');
+    }
+    
+    try {
+      return await this.pool.query(query, params);
+    } catch (error: any) {
+      console.error('❌ Database query error:', {
+        message: error.message,
+        code: error.code,
+        query: query.substring(0, 100) + '...',
+        paramsCount: params.length
+      });
+      throw error;
+    }
   }
 
   // Mock data for development
@@ -784,15 +827,94 @@ export class DatabaseService {
   // Health check
   async healthCheck(): Promise<boolean> {
     if (this.isDevelopmentMode()) {
-      return true; // Mock database is always "healthy"
+      console.log('⚠️  Health check: Development mode (no database)');
+      return false;
+    }
+    
+    if (!this.pool) {
+      console.error('❌ Health check: Database pool not initialized');
+      return false;
     }
     
     try {
-      await this.pool!.query('SELECT 1');
+      const result = await this.pool.query('SELECT NOW() as current_time, version() as pg_version');
+      console.log('✅ Database health check passed:', {
+        currentTime: result.rows[0].current_time,
+        pgVersion: result.rows[0].pg_version.substring(0, 50) + '...'
+      });
       return true;
-    } catch (error) {
-      console.error('Database health check failed:', error);
+    } catch (error: any) {
+      console.error('❌ Database health check failed:', {
+        message: error.message,
+        code: error.code,
+        detail: error.detail
+      });
       return false;
+    }
+  }
+  
+  // Get database connection status and info
+  async getConnectionInfo(): Promise<{
+    connected: boolean;
+    hasPool: boolean;
+    hasDatabaseUrl: boolean;
+    error?: string;
+    details?: any;
+  }> {
+    const hasDatabaseUrl = !!process.env.DATABASE_URL;
+    const hasPool = !!this.pool;
+    
+    if (!hasDatabaseUrl) {
+      return {
+        connected: false,
+        hasPool: false,
+        hasDatabaseUrl: false,
+        error: 'DATABASE_URL environment variable not set'
+      };
+    }
+    
+    if (!hasPool) {
+      return {
+        connected: false,
+        hasPool: false,
+        hasDatabaseUrl: true,
+        error: 'Database pool not initialized despite DATABASE_URL being set'
+      };
+    }
+    
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          NOW() as current_time,
+          version() as pg_version,
+          current_database() as database_name,
+          current_user as database_user
+      `);
+      
+      const isHealthy = await this.healthCheck();
+      
+      return {
+        connected: isHealthy,
+        hasPool: true,
+        hasDatabaseUrl: true,
+        details: {
+          currentTime: result.rows[0].current_time,
+          databaseName: result.rows[0].database_name,
+          databaseUser: result.rows[0].database_user,
+          pgVersion: result.rows[0].pg_version.substring(0, 100)
+        }
+      };
+    } catch (error: any) {
+      return {
+        connected: false,
+        hasPool: true,
+        hasDatabaseUrl: true,
+        error: error.message,
+        details: {
+          code: error.code,
+          detail: error.detail
+        }
+      };
     }
   }
 

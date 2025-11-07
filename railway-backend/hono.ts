@@ -147,13 +147,32 @@ app.use(
 );
 
 // Health check endpoint
-app.get("/health", (c) => {
+app.get("/health", async (c) => {
+  const dbHealthy = await databaseService.healthCheck();
   return c.json({ 
-    status: "healthy", 
+    status: dbHealthy ? "healthy" : "degraded",
+    database: dbHealthy ? "connected" : "disconnected",
     timestamp: new Date().toISOString(),
     version: "1.0.0",
     message: "Study Buddy API is running"
   });
+});
+
+// Database connection test endpoint
+app.get("/db/status", async (c) => {
+  try {
+    const connectionInfo = await databaseService.getConnectionInfo();
+    return c.json({
+      ...connectionInfo,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    return c.json({
+      connected: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
 });
 
 // Metrics endpoint
