@@ -212,7 +212,7 @@ app.post("/db/migrate", async (c) => {
         };
       } catch (error: any) {
         tableStatus[table] = {
-          exists: existingTables.some(t => t.name === table),
+          exists: existingTables.some((t: { name: string; schema: string }) => t.name === table),
           accessible: false,
           error: error.message
         };
