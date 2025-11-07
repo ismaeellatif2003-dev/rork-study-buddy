@@ -1,10 +1,16 @@
 -- Migration: Add AI Learning and Personalization Tables
 -- This migration adds support for RAG (Retrieval-Augmented Generation)
 -- and personalized AI learning based on user notes and questions
-
+--
+-- IMPORTANT: This migration requires pgvector extension
+-- If pgvector is not available (e.g., Railway PostgreSQL), this migration will fail
+-- 
+-- Recommended: Use the auto-migration in auto-migrate-on-startup.ts which handles
+-- missing pgvector gracefully, or run run-migration-sql.sql which has error handling
+--
 -- Enable pgvector extension for vector similarity search
--- Note: This requires pgvector extension to be installed on PostgreSQL
--- For Railway, you may need to install it via: CREATE EXTENSION IF NOT EXISTS vector;
+-- Note: This will fail if pgvector is not installed on PostgreSQL
+-- Railway PostgreSQL does not include pgvector by default
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Table to store embeddings for notes and questions

@@ -977,6 +977,49 @@ export class DatabaseService {
 
   // ==================== AI LEARNING METHODS ====================
 
+  // Check if note_embeddings table uses vector type or JSONB
+  private async checkEmbeddingColumnType(): Promise<'vector' | 'jsonb' | null> {
+    if (this.isDevelopmentMode() || !pool) {
+      return null;
+    }
+
+    try {
+      const result = await pool.query(`
+        SELECT data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'note_embeddings' 
+        AND column_name = 'embedding'
+      `);
+      
+      if (result.rows.length === 0) {
+        return null; // Table doesn't exist
+      }
+      
+      const dataType = result.rows[0].data_type;
+      if (dataType === 'USER-DEFINED') {
+        // Check if it's the vector type by trying to query pg_type
+        const typeCheck = await pool.query(`
+          SELECT t.typname 
+          FROM pg_type t
+          JOIN pg_attribute a ON a.atttypid = t.oid
+          JOIN pg_class c ON c.oid = a.attrelid
+          WHERE c.relname = 'note_embeddings' 
+          AND a.attname = 'embedding'
+        `);
+        if (typeCheck.rows.length > 0 && typeCheck.rows[0].typname === 'vector') {
+          return 'vector';
+        }
+      } else if (dataType === 'jsonb') {
+        return 'jsonb';
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('⚠️  Could not check embedding column type:', error);
+      return null;
+    }
+  }
+
   // Store or update note embedding
   async storeNoteEmbedding(noteId: number, userId: number, contentType: string, contentText: string, embedding: number[]): Promise<void> {
     if (this.isDevelopmentMode()) {
@@ -984,20 +1027,63 @@ export class DatabaseService {
       return;
     }
 
-    const embeddingStr = `[${embedding.join(',')}]`; // Convert array to PostgreSQL vector format
+    const columnType = await this.checkEmbeddingColumnType();
     
-    const query = `
-      INSERT INTO note_embeddings (note_id, user_id, content_type, content_text, embedding)
-      VALUES ($1, $2, $3, $4, $5::vector)
-      ON CONFLICT (note_id, content_type) 
-      DO UPDATE SET 
-        content_text = EXCLUDED.content_text,
-        embedding = EXCLUDED.embedding,
-        updated_at = NOW()
-    `;
+    if (!columnType) {
+      console.warn('⚠️  note_embeddings table not found or embedding column type unknown');
+      return;
+    }
+
+    let query: string;
+    let params: any[];
+
+    if (columnType === 'vector') {
+      // Store as vector type
+      const embeddingStr = `[${embedding.join(',')}]`;
+      query = `
+        INSERT INTO note_embeddings (note_id, user_id, content_type, content_text, embedding)
+        VALUES ($1, $2, $3, $4, $5::vector)
+        ON CONFLICT (note_id, content_type) 
+        DO UPDATE SET 
+          content_text = EXCLUDED.content_text,
+          embedding = EXCLUDED.embedding,
+          updated_at = NOW()
+      `;
+      params = [noteId, userId, contentType, contentText, embeddingStr];
+    } else {
+      // Store as JSONB
+      query = `
+        INSERT INTO note_embeddings (note_id, user_id, content_type, content_text, embedding)
+        VALUES ($1, $2, $3, $4, $5::jsonb)
+        ON CONFLICT (note_id, content_type) 
+        DO UPDATE SET 
+          content_text = EXCLUDED.content_text,
+          embedding = EXCLUDED.embedding,
+          updated_at = NOW()
+      `;
+      params = [noteId, userId, contentType, contentText, JSON.stringify(embedding)];
+    }
     
-    await this.executeQuery(query, [noteId, userId, contentType, contentText, embeddingStr]);
-    console.log(`✅ Stored embedding for note ${noteId}, type: ${contentType}`);
+    await this.executeQuery(query, params);
+    console.log(`✅ Stored embedding for note ${noteId}, type: ${contentType} (${columnType})`);
+  }
+
+  // Calculate cosine similarity between two vectors (for JSONB fallback)
+  private cosineSimilarity(vec1: number[], vec2: number[]): number {
+    if (vec1.length !== vec2.length) return 0;
+    
+    let dotProduct = 0;
+    let norm1 = 0;
+    let norm2 = 0;
+    
+    for (let i = 0; i < vec1.length; i++) {
+      dotProduct += vec1[i] * vec2[i];
+      norm1 += vec1[i] * vec1[i];
+      norm2 += vec2[i] * vec2[i];
+    }
+    
+    const denominator = Math.sqrt(norm1) * Math.sqrt(norm2);
+    return denominator === 0 ? 0 : dotProduct / denominator;
   }
 
   // Vector similarity search - find most relevant notes for a question
@@ -1007,38 +1093,109 @@ export class DatabaseService {
       return [];
     }
 
-    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+    const columnType = await this.checkEmbeddingColumnType();
     
-    // Use cosine similarity for vector search
-    const query = `
-      SELECT 
-        ne.id,
-        ne.note_id,
-        ne.user_id,
-        ne.content_type,
-        ne.content_text,
-        n.title,
-        1 - (ne.embedding <=> $1::vector) as similarity
-      FROM note_embeddings ne
-      JOIN notes n ON ne.note_id = n.id
-      WHERE ne.user_id = $2
-      ORDER BY ne.embedding <=> $1::vector
-      LIMIT $3
-    `;
-    
-    const result = await this.executeQuery(query, [embeddingStr, userId, limit]);
-    return result.rows.map((row: any) => ({
-      id: row.id,
-      note_id: row.note_id,
-      user_id: row.user_id,
-      content_type: row.content_type,
-      content_text: row.content_text,
-      embedding: [], // Don't return the full embedding to save bandwidth
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      title: row.title,
-      similarity: row.similarity
-    })) as NoteEmbedding[];
+    if (!columnType) {
+      console.warn('⚠️  note_embeddings table not found or embedding column type unknown');
+      return [];
+    }
+
+    if (columnType === 'vector') {
+      // Use vector similarity search (fast and efficient)
+      const embeddingStr = `[${queryEmbedding.join(',')}]`;
+      
+      const query = `
+        SELECT 
+          ne.id,
+          ne.note_id,
+          ne.user_id,
+          ne.content_type,
+          ne.content_text,
+          n.title,
+          1 - (ne.embedding <=> $1::vector) as similarity
+        FROM note_embeddings ne
+        JOIN notes n ON ne.note_id = n.id
+        WHERE ne.user_id = $2
+        ORDER BY ne.embedding <=> $1::vector
+        LIMIT $3
+      `;
+      
+      try {
+        const result = await this.executeQuery(query, [embeddingStr, userId, limit]);
+        return result.rows.map((row: any) => ({
+          id: row.id,
+          note_id: row.note_id,
+          user_id: row.user_id,
+          content_type: row.content_type,
+          content_text: row.content_text,
+          embedding: [], // Don't return the full embedding to save bandwidth
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          title: row.title,
+          similarity: row.similarity
+        })) as NoteEmbedding[];
+      } catch (error: any) {
+        console.warn('⚠️  Vector similarity search failed:', error.message);
+        return [];
+      }
+    } else {
+      // Fallback: Load all embeddings and calculate similarity in JavaScript
+      // This is less efficient but works without pgvector
+      console.log('⚠️  Using JSONB fallback for similarity search (slower, but works without pgvector)');
+      
+      const query = `
+        SELECT 
+          ne.id,
+          ne.note_id,
+          ne.user_id,
+          ne.content_type,
+          ne.content_text,
+          ne.embedding,
+          n.title
+        FROM note_embeddings ne
+        JOIN notes n ON ne.note_id = n.id
+        WHERE ne.user_id = $1
+      `;
+      
+      try {
+        const result = await this.executeQuery(query, [userId]);
+        
+        // Calculate similarity for each embedding
+        const notesWithSimilarity = result.rows.map((row: any) => {
+          let storedEmbedding: number[] = [];
+          try {
+            storedEmbedding = typeof row.embedding === 'string' 
+              ? JSON.parse(row.embedding) 
+              : row.embedding;
+          } catch (e) {
+            console.warn('⚠️  Could not parse embedding for note', row.note_id);
+            return null;
+          }
+          
+          const similarity = this.cosineSimilarity(queryEmbedding, storedEmbedding);
+          
+          return {
+            id: row.id,
+            note_id: row.note_id,
+            user_id: row.user_id,
+            content_type: row.content_type,
+            content_text: row.content_text,
+            embedding: [],
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            title: row.title,
+            similarity
+          };
+        }).filter((note: any) => note !== null) as NoteEmbedding[];
+        
+        // Sort by similarity and limit
+        notesWithSimilarity.sort((a, b) => (b.similarity || 0) - (a.similarity || 0));
+        return notesWithSimilarity.slice(0, limit);
+      } catch (error: any) {
+        console.warn('⚠️  JSONB similarity search failed:', error.message);
+        return [];
+      }
+    }
   }
 
   // Store user question and answer for learning
