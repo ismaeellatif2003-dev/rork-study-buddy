@@ -35,10 +35,10 @@ if (process.env.DATABASE_URL) {
     });
   
   // Handle connection errors
-  pool.on('error', (err) => {
+  pool.on('error', (err: any) => {
     console.error('❌ Unexpected database pool error:', {
       message: err.message,
-      code: err.code
+      code: err.code || 'UNKNOWN'
     });
   });
   
@@ -873,7 +873,7 @@ export class DatabaseService {
       };
     }
     
-    if (!hasPool) {
+    if (!hasPool || !this.pool) {
       return {
         connected: false,
         hasPool: false,
