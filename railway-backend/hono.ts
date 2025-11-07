@@ -175,6 +175,43 @@ app.get("/db/status", async (c) => {
   }
 });
 
+// Manual migration trigger endpoint
+app.post("/db/migrate", async (c) => {
+  try {
+    const { checkAndRunAIMigration } = await import('./database/auto-migrate-on-startup');
+    console.log('🔄 Manual migration triggered via /db/migrate endpoint');
+    
+    await checkAndRunAIMigration();
+    
+    // Check what tables exist now
+    const checkQuery = `
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('note_embeddings', 'user_questions', 'user_knowledge_profiles')
+      ORDER BY table_name
+    `;
+    
+    const result = await databaseService.query(checkQuery);
+    const existingTables = result.rows.map((row: any) => row.table_name);
+    
+    return c.json({
+      success: true,
+      message: 'Migration completed',
+      tables: existingTables,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ Manual migration failed:', error);
+    return c.json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
 // Metrics endpoint
 app.get("/metrics", (c) => {
   return c.json({

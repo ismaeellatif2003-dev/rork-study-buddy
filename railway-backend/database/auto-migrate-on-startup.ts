@@ -134,9 +134,11 @@ async function checkVectorExtension(pool: Pool): Promise<boolean> {
         SELECT 1 FROM pg_available_extensions WHERE name = 'vector'
       ) as extension_available
     `);
-    return result.rows[0]?.extension_available === true;
-  } catch (error) {
-    console.log('⚠️  Could not check for vector extension:', error);
+    const available = result.rows[0]?.extension_available === true;
+    console.log(`🔍 Vector extension check: ${available ? 'available' : 'not available'}`);
+    return available;
+  } catch (error: any) {
+    console.log('⚠️  Could not check for vector extension:', error.message);
     return false;
   }
 }
@@ -147,9 +149,11 @@ async function checkVectorExtension(pool: Pool): Promise<boolean> {
 async function tryEnableVectorExtension(pool: Pool): Promise<boolean> {
   try {
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
+    console.log('✅ pgvector extension enabled successfully');
     return true;
   } catch (error: any) {
     console.log('⚠️  pgvector extension not available:', error.message);
+    console.log('   This is expected on Railway PostgreSQL - will use JSONB fallback');
     return false;
   }
 }
