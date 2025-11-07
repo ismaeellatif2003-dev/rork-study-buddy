@@ -185,7 +185,9 @@ app.post("/db/migrate", async (c) => {
     
     // Check what tables exist now
     const checkQuery = `
-      SELECT table_name 
+      SELECT 
+        table_name,
+        table_schema
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_name IN ('note_embeddings', 'user_questions', 'user_knowledge_profiles')
@@ -193,12 +195,35 @@ app.post("/db/migrate", async (c) => {
     `;
     
     const result = await databaseService.query(checkQuery);
-    const existingTables = result.rows.map((row: any) => row.table_name);
+    const existingTables = result.rows.map((row: any) => ({
+      name: row.table_name,
+      schema: row.table_schema
+    }));
+    
+    // Try to query each table to verify they're accessible
+    const tableStatus: Record<string, any> = {};
+    for (const table of ['user_questions', 'user_knowledge_profiles', 'note_embeddings']) {
+      try {
+        const countResult = await databaseService.query(`SELECT COUNT(*) as count FROM ${table}`);
+        tableStatus[table] = {
+          exists: true,
+          accessible: true,
+          rowCount: parseInt(countResult.rows[0].count)
+        };
+      } catch (error: any) {
+        tableStatus[table] = {
+          exists: existingTables.some(t => t.name === table),
+          accessible: false,
+          error: error.message
+        };
+      }
+    }
     
     return c.json({
       success: true,
       message: 'Migration completed',
       tables: existingTables,
+      tableStatus: tableStatus,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
@@ -207,6 +232,35 @@ app.post("/db/migrate", async (c) => {
       success: false,
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// List all tables endpoint
+app.get("/db/tables", async (c) => {
+  try {
+    const query = `
+      SELECT 
+        table_schema,
+        table_name,
+        table_type
+      FROM information_schema.tables 
+      WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
+      ORDER BY table_schema, table_name
+    `;
+    
+    const result = await databaseService.query(query);
+    
+    return c.json({
+      success: true,
+      tables: result.rows,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message,
       timestamp: new Date().toISOString()
     }, 500);
   }

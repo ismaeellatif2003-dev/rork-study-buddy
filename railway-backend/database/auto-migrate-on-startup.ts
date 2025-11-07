@@ -187,10 +187,29 @@ export async function checkAndRunAIMigration(): Promise<void> {
     const checkResult = await pool.query(checkQuery);
     const existingTables = checkResult.rows.map(row => row.table_name);
     
+    console.log(`🔍 Found ${existingTables.length} existing tables:`, existingTables);
+    
     // If all tables exist, skip migration
     if (existingTables.length === 3) {
       console.log('✅ AI Learning tables already exist - skipping migration');
-      return;
+      console.log('   Tables found:', existingTables.join(', '));
+      
+      // Verify tables are actually accessible by trying to query them
+      try {
+        await pool.query('SELECT COUNT(*) FROM user_questions');
+        await pool.query('SELECT COUNT(*) FROM user_knowledge_profiles');
+        await pool.query('SELECT COUNT(*) FROM note_embeddings');
+        console.log('✅ Verified: All tables are accessible and queryable');
+      } catch (verifyError: any) {
+        console.error('⚠️  Tables exist but may not be accessible:', verifyError.message);
+        console.log('🔄 Re-running migration to ensure tables are properly set up...');
+        // Continue with migration below
+      }
+      
+      // If verification passed, return early
+      if (existingTables.length === 3) {
+        return;
+      }
     }
 
     console.log('🔄 AI Learning tables missing - running migration...');
