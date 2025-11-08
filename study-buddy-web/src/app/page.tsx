@@ -139,19 +139,19 @@ export default function HomePage() {
     {
       name: 'Sarah Johnson',
       role: 'University Student',
-      content: 'Study Buddy has completely transformed how I study. The AI features are incredible!',
+      content: 'Study Buddy has completely transformed how I study. The AI features in Study Buddy are incredible and have helped me ace my exams!',
       rating: 5,
     },
     {
       name: 'Mike Chen',
       role: 'High School Student',
-      content: 'The flashcard generation saves me so much time. I can focus on actually learning.',
+      content: 'Study Buddy\'s flashcard generation saves me so much time. With Study Buddy, I can focus on actually learning instead of creating study materials.',
       rating: 5,
     },
     {
       name: 'Emily Rodriguez',
       role: 'Graduate Student',
-      content: 'The essay writer helped me improve my writing and get better grades.',
+      content: 'Study Buddy\'s essay writer helped me improve my writing and get better grades. Study Buddy is now an essential part of my study routine.',
       rating: 5,
     },
   ];
@@ -242,12 +242,12 @@ export default function HomePage() {
             </div>
             
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Study Smarter, Not Harder
+              Study Buddy: Your AI-Powered Study Assistant
             </h1>
             
             <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Create notes, generate flashcards, and get AI help with your studies. 
-              All in one powerful platform.
+              Study Buddy helps you study smarter, not harder. Create notes, generate flashcards, and get AI help with your studies. 
+              All in one powerful platform designed to help you ace your exams.
             </p>
             
             <div className="flex justify-center">
@@ -267,10 +267,10 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Trusted by Students Worldwide
+              Why Students Choose Study Buddy
             </h2>
             <p className="text-gray-600 text-lg">
-              See how much content our community has created
+              Join thousands of students worldwide who trust Study Buddy to help them study more effectively
             </p>
           </div>
           
@@ -308,10 +308,11 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Everything You Need to Study Better
+              Study Buddy Features: Everything You Need to Study Better
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Our AI-powered features help you create, organize, and study more effectively
+              Study Buddy's AI-powered features help you create, organize, and study more effectively. 
+              Discover how Study Buddy can transform your learning experience.
             </p>
           </div>
           
@@ -339,10 +340,10 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Loved by Students Worldwide
+              What Students Say About Study Buddy
             </h2>
             <p className="text-gray-600 text-lg">
-              See what students are saying about Study Buddy
+              Discover why students worldwide love using Study Buddy for their studies
             </p>
           </div>
           
@@ -371,10 +372,11 @@ export default function HomePage() {
       <div className="bg-blue-600 py-16">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to Transform Your Study Habits?
+            Start Using Study Buddy Today
           </h2>
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of students who are already studying smarter with Study Buddy
+            Ready to transform your study habits? Join thousands of students who are already studying smarter with Study Buddy. 
+            Get started with Study Buddy's free plan and experience the power of AI-assisted learning.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>

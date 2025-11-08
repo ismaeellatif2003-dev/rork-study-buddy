@@ -12,9 +12,10 @@ const inter = Inter({ subsets: ['latin'] });
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://your-domain.com';
 
 export const metadata: Metadata = {
-  title: 'Study Buddy - AI-Powered Study Assistant',
-  description: 'Create notes, generate flashcards, and get AI help with your studies. Study Buddy helps you learn faster with AI-powered summaries, personalized chat, and smart flashcards.',
+  title: 'Study Buddy | Your AI-Powered Study Assistant for Better Learning',
+  description: 'Study Buddy is the ultimate AI-powered study assistant that helps students learn faster. Create smart notes, generate flashcards, get AI tutoring, and write better essays with Study Buddy. Join thousands of students using Study Buddy to ace their exams.',
   keywords: [
+    'Study Buddy',
     'study assistant',
     'AI learning',
     'flashcards',
@@ -34,7 +35,10 @@ export const metadata: Metadata = {
     'AI-powered learning',
     'study aid',
     'educational technology',
-    'student tools'
+    'student tools',
+    'Study Buddy app',
+    'Study Buddy AI',
+    'online study tool'
   ],
   authors: [{ name: 'Study Buddy' }],
   creator: 'Study Buddy',
@@ -55,8 +59,8 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: siteUrl,
     siteName: 'Study Buddy',
-    title: 'Study Buddy - AI-Powered Study Assistant',
-    description: 'Create notes, generate flashcards, and get AI help with your studies. Study Buddy helps you learn faster with AI-powered summaries, personalized chat, and smart flashcards.',
+    title: 'Study Buddy | Your AI-Powered Study Assistant for Better Learning',
+    description: 'Study Buddy is the ultimate AI-powered study assistant that helps students learn faster. Create smart notes, generate flashcards, get AI tutoring, and write better essays with Study Buddy. Join thousands of students using Study Buddy to ace their exams.',
     images: [
       {
         url: `${siteUrl}/icon.png`,
