@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Zap, MessageCircle, FileText, ArrowRight, Sparkles, Users, Star, User } from 'lucide-react';
+import { BookOpen, Zap, MessageCircle, FileText, ArrowRight, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { mockNotes, mockFlashcards, mockChatMessages, mockEssays } from '@/data/mockData';
@@ -11,8 +11,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function HomePage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const [userStats, setUserStats] = useState({
+  const { user, isAuthenticated } = useAuth();
+  const [, setUserStats] = useState({
     notes: 0,
     flashcards: 0,
     messages: 0,
@@ -146,13 +146,13 @@ export default function HomePage() {
     {
       name: 'Mike Chen',
       role: 'High School Student',
-      content: 'Study Buddy\'s flashcard generation saves me so much time. With Study Buddy, I can focus on actually learning instead of creating study materials.',
+      content: 'Study Buddy&apos;s flashcard generation saves me so much time. With Study Buddy, I can focus on actually learning instead of creating study materials.',
       rating: 5,
     },
     {
       name: 'Emily Rodriguez',
       role: 'Graduate Student',
-      content: 'Study Buddy\'s essay writer helped me improve my writing and get better grades. Study Buddy is now an essential part of my study routine.',
+      content: 'Study Buddy&apos;s essay writer helped me improve my writing and get better grades. Study Buddy is now an essential part of my study routine.',
       rating: 5,
     },
   ];
@@ -316,7 +316,7 @@ export default function HomePage() {
               Study Buddy Features: Everything You Need to Study Better
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Study Buddy's AI-powered features help you create, organize, and study more effectively. 
+              Study Buddy&apos;s AI-powered features help you create, organize, and study more effectively. 
               Discover how Study Buddy can transform your learning experience.
             </p>
           </div>
@@ -381,7 +381,7 @@ export default function HomePage() {
           </h2>
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
             Ready to transform your study habits? Join thousands of students who are already studying smarter with Study Buddy. 
-            Get started with Study Buddy's free plan and experience the power of AI-assisted learning.
+            Get started with Study Buddy&apos;s free plan and experience the power of AI-assisted learning.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href={isAuthenticated ? "/subscription" : "/auth/signin"}>
