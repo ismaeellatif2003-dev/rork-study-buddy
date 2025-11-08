@@ -8,6 +8,7 @@ import { mockNotes, mockFlashcards, mockChatMessages, mockEssays } from '@/data/
 import { GoogleSignIn } from '@/components/auth/GoogleSignIn';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -218,10 +219,14 @@ export default function HomePage() {
             {isAuthenticated ? (
               <Link href="/settings">
                 <Button className="flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 border border-white/20">
-                  <img 
+                  <Image 
                     src={user?.picture || '/default-avatar.png'} 
-                    alt="Profile" 
-                    className="w-6 h-6 rounded-full"
+                    alt={`${user?.name || userName}'s profile picture`}
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 rounded-full object-cover"
+                    loading="lazy"
+                    quality={85}
                   />
                   <span className="text-sm font-medium">{user?.name || userName}</span>
                 </Button>
