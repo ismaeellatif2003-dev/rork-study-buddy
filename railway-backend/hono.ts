@@ -266,6 +266,129 @@ app.get("/db/tables", async (c) => {
   }
 });
 
+// View table data endpoint
+app.get("/db/table/:tableName", async (c) => {
+  try {
+    const tableName = c.req.param('tableName');
+    const limit = parseInt(c.req.query('limit') || '10');
+    const offset = parseInt(c.req.query('offset') || '0');
+    
+    // Validate table name to prevent SQL injection
+    const validTableName = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName);
+    if (!validTableName) {
+      return c.json({
+        success: false,
+        error: 'Invalid table name'
+      }, 400);
+    }
+    
+    // Get row count
+    const countResult = await databaseService.query(`SELECT COUNT(*) as count FROM ${tableName}`);
+    const totalRows = parseInt(countResult.rows[0].count);
+    
+    // Get table data
+    const dataResult = await databaseService.query(
+      `SELECT * FROM ${tableName} LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    
+    // Get column information
+    const columnsResult = await databaseService.query(`
+      SELECT 
+        column_name,
+        data_type,
+        is_nullable
+      FROM information_schema.columns
+      WHERE table_name = $1
+      ORDER BY ordinal_position
+    `, [tableName]);
+    
+    return c.json({
+      success: true,
+      tableName: tableName,
+      totalRows: totalRows,
+      showingRows: dataResult.rows.length,
+      limit: limit,
+      offset: offset,
+      columns: columnsResult.rows,
+      data: dataResult.rows,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
+// Get overview of all tables with row counts
+app.get("/db/overview", async (c) => {
+  try {
+    const tablesQuery = `
+      SELECT table_name
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `;
+    
+    const tablesResult = await databaseService.query(tablesQuery);
+    const tables = tablesResult.rows.map((row: any) => row.table_name);
+    
+    const overview: Record<string, any> = {};
+    
+    for (const table of tables) {
+      try {
+        const countResult = await databaseService.query(`SELECT COUNT(*) as count FROM ${table}`);
+        const rowCount = parseInt(countResult.rows[0].count);
+        
+        // Get sample data (first 3 rows)
+        let sampleData: any[] = [];
+        if (rowCount > 0) {
+          const sampleResult = await databaseService.query(`SELECT * FROM ${table} LIMIT 3`);
+          sampleData = sampleResult.rows;
+        }
+        
+        // Get column names
+        const columnsResult = await databaseService.query(`
+          SELECT column_name, data_type
+          FROM information_schema.columns
+          WHERE table_name = $1
+          ORDER BY ordinal_position
+        `, [table]);
+        
+        overview[table] = {
+          rowCount: rowCount,
+          columns: columnsResult.rows.map((col: any) => ({
+            name: col.column_name,
+            type: col.data_type
+          })),
+          sampleData: sampleData
+        };
+      } catch (error: any) {
+        overview[table] = {
+          error: error.message,
+          rowCount: 0
+        };
+      }
+    }
+    
+    return c.json({
+      success: true,
+      tables: overview,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
+  }
+});
+
 // Metrics endpoint
 app.get("/metrics", (c) => {
   return c.json({

@@ -10,41 +10,94 @@ let pool: Pool | null = null;
 // Initialize database connection only if DATABASE_URL is available
 if (process.env.DATABASE_URL) {
   console.log('🔗 Initializing database connection with DATABASE_URL');
-  console.log('📝 DATABASE_URL present:', process.env.DATABASE_URL.substring(0, 20) + '...');
   
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // Increased timeout for Railway
-  });
+  // Validate DATABASE_URL format
+  const dbUrl = process.env.DATABASE_URL;
+  let isValidUrl = true;
   
-  // Test connection immediately
-  pool.query('SELECT NOW()')
-    .then(() => {
-      console.log('✅ Database connection pool initialized and tested successfully');
-    })
-    .catch((error) => {
-      console.error('❌ Database connection test failed:', {
-        message: error.message,
-        code: error.code,
-        detail: error.detail
+  // Check for malformed URL (missing username/password)
+  if (dbUrl.includes('://:@') || dbUrl.includes('://@') || !dbUrl.includes('@')) {
+    console.error('❌ Invalid DATABASE_URL format - missing username or password');
+    console.error('📝 DATABASE_URL received:', dbUrl.substring(0, 60) + '...');
+    console.error('⚠️  Expected format: postgresql://user:password@host:port/database');
+    console.error('💡 Fix: Use Railway service linking to automatically create the correct DATABASE_URL');
+    console.error('💡 Or copy DATABASE_URL from PostgreSQL service → Variables tab');
+    console.error('⚠️  Database connection will not be initialized');
+    isValidUrl = false;
+  }
+  
+  // Parse URL to validate structure
+  let parsedUrl: URL | null = null;
+  if (isValidUrl) {
+    try {
+      parsedUrl = new URL(dbUrl);
+    } catch (e: any) {
+      console.error('❌ Could not parse DATABASE_URL:', e.message);
+      console.error('📝 DATABASE_URL received:', dbUrl.substring(0, 60) + '...');
+      console.error('⚠️  Database connection will not be initialized');
+      isValidUrl = false;
+    }
+  }
+  
+  // Check for required components
+  if (isValidUrl && parsedUrl) {
+    if (!parsedUrl.username || !parsedUrl.password) {
+      console.error('❌ DATABASE_URL is missing username or password');
+      console.error('📝 Username:', parsedUrl.username || '(missing)');
+      console.error('📝 Password:', parsedUrl.password ? '***' : '(missing)');
+      console.error('📝 Host:', parsedUrl.hostname);
+      console.error('💡 Fix: Use Railway service linking or copy DATABASE_URL from PostgreSQL service');
+      console.error('⚠️  Database connection will not be initialized');
+      isValidUrl = false;
+    }
+  }
+  
+  // Only initialize pool if URL is valid
+  if (isValidUrl && parsedUrl) {
+    // URL looks valid
+    console.log('📝 DATABASE_URL format validated');
+    console.log('📝 DATABASE_URL host:', parsedUrl.hostname);
+    console.log('📝 DATABASE_URL user:', parsedUrl.username);
+    console.log('📝 DATABASE_URL database:', parsedUrl.pathname.replace('/', ''));
+    
+    const connectionString = dbUrl;
+    
+    pool = new Pool({
+      connectionString: connectionString,
+      ssl: { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000, // Increased timeout for Railway
+    });
+    
+    // Test connection immediately
+    pool.query('SELECT NOW()')
+      .then(() => {
+        console.log('✅ Database connection pool initialized and tested successfully');
+      })
+      .catch((error) => {
+        console.error('❌ Database connection test failed:', {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        });
+        console.error('⚠️  Database operations may fail. Check DATABASE_URL and Railway PostgreSQL service.');
+        console.error('💡 Tip: Make sure DATABASE_URL includes username:password@host');
+        console.error('💡 Example: postgresql://postgres:password@host:5432/railway');
       });
-      console.error('⚠️  Database operations may fail. Check DATABASE_URL and Railway PostgreSQL service.');
+    
+    // Handle connection errors
+    pool.on('error', (err: any) => {
+      console.error('❌ Unexpected database pool error:', {
+        message: err.message,
+        code: err.code || 'UNKNOWN'
+      });
     });
-  
-  // Handle connection errors
-  pool.on('error', (err: any) => {
-    console.error('❌ Unexpected database pool error:', {
-      message: err.message,
-      code: err.code || 'UNKNOWN'
+    
+    pool.on('connect', () => {
+      console.log('✅ New database client connected');
     });
-  });
-  
-  pool.on('connect', () => {
-    console.log('✅ New database client connected');
-  });
+  }
 } else {
   console.log('🔧 Running in development mode with mock database - no DATABASE_URL found');
   console.log('⚠️  Set DATABASE_URL environment variable to connect to a real database');
