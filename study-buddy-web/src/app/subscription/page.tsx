@@ -75,6 +75,17 @@ function SubscriptionPageContent() {
         throw new Error('User email not found');
       }
       
+      // Get Rewardful referral (if present)
+      let referral: string | undefined = undefined;
+      if (typeof window !== 'undefined') {
+        try {
+          // Rewardful attaches referral to window.Rewardful.referral
+          referral = (window as any)?.Rewardful?.referral || undefined;
+        } catch {
+          // ignore
+        }
+      }
+      
       // Map plan ID to Stripe price ID
       let priceId;
       if (planId === 'pro-monthly') {
@@ -98,6 +109,7 @@ function SubscriptionPageContent() {
         body: JSON.stringify({
           priceId,
           userEmail,
+          referral,
         }),
       });
       

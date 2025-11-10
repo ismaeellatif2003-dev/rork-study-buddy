@@ -7,7 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 export async function POST(request: NextRequest) {
   try {
-    const { priceId, userEmail } = await request.json();
+    const { priceId, userEmail, referral } = await request.json();
     
     if (!priceId) {
       return NextResponse.json({ error: 'Price ID is required' }, { status: 400 });
@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
       cancel_url: `https://studybuddy.global/subscription?canceled=true`,
       metadata: {
         userEmail: userEmail,
+        ...(referral ? { referral } : {}),
       },
+      ...(referral ? { client_reference_id: referral as string } : {}),
     });
     
     return NextResponse.json({ url: session.url });

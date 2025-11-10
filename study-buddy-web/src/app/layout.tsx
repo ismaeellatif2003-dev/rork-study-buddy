@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Navigation } from '@/components/layout/Navigation';
@@ -111,6 +112,11 @@ export default function RootLayout({
             <HomeButton />
           </div>
         </Providers>
+        {/* Rewardful referral tracking */}
+        <Script src="https://r.wdfl.co/rw.js" data-rewardful="a46615" strategy="afterInteractive" />
+        <Script id="rewardful-queue" strategy="beforeInteractive">
+          {`(function(w,r){w._rwq=r;w[r]=w[r]||function(){(w[r].q=w[r].q||[]).push(arguments)}})(window,'rewardful');`}
+        </Script>
       </body>
     </html>
   );
