@@ -2018,6 +2018,49 @@ app.post("/auth/refresh", async (c) => {
   }
 });
 
+// Temporary admin endpoint to fix database trigger issue
+// TODO: Remove this after the fix is applied
+app.post("/db/fix-trigger", async (c) => {
+  try {
+    // Simple security check - only allow in production with a secret
+    const secret = c.req.query('secret');
+    if (secret !== process.env.ADMIN_SECRET || !process.env.ADMIN_SECRET) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    console.log('🔧 Fixing database trigger issue...');
+    
+    // Drop the problematic trigger
+    await databaseService.query(`
+      DROP TRIGGER IF EXISTS update_user_knowledge_profiles_last_updated ON user_knowledge_profiles;
+    `);
+
+    // Verify the trigger is gone
+    const result = await databaseService.query(`
+      SELECT 
+        trigger_name, 
+        event_manipulation, 
+        event_object_table 
+      FROM information_schema.triggers 
+      WHERE event_object_table = 'user_knowledge_profiles';
+    `);
+
+    return c.json({
+      success: true,
+      message: "Trigger dropped successfully",
+      remainingTriggers: result.rows,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error("Fix trigger error:", error);
+    return c.json({ 
+      success: false,
+      error: "Failed to fix trigger",
+      details: error.message 
+    }, 500);
+  }
+});
+
 app.post("/usage/update", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");
