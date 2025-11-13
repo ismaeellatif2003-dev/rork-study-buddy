@@ -1104,7 +1104,7 @@ app.post("/ai/personalized-chat", async (c) => {
     let relevantNotes: any[] = [];
     try {
       relevantNotes = await databaseService.searchSimilarNotes(userId, questionEmbedding, 5);
-      console.log(`✅ Found ${relevantNotes.length} relevant notes`);
+      console.log(`✅ Found ${relevantNotes.length} potential notes`);
     } catch (embeddingError: any) {
       // If note_embeddings table doesn't exist, continue without context
       if (embeddingError?.code === '42P01' || embeddingError?.message?.includes('note_embeddings')) {
@@ -1115,18 +1115,33 @@ app.post("/ai/personalized-chat", async (c) => {
       }
     }
 
+    // Step 2.5: Check relevance threshold - only use notes if they're actually relevant
+    // Similarity score ranges from 0 (no similarity) to 1 (identical)
+    // We'll use a threshold of 0.7 (70% similarity) to determine if notes are relevant
+    const RELEVANCE_THRESHOLD = 0.7;
+    const topNoteSimilarity = relevantNotes.length > 0 ? (relevantNotes[0]?.similarity || 0) : 0;
+    const useRAG = topNoteSimilarity >= RELEVANCE_THRESHOLD;
+    
+    if (relevantNotes.length > 0 && !useRAG) {
+      console.log(`⚠️ Top note similarity (${topNoteSimilarity.toFixed(3)}) below threshold (${RELEVANCE_THRESHOLD}). Using general AI instead of RAG.`);
+      relevantNotes = []; // Don't use notes if they're not relevant enough
+    } else if (useRAG) {
+      console.log(`✅ Top note similarity (${topNoteSimilarity.toFixed(3)}) meets threshold. Using RAG with ${relevantNotes.length} relevant notes.`);
+    }
+
     // Step 3: Build context from relevant notes and selected text
     let contextText = '';
     const contextNoteIds: number[] = [];
     
     // Priority 1: Use selected text if provided (most relevant context)
+    // Selected text is always considered relevant since the user explicitly selected it
     if (selectedText && selectedText.trim()) {
       contextText = `[Selected Text from Web Page]\n${selectedText.trim()}`;
       console.log('📄 Using selected text as primary context');
     }
     
-    // Priority 2: Add relevant notes from user's saved notes
-    if (relevantNotes.length > 0) {
+    // Priority 2: Add relevant notes from user's saved notes (only if above threshold)
+    if (relevantNotes.length > 0 && useRAG) {
       const notesContext = relevantNotes.map((note, index) => {
         contextNoteIds.push(note.note_id);
         return `[Note ${index + 1}: ${(note as any).title || 'Untitled'}]\n${note.content_text.substring(0, 500)}`;
@@ -1163,17 +1178,29 @@ app.post("/ai/personalized-chat", async (c) => {
     }
     
     // Step 5: Build personalized system prompt
-    let systemPrompt = `You are a personalized AI study assistant. Answer questions based on the context provided by the user. `;
+    let systemPrompt = `You are a personalized AI study assistant. `;
     
-    if (selectedText) {
-      systemPrompt += `The user has selected text from a webpage that is relevant to their question. `;
+    if (contextText) {
+      // Using RAG - we have relevant context
+      systemPrompt += `Answer questions based on the context provided by the user. `;
+      
+      if (selectedText) {
+        systemPrompt += `The user has selected text from a webpage that is relevant to their question. `;
+      }
+      
+      if (useRAG && relevantNotes.length > 0) {
+        systemPrompt += `The user has saved notes that are relevant to this question. `;
+      }
+      
+      systemPrompt += `Use the provided context (selected text and/or saved notes) to give accurate, relevant answers. Reference specific details from the context when answering. If the answer isn't in the provided context, say so but still try to help based on general knowledge.`;
+    } else {
+      // Using general AI - no relevant context found
+      systemPrompt += `Answer the user's question using your general knowledge. Provide clear, educational responses. `;
+      
+      if (knowledgeProfile && knowledgeProfile.topics_studied && knowledgeProfile.topics_studied.length > 0) {
+        systemPrompt += `The user has been studying: ${(knowledgeProfile.topics_studied as any[]).slice(0, 5).join(', ')}. You can reference this if relevant, but the question is not directly related to their saved notes. `;
+      }
     }
-    
-    if (knowledgeProfile && knowledgeProfile.topics_studied && knowledgeProfile.topics_studied.length > 0) {
-      systemPrompt += `The user has been studying: ${(knowledgeProfile.topics_studied as any[]).slice(0, 5).join(', ')}. `;
-    }
-    
-    systemPrompt += `Use the provided context (selected text and/or saved notes) to give accurate, relevant answers. Reference specific details from the context when answering. If the answer isn't in the provided context, say so but still try to help based on general knowledge.`;
 
     // Step 6: Build the user prompt with context
     let userPrompt = '';
