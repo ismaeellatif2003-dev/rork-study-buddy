@@ -12,9 +12,43 @@
       <h2>📚 Study Buddy</h2>
     </div>
     
-    <!-- Test Mode Info -->
-    <div class="test-mode-banner">
-      🧪 Test Mode - No Authentication Required
+    <!-- Authentication Section -->
+    <div id="auth-section" class="auth-section" style="display: block !important;">
+      <div id="user-info" class="user-info" style="display: none;">
+        <img id="user-avatar" class="user-avatar" src="" alt="User">
+        <div class="user-details">
+          <div id="user-name" class="user-name"></div>
+          <div id="user-email" class="user-email"></div>
+        </div>
+        <button id="sign-out-btn" class="btn-secondary">Sign Out</button>
+      </div>
+      <div id="sign-in-prompt">
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <p style="text-align: center; margin: 0; color: #92400e; font-size: 12px; font-weight: 600;">
+            ⚠️ Sign in Required
+          </p>
+          <p style="text-align: center; margin: 8px 0 0 0; color: #78350f; font-size: 11px;">
+            You must sign in with Google to use Study Buddy
+          </p>
+        </div>
+        <button id="sign-in-btn" class="auth-btn">
+          <span>🔐 Sign in with Google</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Sidebar Toggle -->
+    <div class="sidebar-toggle-section">
+      <div class="toggle-container">
+        <label for="sidebar-toggle" class="toggle-label">
+          <span>📋 Sidebar Panel</span>
+          <span class="toggle-description">Show sidebar on web pages</span>
+        </label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="sidebar-toggle" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
     </div>
     
     <!-- Quick Actions -->
@@ -23,36 +57,24 @@
       <button id="open-app" class="action-btn">
         🚀 Open Study Buddy
       </button>
-      <button id="view-local-notes" class="action-btn">
-        📝 View Local Notes
-      </button>
     </div>
     
     <!-- Instructions -->
     <div class="instructions">
       <p><strong>How to use:</strong></p>
       <ol>
-        <li>Select text on any webpage</li>
-        <li>The Study Buddy popup will appear automatically</li>
-        <li>Save notes (stored locally for testing)</li>
-        <li>Test AI chat and video analysis features</li>
+        <li>Toggle the sidebar panel above to enable/disable it</li>
+        <li>Select text on any webpage - it appears in the sidebar</li>
+        <li>Save notes to your Study Buddy account</li>
+        <li>Chat with AI about selected text (Pro plan required)</li>
+        <li>Generate summaries from your notes (Pro plan required)</li>
       </ol>
       <p class="feature-list">
-        <strong>Features (Test Mode):</strong><br>
-        📝 Save notes locally<br>
-        🤖 Mock AI chat responses<br>
-        📹 Mock video analysis<br>
-        📊 Test note capture workflow
+        <strong>Features:</strong><br>
+        📝 Save notes to your account<br>
+        🤖 AI chat with context from selected text<br>
+        📊 Generate summaries from your notes
       </p>
-      <p class="note">
-        <strong>Note:</strong> Notes are saved locally in Chrome storage. Sign in to sync with your account.
-      </p>
-    </div>
-    
-    <!-- Local Notes Display -->
-    <div id="local-notes" class="local-notes" style="display: none;">
-      <div class="section-title">Local Notes</div>
-      <div id="notes-list" class="notes-list"></div>
     </div>
   </div>
   

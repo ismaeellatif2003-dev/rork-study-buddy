@@ -430,30 +430,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             };
           }
           
-        case 'analyzeVideo':
-          // REQUIRE authentication and Pro plan
-          const videoAuth = await checkAuthStatus();
-          if (!videoAuth.authenticated) {
-            return {
-              error: 'Authentication required',
-              requiresAuth: true,
-              message: 'Please sign in to analyze videos.'
-            };
-          }
-          if (!videoAuth.hasProPlan) {
-            return {
-              error: 'Pro plan required',
-              requiresProPlan: true,
-              message: 'Pro plan required for video analysis. Upgrade to unlock this feature.'
-            };
-          }
-          // For now, return mock (can connect to real API later)
-          try {
-            const videoResult = await api.analyzeVideoUrl(message.data.url, videoAuth.userEmail);
-            return videoResult;
-          } catch (error) {
-            return { error: error.message };
-          }
           
         default:
           throw new Error('Unknown action: ' + message.action);
@@ -471,6 +447,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener(() => {
   console.log('✅ Study Buddy extension installed');
   console.log('🔐 Sign in with Google required to use features');
-  console.log('💎 Pro plan required for AI features (Chat, Summaries, Video Analysis)');
+        console.log('💎 Pro plan required for AI features (Chat, Summaries)');
 });
 

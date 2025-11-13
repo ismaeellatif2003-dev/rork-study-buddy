@@ -1998,6 +1998,26 @@ app.get("/auth/sync", async (c) => {
   }
 });
 
+// Refresh expired JWT token
+app.post("/auth/refresh", async (c) => {
+  try {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Authorization header required" }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const result = await authService.refreshToken(token);
+    return c.json(result);
+  } catch (error: any) {
+    console.error("Token refresh error:", error);
+    return c.json({ 
+      error: "Token refresh failed",
+      details: error.message 
+    }, 401);
+  }
+});
+
 app.post("/usage/update", async (c) => {
   try {
     const authHeader = c.req.header("Authorization");

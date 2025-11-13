@@ -7,8 +7,47 @@ const getAuthToken = async (): Promise<string | null> => {
   return await AsyncStorage.getItem('authToken');
 };
 
-// Helper for authenticated requests
-const authFetch = async (endpoint: string, options: RequestInit = {}) => {
+// Helper to set auth token
+const setAuthToken = async (token: string): Promise<void> => {
+  await AsyncStorage.setItem('authToken', token);
+};
+
+// Helper to refresh token
+const refreshToken = async (oldToken: string): Promise<string | null> => {
+  try {
+    console.log('🔄 Attempting to refresh expired token...');
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${oldToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Token refresh failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const newToken = data.token;
+    
+    if (!newToken) {
+      console.error('❌ No token in refresh response');
+      return null;
+    }
+
+    console.log('✅ Token refreshed successfully');
+    await setAuthToken(newToken);
+    return newToken;
+  } catch (error) {
+    console.error('🚨 Token refresh error:', error);
+    return null;
+  }
+};
+
+// Helper for authenticated requests with automatic token refresh
+const authFetch = async (endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<any> => {
   const token = await getAuthToken();
   if (!token) {
     throw new Error('Not authenticated');
@@ -31,6 +70,27 @@ const authFetch = async (endpoint: string, options: RequestInit = {}) => {
     ...options,
     headers,
   });
+
+  // If 401 and we haven't retried yet, try to refresh token
+  if (response.status === 401 && retryCount === 0) {
+    console.log('🔄 Received 401, attempting token refresh...');
+    const newToken = await refreshToken(token);
+    
+    if (newToken) {
+      console.log('🔄 Retrying request with refreshed token...');
+      // Retry the request with new token
+      return authFetch(endpoint, {
+        ...options,
+        headers: {
+          ...headers,
+          'Authorization': `Bearer ${newToken}`,
+        },
+      }, retryCount + 1);
+    } else {
+      console.error('❌ Token refresh failed, user needs to re-authenticate');
+      throw new Error('Session expired. Please sign in again.');
+    }
+  }
 
   if (!response.ok) {
     console.log('❌ Request failed:', {

@@ -42,17 +42,19 @@ Railway will automatically redeploy your backend. Check the logs - you should no
 ✅ Database connection pool initialized and tested successfully
 ```
 
-## Alternative: Use Railway Service Linking
+## Alternative: Use Railway Service Linking (RECOMMENDED)
 
-If the manual copy doesn't work, use Railway's automatic linking:
+**This is the easiest and most reliable method!** Railway automatically handles the password for you.
 
 1. Go to your **backend service**
 2. Go to **"Variables"** tab
-3. **Delete** the existing `DATABASE_URL` variable
-4. Click **"New Variable"**
+3. **Delete** the existing `DATABASE_URL` variable (if it's malformed)
+4. Click **"New Variable"** or **"Add Variable"**
 5. Railway should show a dropdown with available services
-6. Select your **PostgreSQL service**
-7. Railway will automatically create `DATABASE_URL` with the correct format
+6. Select your **PostgreSQL service** from the dropdown
+7. Railway will automatically create `DATABASE_URL` with the correct format including the password
+
+**Important:** You don't need to set the password separately! The `DATABASE_URL` that Railway creates already includes the password embedded in the connection string.
 
 ## What a Correct DATABASE_URL Looks Like
 

@@ -5,8 +5,6 @@
   "description": "Capture notes, use AI chat, and analyze videos from anywhere on the web. Sync with your Study Buddy account.",
   "permissions": [
     "storage",
-    "activeTab",
-    "contextMenus",
     "identity"
   ],
   "oauth2": {

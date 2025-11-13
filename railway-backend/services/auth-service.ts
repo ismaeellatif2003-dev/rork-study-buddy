@@ -240,4 +240,48 @@ export class AuthService {
       throw new Error('Failed to update usage');
     }
   }
+
+  /**
+   * Refresh an expired JWT token
+   * Accepts tokens expired within the grace period (30 days) and issues a new one
+   */
+  async refreshToken(token: string) {
+    try {
+      // Try to verify with grace period (allows tokens expired within 30 days)
+      const result = this.jwtService.verifyTokenWithGracePeriod(token, 30);
+      const decoded = result.decoded;
+      
+      if (!decoded || !decoded.userId) {
+        throw new Error('Invalid token payload');
+      }
+
+      // Verify user still exists
+      const user = await this.databaseService.getUserById(decoded.userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Generate new token with same payload
+      const newToken = this.jwtService.generateToken({
+        userId: user.id,
+        email: user.email,
+        platform: decoded.platform || 'web',
+      });
+
+      console.log('✅ Token refreshed for user:', user.email);
+
+      return {
+        token: newToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          picture: user.picture,
+        },
+      };
+    } catch (error: any) {
+      console.error('Token refresh error:', error);
+      throw new Error(`Token refresh failed: ${error.message}`);
+    }
+  }
 }

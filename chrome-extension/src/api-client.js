@@ -23,7 +23,40 @@ class StudyBuddyAPI {
     await chrome.storage.sync.remove(['authToken']);
   }
 
-  async request(endpoint, options = {}) {
+  async refreshToken(oldToken) {
+    try {
+      console.log('🔄 Attempting to refresh expired token...');
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${oldToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('❌ Token refresh failed:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const newToken = data.token;
+      
+      if (!newToken) {
+        console.error('❌ No token in refresh response');
+        return null;
+      }
+
+      console.log('✅ Token refreshed successfully');
+      await this.setToken(newToken);
+      return newToken;
+    } catch (error) {
+      console.error('🚨 Token refresh error:', error);
+      return null;
+    }
+  }
+
+  async request(endpoint, options = {}, retryCount = 0) {
     const token = await this.getToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -41,6 +74,28 @@ class StudyBuddyAPI {
       });
 
       const responseData = await response.json().catch(() => ({ error: 'Invalid JSON response' }));
+
+      // If 401 and we haven't retried yet, try to refresh token
+      if (response.status === 401 && retryCount === 0 && token) {
+        console.log('🔄 Received 401, attempting token refresh...');
+        const newToken = await this.refreshToken(token);
+        
+        if (newToken) {
+          console.log('🔄 Retrying request with refreshed token...');
+          // Retry the request with new token
+          return this.request(endpoint, {
+            ...options,
+            headers: {
+              ...headers,
+              'Authorization': `Bearer ${newToken}`,
+            },
+          }, retryCount + 1);
+        } else {
+          console.error('❌ Token refresh failed, user needs to re-authenticate');
+          await this.clearToken();
+          throw new Error('Session expired. Please sign in again.');
+        }
+      }
 
       if (!response.ok) {
         if (response.status === 401) {

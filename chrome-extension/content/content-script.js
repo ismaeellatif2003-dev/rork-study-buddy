@@ -17,7 +17,6 @@ function createSidebarUI() {
       <div class="sb-sidebar-tabs">
         <button class="sb-tab active" data-tab="notes">Notes</button>
         <button class="sb-tab" data-tab="chat">AI Chat</button>
-        <button class="sb-tab" data-tab="video">Video</button>
       </div>
             <div class="sb-sidebar-content">
               <!-- Notes Tab -->
@@ -31,7 +30,7 @@ function createSidebarUI() {
                 <div id="sb-free-plan-message" class="sb-free-plan-message" style="display: none;">
                   <div class="sb-upgrade-banner">
                     <strong>⬆️ Upgrade to Pro</strong>
-                    <p>Unlock AI features like summaries, chat, and video analysis.</p>
+                    <p>Unlock AI features like summaries and chat.</p>
                     <button id="sb-sidebar-upgrade-btn" class="sb-btn sb-btn-primary" style="margin-top: 8px; width: 100%;">Upgrade Now</button>
                   </div>
                 </div>
@@ -66,14 +65,6 @@ function createSidebarUI() {
             <textarea id="sb-chat-input" placeholder="Ask about the selected text..." class="sb-textarea" rows="3"></textarea>
             <button id="sb-send-chat-btn" class="sb-btn sb-btn-primary">Send</button>
           </div>
-        </div>
-
-        <!-- Video Tab -->
-        <div id="sb-video-tab" class="sb-tab-content">
-          <label>YouTube URL:</label>
-          <input type="text" id="sb-video-url" placeholder="Paste YouTube URL here (e.g., https://youtube.com/watch?v=...)" class="sb-input">
-          <button id="sb-analyze-video-btn" class="sb-btn sb-btn-primary">Analyze Video</button>
-          <div id="sb-video-status" class="sb-status"></div>
         </div>
       </div>
     </div>
@@ -810,52 +801,6 @@ function setupSidebarEventListeners(sidebar) {
         }
       });
       
-      // Video Analysis (requires Pro plan)
-      document.getElementById('sb-analyze-video-btn').addEventListener('click', async () => {
-        if (!(await checkAuthBeforeAction(true))) return; // true = requires Pro plan
-    
-    const url = document.getElementById('sb-video-url').value.trim();
-    if (!url) {
-      alert('Please enter a YouTube URL');
-      return;
-    }
-    
-    const statusDiv = document.getElementById('sb-video-status');
-    const analyzeBtn = document.getElementById('sb-analyze-video-btn');
-    
-    statusDiv.textContent = 'Starting analysis...';
-    analyzeBtn.disabled = true;
-    
-    try {
-      const response = await chrome.runtime.sendMessage({
-        action: 'analyzeVideo',
-        data: { url }
-      });
-      
-          if (response.error) {
-            if (response.requiresProPlan) {
-              const upgrade = confirm('Video Analysis requires a Pro plan.\n\nWould you like to upgrade now?');
-              if (upgrade) {
-                chrome.tabs.create({ url: 'https://studybuddy.global/subscription' });
-              }
-              statusDiv.textContent = 'Pro plan required. Upgrade to unlock video analysis.';
-            } else if (response.requiresAuth) {
-              statusDiv.textContent = 'Please sign in to analyze videos.';
-              alert('Please sign in to analyze videos.\n\nClick the extension icon to sign in.');
-            } else {
-              statusDiv.textContent = 'Error: ' + response.error;
-            }
-            return;
-          }
-          
-          statusDiv.textContent = `✓ Analysis started! ID: ${response.id}. Check your Study Buddy account for results.`;
-          document.getElementById('sb-video-url').value = '';
-        } catch (error) {
-          statusDiv.textContent = 'Error: ' + error.message;
-        } finally {
-          analyzeBtn.disabled = false;
-        }
-      });
 }
 
 function addChatMessage(role, message) {

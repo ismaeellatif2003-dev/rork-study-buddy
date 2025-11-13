@@ -42,8 +42,55 @@ const getAuthToken = async (): Promise<string | null> => {
   }
 };
 
-// Helper for authenticated requests
-export const authFetch = async (endpoint: string, options: RequestInit = {}) => {
+// Helper to refresh token
+const refreshToken = async (oldToken: string): Promise<string | null> => {
+  try {
+    console.log('🔄 Attempting to refresh expired token...');
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${oldToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Token refresh failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const newToken = data.token;
+    
+    if (!newToken) {
+      console.error('❌ No token in refresh response');
+      return null;
+    }
+
+    console.log('✅ Token refreshed successfully');
+    
+    // Update token in localStorage as fallback
+    // NextAuth will pick it up on next session check
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('authToken', newToken);
+      // Trigger a session update by calling the session endpoint
+      // This will cause NextAuth to refresh the session
+      try {
+        await fetch('/api/auth/session');
+      } catch (sessionError) {
+        console.warn('⚠️ Could not refresh session, token stored in localStorage');
+      }
+    }
+    
+    return newToken;
+  } catch (error) {
+    console.error('🚨 Token refresh error:', error);
+    return null;
+  }
+};
+
+// Helper for authenticated requests with automatic token refresh
+export const authFetch = async (endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<any> => {
   const token = await getAuthToken();
   if (!token) {
     console.error('❌ No authentication token found');
@@ -85,6 +132,27 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
       url: response.url,
       ok: response.ok
     });
+
+    // If 401 and we haven't retried yet, try to refresh token
+    if (response.status === 401 && retryCount === 0) {
+      console.log('🔄 Received 401, attempting token refresh...');
+      const newToken = await refreshToken(token);
+      
+      if (newToken) {
+        console.log('🔄 Retrying request with refreshed token...');
+        // Retry the request with new token
+        return authFetch(endpoint, {
+          ...options,
+          headers: {
+            ...headers,
+            'Authorization': `Bearer ${newToken}`,
+          },
+        }, retryCount + 1);
+      } else {
+        console.error('❌ Token refresh failed, user needs to re-authenticate');
+        throw new Error('Session expired. Please sign out and sign back in.');
+      }
+    }
 
     if (!response.ok) {
       console.log('❌ Request failed:', {
