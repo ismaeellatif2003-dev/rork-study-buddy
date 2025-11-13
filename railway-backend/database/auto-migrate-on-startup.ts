@@ -118,10 +118,9 @@ CREATE TRIGGER update_user_questions_updated_at
   BEFORE UPDATE ON user_questions 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Note: user_knowledge_profiles uses 'last_updated' not 'updated_at'
+-- The trigger is not needed since we manually set last_updated = NOW() in UPDATE queries
 DROP TRIGGER IF EXISTS update_user_knowledge_profiles_last_updated ON user_knowledge_profiles;
-CREATE TRIGGER update_user_knowledge_profiles_last_updated 
-  BEFORE UPDATE ON user_knowledge_profiles 
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 `;
 
 /**
