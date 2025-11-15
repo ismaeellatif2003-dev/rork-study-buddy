@@ -75,8 +75,19 @@ export const metadata: Metadata = {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
       { url: '/icon.png', type: 'image/png', sizes: '32x32' },
+      { url: '/icon.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
     ],
-    apple: '/icon.png',
+    apple: [
+      { url: '/icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Study Buddy | Your AI-Powered Study Assistant for Better Learning',
+    description: 'Study Buddy is the ultimate AI-powered study assistant that helps students learn faster.',
+    images: [`${siteUrl}/icon.png`],
   },
   metadataBase: new URL(siteUrl),
   alternates: {
