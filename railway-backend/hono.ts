@@ -678,52 +678,71 @@ app.post("/ai/flashcards", async (c) => {
       messages: [
         { 
           role: 'system', 
-          content: `You are an expert educator and study specialist specializing in creating high-quality, detailed educational flashcards from specific content.
+          content: `You are an expert educator and cognitive science–based learning specialist. Your task is to generate high-quality, content-specific flashcards that accurately reflect the user's study material.
 
 CRITICAL REQUIREMENTS:
-1. You MUST generate EXACTLY ${count} flashcards - no more, no less
-2. Each flashcard must have a "question" and "answer" field
-3. Questions must be DIRECTLY related to the specific content provided - not generic
-4. Answers must be based ONLY on the content provided - do not add external information
-5. Questions should test understanding of the specific concepts, facts, and details in the content
-6. Answers should be comprehensive (2-4 sentences) and directly reference the content
-7. Focus on the most important and specific information from the provided content
-8. Make questions that require understanding of the specific material, not general knowledge
-9. Ensure answers include specific details, examples, and context from the content
-10. Avoid generic questions that could apply to any topic
-11. Return ONLY a valid JSON array with exactly ${count} flashcards
+You MUST generate exactly ${count} flashcards — no more, no less.
+Output ONLY a valid JSON array with exactly ${count} objects.
+Each flashcard must contain two fields:
+"question"
+"answer"
+All questions and answers must be directly based on the provided content.
+Do NOT write generic questions that could apply to any text.
+Do NOT use phrases like "from the context," "according to the passage," or "the text says."
+The answer must be fully grounded in the content, with specific details, explanations, and descriptions.
+Each answer must be 2–4 sentences, informative, and concise.
+Questions must require genuine understanding of:
+relationships
+causes & effects
+mechanisms & processes
+definitions & explanations
+comparisons
+examples mentioned in the content
+Do NOT add external information. Only use what appears in the content.
 
 CONTENT-SPECIFIC GUIDELINES:
-- Extract key facts, concepts, and details from the provided content
-- Create questions that test understanding of these specific elements
-- Reference specific names, dates, processes, or concepts mentioned in the content
-- Ask about relationships, causes, effects, or implications specific to this content
-- Include specific examples or details mentioned in the content
-- Make questions that require analysis of the specific information provided
+You must carefully analyze the content and extract:
+important concepts
+specific facts
+sequences or processes
+examples or case details
+relationships between ideas
+definitions and key explanations
+Each question should be phrased specifically about these elements, such as:
+"What is the role of ___ in ___?"
+"Why does ___ occur, based on the explanation?"
+"How does ___ influence or lead to ___?"
+"What key characteristics define ___?"
+"What example does the content provide to illustrate ___?"
+Your flashcards should read as if written by a subject-matter expert who deeply understands the material.
 
-QUESTION TYPES TO USE:
-- "According to the content, what is [specific concept] and how does it work?"
-- "What does the content say about [specific topic] and why is it important?"
-- "How does [specific element A] relate to [specific element B] according to the content?"
-- "What are the key characteristics of [specific concept] mentioned in the content?"
-- "What does the content explain about [specific process or phenomenon]?"
+FLASHCARD QUALITY REQUIREMENTS:
+Each flashcard must follow these principles:
+Questions:
+Highly specific
+Directly tied to the content
+Require understanding, not memorization
+Avoid template-like phrasing
+Refer to concrete details, names, examples, processes, arguments, or descriptions
+Answers:
+Based strictly on the provided content
+Use specific information and examples
+Written in full sentences (2–4 sentences)
+Clear, explanatory, and accurate
+No filler phrases (e.g., "the text states," "the context says")
 
-JSON FORMAT (exactly ${count} items):
+Return ONLY a valid JSON array with exactly ${count} flashcards in this format:
 [
-  {"question": "According to the content, what is [specific concept] and how does it work?", "answer": "Based on the content, [specific concept] is... The content explains that it works by... This is important because..."},
-  {"question": "What does the content say about [specific topic] and why is it significant?", "answer": "The content states that [specific topic]... It is significant because... The content specifically mentions..."},
-  {"question": "How does [element A] relate to [element B] according to the content?", "answer": "The content explains that [element A] relates to [element B] by... This relationship is important because... The content specifically states..."}
-]
-
-IMPORTANT: Create questions and answers that are SPECIFIC to the provided content, not generic educational questions.` 
+  {"question": "What is the role of [specific concept] in [process]?", "answer": "[Direct explanation using specific details from content. 2-4 sentences with concrete examples.]"},
+  {"question": "Why does [phenomenon] occur?", "answer": "[Explanation based on content, referencing specific mechanisms or causes mentioned. 2-4 sentences.]"}
+]` 
         },
         { 
           role: 'user', 
-          content: `Generate ${count} detailed, high-quality flashcards that are SPECIFICALLY based on this exact content. Create questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this content. Do not create generic questions - make them specific to what is actually written here:
+          content: `Generate ${count} high-quality flashcards based on this content. Create questions that require genuine understanding of relationships, causes, effects, mechanisms, processes, definitions, and examples. Make questions highly specific and directly tied to the content. Write answers using specific details and examples from the content in 2-4 clear sentences. Do not use filler phrases like "the text states" or "according to the passage."
 
-${content}
-
-Focus on the most important and specific information from this content. Create questions that test understanding of the particular concepts, facts, and details mentioned in this specific material.`
+Content:
+${content}`
         }
       ],
       max_tokens: 2000,
