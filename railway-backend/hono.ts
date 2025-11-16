@@ -533,6 +533,7 @@ app.post("/ai/generate", async (c) => {
     // Determine the type and create appropriate prompt
     let systemPrompt = 'You are a helpful study assistant.';
     let userPrompt = messages[messages.length - 1]?.content || '';
+    let targetSummaryLength = 500; // Default for max_tokens calculation
     
     if (typeof userPrompt !== 'string') {
       userPrompt = JSON.stringify(userPrompt);
@@ -567,8 +568,23 @@ Content:
 ${userPrompt}`;
         break;
       case 'summary':
-        systemPrompt = 'You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.';
-        userPrompt = `Summarize this content: ${userPrompt}`;
+        // Calculate target summary length (25% of original content)
+        const contentLength = typeof userPrompt === 'string' ? userPrompt.length : JSON.stringify(userPrompt).length;
+        targetSummaryLength = Math.max(Math.floor(contentLength * 0.25), 100); // At least 100 characters
+        const targetWordCount = Math.max(Math.floor(targetSummaryLength / 5), 20); // Rough estimate: 5 chars per word, min 20 words
+        
+        systemPrompt = `You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.
+
+CRITICAL REQUIREMENTS:
+- The summary must be approximately 25% of the original content length
+- Target length: approximately ${targetWordCount} words (or ${targetSummaryLength} characters)
+- Include only the most important key points and main ideas
+- Be concise but comprehensive enough to capture essential information
+- Focus on the core concepts, main arguments, and critical details
+- Remove redundant information and examples unless they are crucial`;
+        userPrompt = `Create a summary that is approximately 25% of the original content length (target: ~${targetWordCount} words). Focus on the most important key points and main ideas:
+
+${userPrompt}`;
         break;
       default:
         systemPrompt = 'You are a helpful study assistant. Provide clear, educational responses.';
@@ -581,7 +597,7 @@ ${userPrompt}`;
         { role: 'system', content: systemPrompt },
         ...messages
       ],
-      max_tokens: type === 'flashcards' ? 2000 : 500,
+      max_tokens: type === 'flashcards' ? 2000 : (type === 'summary' ? Math.min(Math.max(Math.floor(targetSummaryLength / 3), 200), 2000) : 500),
       temperature: 0.7
     });
 
@@ -3144,23 +3160,38 @@ app.post("/video/save-flashcards", async (c) => {
 // Generate AI summary
 async function generateAISummary(content: string, type: 'topic' | 'overall'): Promise<string> {
   try {
+    // Calculate target summary length (25% of original content)
+    const contentLength = content.length;
+    const targetSummaryLength = Math.max(Math.floor(contentLength * 0.25), 100); // At least 100 characters
+    const targetWordCount = Math.max(Math.floor(targetSummaryLength / 5), 20); // Rough estimate: 5 chars per word, min 20 words
+    
+    const systemPrompt = `You are an expert at creating clear, concise summaries of educational content. Focus on the most important information and key takeaways.
+
+CRITICAL REQUIREMENTS:
+- The summary must be approximately 25% of the original content length
+- Target length: approximately ${targetWordCount} words (or ${targetSummaryLength} characters)
+- Include only the most important key points and main ideas
+- Be concise but comprehensive enough to capture essential information
+- Focus on the core concepts, main arguments, and critical details
+- Remove redundant information and examples unless they are crucial`;
+
     const prompt = type === 'overall' 
-      ? `Create a comprehensive summary of the following video transcript. Focus on the main themes, key concepts, and important takeaways:\n\n${content}`
-      : `Create a concise summary of the following topic content. Highlight the main points and key information:\n\n${content}`;
+      ? `Create a summary of the following video transcript that is approximately 25% of the original length (target: ~${targetWordCount} words). Focus on the main themes, key concepts, and important takeaways:\n\n${content}`
+      : `Create a summary of the following topic content that is approximately 25% of the original length (target: ~${targetWordCount} words). Highlight the main points and key information:\n\n${content}`;
 
     const response = await openai.chat.completions.create({
       model: 'openai/gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert at creating clear, concise summaries of educational content. Focus on the most important information and key takeaways.'
+          content: systemPrompt
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_tokens: 500,
+      max_tokens: Math.min(Math.max(Math.floor(targetSummaryLength / 3), 200), 2000), // Adjust max_tokens based on target length
       temperature: 0.7
     });
 
