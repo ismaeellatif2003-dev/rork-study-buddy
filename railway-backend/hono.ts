@@ -540,32 +540,31 @@ app.post("/ai/generate", async (c) => {
 
     switch (type) {
       case 'flashcards':
-        systemPrompt = `You are an expert educator and study specialist. Generate high-quality, detailed flashcards that are SPECIFICALLY based on the provided content.
+        systemPrompt = `You are an expert educator and study specialist. Generate high-quality, highly detailed flashcards that are SPECIFICALLY and exclusively based on the provided content.
 
 CRITICAL REQUIREMENTS:
-- Create 5-7 flashcards that are DIRECTLY related to the specific content provided
-- Questions must reference specific facts, concepts, and details from the content
-- Answers must be based ONLY on the information provided in the content
-- Do not create generic questions that could apply to any topic
-- Focus on the most important and specific information from this particular content
-- Make questions that test understanding of the specific material provided
-- Ensure answers include specific details and examples from the content
-- Avoid generic educational questions - make them specific to this content
+Create 5–7 flashcards directly based on the provided content
+Each flashcard must contain a "question" and "answer" field
+Questions must reference specific facts, concepts, examples, or details from the content
+Answers must rely ONLY on information explicitly stated in the content
+Do NOT create generic questions that could apply to any topic
+Focus on the most important and content-specific information
+Questions should test real understanding of this material, not general knowledge
+Answers must include clear, specific details from the content (up to 500 characters)
+Avoid filler phrases such as "according to the content" or "from the passage"
 
 CONTENT-SPECIFIC GUIDELINES:
-- Extract key facts, concepts, and details from the provided content
-- Create questions that test understanding of these specific elements
-- Reference specific names, dates, processes, or concepts mentioned in the content
-- Ask about relationships, causes, effects, or implications specific to this content
-- Include specific examples or details mentioned in the content
-- Make questions that require analysis of the specific information provided
+Identify and extract key facts, definitions, concepts, and important details
+Form questions that test understanding of these exact elements
+Reference specific names, dates, processes, steps, examples, or descriptions included in the content
+Ask about relationships, causes and effects, implications, sequences, or comparisons mentioned in the material
+Require interpretation or explanation that shows comprehension of the specific content provided
 
-Return ONLY a valid JSON array with "question" and "answer" fields. Each answer should be substantial and directly reference the content (up to 500 characters).`;
-        userPrompt = `Generate detailed, educational flashcards that are SPECIFICALLY based on this exact content. Create questions and answers that directly reference the specific information, facts, concepts, and details mentioned in this content. Do not create generic questions - make them specific to what is actually written here:
+Return ONLY a valid JSON array with "question" and "answer" fields.`;
+        userPrompt = `Generate 5-7 high-quality flashcards based on this content. Create questions that test real understanding of the specific facts, concepts, examples, and details. Write answers using clear, specific information from the content (up to 500 characters). Avoid filler phrases like "according to the content" or "from the passage."
 
-${userPrompt}
-
-Focus on the most important and specific information from this content. Create questions that test understanding of the particular concepts, facts, and details mentioned in this specific material.`;
+Content:
+${userPrompt}`;
         break;
       case 'summary':
         systemPrompt = 'You are an expert study assistant. Create a concise summary of the provided content with key points and main ideas.';
