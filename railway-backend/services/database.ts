@@ -1,5 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import dotenv from 'dotenv';
+import { emailService } from './email-service';
 
 // Load environment variables
 dotenv.config();
@@ -377,6 +378,11 @@ export class DatabaseService {
     
     // Create default free subscription for new user
     await this.createSubscription(user.id, 'free');
+    
+    // Send welcome email (async, don't wait - email failure shouldn't block user creation)
+    emailService.sendWelcomeEmail(user.email, user.name).catch((err) => {
+      console.error('Failed to send welcome email:', err);
+    });
     
     return user;
   }
